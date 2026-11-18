@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://edtechlive.example/</loc></url>
+  <url><loc>https://edtechlive.example/about</loc></url>
+  <url><loc>https://edtechlive.example/features</loc></url>
+  <url><loc>https://edtechlive.example/courses</loc></url>
+  <url><loc>https://edtechlive.example/solutions/institutions</loc></url>
+  <url><loc>https://edtechlive.example/solutions/teachers</loc></url>
+  <url><loc>https://edtechlive.example/solutions/students</loc></url>
+  <url><loc>https://edtechlive.example/pricing</loc></url>
+  <url><loc>https://edtechlive.example/contact</loc></url>
+</urlset>
