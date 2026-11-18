@@ -12,6 +12,8 @@ export type QuizQuestion = { id: number; prompt: string; options: string[]; poin
 export type QuizAttempt = { id: number; attempt_number: number; answers: Record<number, number> | null; score: number | null; max_score: number | null; started_at: string; submitted_at: string | null }
 export type CourseQuiz = { id: number; course_id: number; title: string; instructions: string | null; time_limit_minutes: number | null; max_attempts: number; status: 'draft' | 'published'; questions: QuizQuestion[]; attempts_used: number | null; latest_result: QuizAttempt | null }
 export type QuizRun = { attempt: QuizAttempt; quiz: Pick<CourseQuiz, 'id' | 'title' | 'instructions' | 'time_limit_minutes'>; questions: QuizQuestion[] }
+export type TeachingAssignment = { id: number; academic_session_id: number; academic_section_id: number; subject_id: number; teacher_id: number; academic_session: { id: number; name: string }; academic_section: { id: number; name: string; academic_class: { id: number; name: string } }; subject: { id: number; name: string } }
+export type AttendanceStudent = { id: number; name: string; admission_number: string | null; status: 'present' | 'absent' | 'late' | 'excused' | null; note: string | null }
 export type DashboardSummary = Record<string, unknown> & { kind?: string }
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '')
@@ -50,4 +52,5 @@ export const mobileApi = {
   get: <T>(path: string, token: string) => request<T>(path, token),
   post: <T>(path: string, token: string, data?: unknown) => request<T>(path, token, { method: 'POST', ...(data === undefined ? {} : { body: JSON.stringify(data) }) }),
   patch: <T>(path: string, token: string, data: unknown) => request<T>(path, token, { method: 'PATCH', body: JSON.stringify(data) }),
+  put: <T>(path: string, token: string, data: unknown) => request<T>(path, token, { method: 'PUT', body: JSON.stringify(data) }),
 }

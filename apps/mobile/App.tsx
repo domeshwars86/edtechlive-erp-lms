@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
-import { ApiError, mobileApi, type ApiUser, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type Lesson, type OrganizationMembership, type QuizRun } from './src/api'
+import { ApiError, mobileApi, type ApiUser, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type Lesson, type OrganizationMembership, type QuizRun, type TeachingAssignment } from './src/api'
 
 const TOKEN_KEY = 'edtechlive.mobile.token'
 const ORGANIZATION_KEY = 'edtechlive.mobile.organization'
@@ -9,6 +9,9 @@ const roleNames: Record<OrganizationMembership['role'], string> = {
   admin: 'Administrator', management: 'Management', teacher: 'Teacher', student: 'Student', parent: 'Parent / guardian', independent_educator: 'Independent educator',
 }
 type MobileNotice = { id: string; type: string; title: string; body: string; read_at: string | null; created_at: string | null }
+type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused'
+const attendanceStatuses: AttendanceStatus[] = ['present', 'absent', 'late', 'excused']
+function localDate() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}` }
 
 export default function App() {
   const [token, setToken] = useState('')
@@ -25,10 +28,15 @@ export default function App() {
   const [quizRun, setQuizRun] = useState<QuizRun | null>(null)
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({})
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<number, string>>({})
+  const [teachingAssignments, setTeachingAssignments] = useState<TeachingAssignment[]>([])
+  const [attendanceSection, setAttendanceSection] = useState<TeachingAssignment | null>(null)
+  const [attendanceDate, setAttendanceDate] = useState(localDate())
+  const [attendanceStudents, setAttendanceStudents] = useState<AttendanceStudent[]>([])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -59,7 +67,7 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setNotices([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null)
+    setSummary(null); setNotices([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
@@ -68,6 +76,10 @@ export default function App() {
     if (active.role !== 'parent') {
       tasks.push(mobileApi.get<{ data: Course[] }>(`${base}/courses?per_page=100`, token)
         .then(result => { if (!cancelled) setCourses(result.data) }))
+    }
+    if (active.role === 'teacher') {
+      tasks.push(mobileApi.get<{ data: TeachingAssignment[] }>(`${base}/teaching-assignments?per_page=100`, token)
+        .then(result => { if (!cancelled) setTeachingAssignments(result.data) }))
     }
     Promise.all(tasks).catch(reason => {
       if (!cancelled) setError(reason instanceof Error ? reason.message : 'Could not load your learning workspace.')
@@ -153,6 +165,31 @@ export default function App() {
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not update this notification.') }
   }
 
+  async function loadAttendance(assignment: TeachingAssignment) {
+    if (!active || !token) return
+    setBusy(true); setError(''); setSuccess(''); setAttendanceSection(assignment); setAttendanceStudents([]); setAttendanceDate(localDate())
+    try {
+      const result = await mobileApi.get<{ data: AttendanceStudent[] }>(`/api/v1/organizations/${active.organization.id}/attendance?section_id=${assignment.academic_section_id}&date=${localDate()}&per_page=200`, token)
+      setAttendanceStudents(result.data)
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not load this attendance register.') }
+    finally { setBusy(false) }
+  }
+
+  async function saveAttendance() {
+    if (!active || !token || !attendanceSection) return
+    if (attendanceStudents.some(student => !student.status)) { setError('Choose an attendance status for every learner before saving.'); return }
+    setBusy(true); setError(''); setSuccess('')
+    try {
+      await mobileApi.put(`/api/v1/organizations/${active.organization.id}/attendance`, token, {
+        section_id: attendanceSection.academic_section_id,
+        date: attendanceDate,
+        records: attendanceStudents.map(student => ({ student_id: student.id, status: student.status })),
+      })
+      setSuccess('Attendance saved successfully.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not save attendance.') }
+    finally { setBusy(false) }
+  }
+
   async function signOut() {
     const current = token
     setBusy(true)
@@ -170,7 +207,16 @@ export default function App() {
     <View style={styles.topBar}><View style={{ flex: 1 }}><Text style={styles.brand}>edTechLive</Text><Text style={styles.orgName}>{active.organization.name}</Text></View><Pressable onPress={() => { setActive(null); setSelectedCourse(null) }} style={styles.topAction}><Text style={styles.topActionText}>Switch</Text></Pressable><Pressable onPress={() => void signOut()} style={styles.topAction}><Text style={styles.topActionText}>Sign out</Text></Pressable></View>
     <ScrollView contentContainerStyle={styles.content}>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {selectedCourse ? <>
+      {success ? <Text style={styles.success}>{success}</Text> : null}
+      {attendanceSection ? <>
+        <Pressable onPress={() => { setAttendanceSection(null); setAttendanceStudents([]) }}><Text style={styles.backLink}>‹  Dashboard</Text></Pressable>
+        <Text style={styles.pageTitle}>Take attendance</Text>
+        <Text style={styles.subtitle}>{attendanceSection.academic_section.academic_class.name} · {attendanceSection.academic_section.name} · {attendanceSection.subject.name}</Text>
+        <Text style={styles.courseMeta}>Date: {attendanceDate} · {attendanceSection.academic_session.name}</Text>
+        {attendanceStudents.length ? attendanceStudents.map(student => <View style={styles.studentRow} key={student.id}><View><Text style={styles.courseTitle}>{student.name}</Text><Text style={styles.courseMeta}>{student.admission_number || 'Learner'}</Text></View><View style={styles.statusRow}>{attendanceStatuses.map(status => <Pressable key={status} onPress={() => setAttendanceStudents(items => items.map(item => item.id === student.id ? { ...item, status } : item))} style={[styles.statusChip, student.status === status && styles.statusChipSelected]}><Text style={[styles.statusChipText, student.status === status && styles.statusChipTextSelected]}>{status.slice(0, 1).toUpperCase()}</Text></Pressable>)}</View></View>) : <Empty text={busy ? 'Loading class register…' : 'No active learners found for this class and date.'} />}
+        {attendanceStudents.length ? <Text style={styles.courseMeta}>P present · A absent · L late · E excused. All learners need a selection before saving.</Text> : null}
+        {attendanceStudents.length ? <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void saveAttendance()} disabled={busy}><Text style={styles.primaryButtonText}>{busy ? 'Saving…' : 'Save attendance'}</Text></Pressable> : null}
+      </> : selectedCourse ? <>
         <Pressable onPress={() => setSelectedCourse(null)}><Text style={styles.backLink}>‹  All courses</Text></Pressable>
         <Text style={styles.pageTitle}>{selectedCourse.title}</Text><Text style={styles.subtitle}>{selectedCourse.subject?.name ?? 'Course'}{selectedCourse.teacher?.name ? ` · ${selectedCourse.teacher.name}` : ''}</Text>
         {quizRun ? <View style={styles.activityCard}><Pressable onPress={() => setQuizRun(null)}><Text style={styles.backLink}>‹  Course content</Text></Pressable><Text style={styles.sectionTitle}>{quizRun.quiz.title}</Text>{quizRun.quiz.instructions ? <Text style={styles.courseMeta}>{quizRun.quiz.instructions}</Text> : null}{quizRun.questions.map((question, index) => <View key={question.id} style={styles.questionBlock}><Text style={styles.courseTitle}>{index + 1}. {question.prompt}</Text>{question.options.map((option, optionIndex) => <Pressable key={optionIndex} onPress={() => setQuizAnswers(current => ({ ...current, [question.id]: optionIndex }))} style={[styles.option, quizAnswers[question.id] === optionIndex && styles.optionSelected]}><Text style={styles.courseMeta}>{String.fromCharCode(65 + optionIndex)}. {option}</Text></Pressable>)}</View>)}<Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void submitQuiz()} disabled={busy}><Text style={styles.primaryButtonText}>{busy ? 'Submitting…' : 'Submit quiz'}</Text></Pressable></View> : <>
@@ -189,6 +235,7 @@ export default function App() {
         {active.role === 'parent' ? <View style={styles.infoCard}><Text style={styles.courseTitle}>Family updates</Text><Text style={styles.courseMeta}>Updates above are restricted to your linked family workspace.</Text></View> : <>
           <Text style={styles.sectionTitle}>{active.role === 'student' ? 'My courses' : active.role === 'teacher' ? 'My courses' : 'Courses in this workspace'}</Text>
           {courses.length ? courses.map(course => <Pressable style={styles.courseCard} key={course.id} onPress={() => void openCourse(course)}><View style={styles.courseIcon}><Text style={styles.courseIconText}>{course.title.slice(0, 1).toUpperCase()}</Text></View><View style={{ flex: 1 }}><Text style={styles.courseTitle}>{course.title}</Text><Text style={styles.courseMeta}>{course.subject?.name ?? course.level ?? 'Learning course'}{course.teacher?.name ? ` · ${course.teacher.name}` : ''}</Text></View><Text style={styles.chevron}>›</Text></Pressable>) : <Empty text="No courses are available in this organization yet." />}
+          {active.role === 'teacher' ? <><Text style={styles.sectionTitle}>My assigned classes</Text>{teachingAssignments.length ? teachingAssignments.map(item => <Pressable style={styles.courseCard} key={item.id} onPress={() => void loadAttendance(item)}><View style={{ flex: 1 }}><Text style={styles.courseTitle}>{item.academic_section.academic_class.name} · {item.academic_section.name}</Text><Text style={styles.courseMeta}>{item.subject.name} · {item.academic_session.name}</Text></View><Text style={styles.chevron}>›</Text></Pressable>) : <Empty text="No active teaching assignments are linked to this account." />}</> : null}
         </>}
       </>}
       <Text style={styles.footer}>Connected securely to your organization workspace.</Text>
@@ -271,6 +318,7 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   disabled: { opacity: 0.6 },
   error: { marginTop: 13, padding: 10, borderRadius: 8, overflow: 'hidden', color: '#9c4141', backgroundColor: '#fff0f0', fontSize: 11, lineHeight: 17 },
+  success: { marginTop: 13, padding: 10, borderRadius: 8, overflow: 'hidden', color: '#28704d', backgroundColor: '#eaf7ef', fontSize: 11, lineHeight: 17 },
   topAction: { paddingVertical: 8, paddingHorizontal: 9, borderRadius: 7, backgroundColor: '#edf3ff' },
   topActionText: { color: '#4269b3', fontWeight: '700', fontSize: 9 },
   statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 20 },
@@ -291,6 +339,12 @@ const styles = StyleSheet.create({
   optionSelected: { borderColor: '#3869c8', backgroundColor: '#edf3ff' },
   answerInput: { minHeight: 100, padding: 12, borderRadius: 9, borderWidth: 1, borderColor: '#e2eaf2', textAlignVertical: 'top', color: '#2b4158' },
   resultText: { color: '#3869c8', fontSize: 11, fontWeight: '700' },
+  studentRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: 11, marginBottom: 7, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
+  statusRow: { flexDirection: 'row', gap: 4 },
+  statusChip: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f4f8' },
+  statusChipSelected: { backgroundColor: '#3568c7' },
+  statusChipText: { color: '#65788d', fontSize: 10, fontWeight: '700' },
+  statusChipTextSelected: { color: '#fff' },
   lessonNumber: { color: '#7e96bf', fontSize: 10, fontWeight: '800' },
   infoCard: { marginTop: 18, padding: 14, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
   noticeCard: { padding: 12, marginBottom: 8, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },

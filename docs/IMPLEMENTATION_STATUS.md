@@ -4,7 +4,7 @@
 
 ## Current milestone
 
-Phase 10 — mobile applications, initial vertical slice. The responsive public website, seven role dashboards, Laravel ERP/LMS APIs and connected web workflows are in place. The Expo client signs into the shared API, stores its Sanctum token with SecureStore, selects organization membership, and provides role-scoped summaries, courses/lessons, student assignment submissions, timed quiz attempts/results, and recent notification read receipts. Teacher attendance/grading and native device builds remain open. Production email, PostgreSQL validation, external integrations and deployment remain unverified.
+Phase 10 — mobile applications, initial vertical slice. The responsive public website, seven role dashboards, Laravel ERP/LMS APIs and connected web workflows are in place. The Expo client signs into the shared API, stores its Sanctum token with SecureStore, selects organization membership, and provides role-scoped summaries, courses/lessons, student assignment submissions, timed quiz attempts/results, recent notification read receipts, and assignment-scoped teacher attendance. Teacher grading and native device builds remain open. Production email, PostgreSQL validation, external integrations and deployment remain unverified.
 
 ## Implemented
 
@@ -33,7 +33,7 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - The dashboard notification bell lists and marks recipient-owned notifications within the active organization. Fee issuance/receipt and meeting scheduling create notices for relevant students, linked guardians, assigned teachers or managers. Email/push delivery, announcements, notification preferences and retention policies remain open.
 - API and web setup/auth configuration is documented in `.env.example` files and `apps/api/README.md`.
 - Multi-organization users can reopen the verified membership chooser from the dashboard workspace control. Selection changes the active role/workspace in the current frontend session; a persistent active-organization preference is not implemented.
-- The Expo SDK 56 mobile app in `apps/mobile` uses the shared Sanctum API, Expo SecureStore token persistence, membership selection, role-scoped summaries, published lesson reading, student assignment submissions, timed quizzes/results, and notification read receipts. Android and iOS native toolchains/device builds are not available in this workspace; teacher attendance/grading, meetings, and profiles remain open.
+- The Expo SDK 56 mobile app in `apps/mobile` uses the shared Sanctum API, Expo SecureStore token persistence, membership selection, role-scoped summaries, published lesson reading, student assignment submissions, timed quizzes/results, notification read receipts, and teacher attendance registers scoped to assigned sections. Android and iOS native toolchains/device builds are not available in this workspace; teacher grading, meetings, and profiles remain open.
 
 ## Current limitations
 
@@ -46,7 +46,7 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - Super-admin overview counts/activity and several broader exam/result workflows remain sample data. Admin, management, independent educator, teacher, student, and parent top-line metrics and role-scoped upcoming meeting panels are live; the learning activity chart remains illustrative; role-scoped timetable entries and private family notifications feed the lower dashboard panel. LMS covers course/lesson authoring and publication, manual enrollment, text assignments, student submissions, grading, feedback, timed MCQ quizzes, per-quiz result history, private downloads, and course-scoped learner progress. Modules, malware scanning, durable production file storage and broader examinations are not implemented.
 - Student and guardian links can be established through accepted invitations or managed directly by authorized organization staff; student roster reconciliation, consent/retention workflows, persistent organization switching API, granular policies, audit trail, MFA, and remaining academic entities remain future work.
 - Sitemap host must be replaced with the eventual production domain; legal drafts need review.
-- Mobile source is verified through TypeScript and Android JavaScript bundle export; device/emulator verification, teacher attendance/grading, meetings, profiles, and release signing remain outstanding. Expo dependency audit could not reach the npm registry in this environment.
+- Mobile source is verified through TypeScript and Android JavaScript bundle export; device/emulator verification, teacher grading, meetings, profiles, and release signing remain outstanding. Expo dependency audit could not reach the npm registry in this environment.
 - npm audit has nine high severity findings through `picomatch@4.0.7`; do not apply its incompatible Vite 6.2.7 downgrade without an upstream-compatible fix.
 
 ## Verification
@@ -69,5 +69,5 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 3. Expand reports to enrollment, timetable/workload and finance metrics.
 4. Build the staff enquiry review/response workflow and define enquiry retention; configure real email delivery before promising a response.
 5. Reassess npm audit advisories when compatible upstream dependency releases are available.
-6. Extend mobile teacher attendance/grading, meeting and profile workflows, then verify on Android/iOS toolchains.
+6. Extend mobile teacher grading, meeting and profile workflows, then verify on Android/iOS toolchains.
 7. Add payment sandbox/gateway only after provider selection and finance workflow requirements are approved; connect meeting/email/push integrations after provider credentials and consent requirements are established.
