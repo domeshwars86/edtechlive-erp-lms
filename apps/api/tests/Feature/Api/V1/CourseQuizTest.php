@@ -52,6 +52,10 @@ class CourseQuizTest extends TestCase
             'id' => $attemptId, 'student_id' => Student::query()->where('user_id', $studentUser->id)->value('id'), 'score' => '2.00',
         ]);
         $this->postJson("{$base}/quizzes/{$quizId}/attempts")->assertStatus(409);
+        $this->getJson("{$base}/quizzes/{$quizId}/attempts")->assertOk()
+            ->assertJsonPath('data.0.attempt_number', 1)
+            ->assertJsonPath('data.0.score', '2.00')
+            ->assertJsonPath('data.0.student', null);
 
         Sanctum::actingAs($teacherUser);
         $this->getJson("{$base}/quizzes/{$quizId}/attempts")->assertOk()
