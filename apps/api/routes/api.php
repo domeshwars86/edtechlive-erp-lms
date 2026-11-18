@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AcademicMasterController;
+use App\Http\Controllers\Api\V1\AssessmentReportController;
 use App\Http\Controllers\Api\V1\AttendanceController;
 use App\Http\Controllers\Api\V1\AttendanceReportController;
 use App\Http\Controllers\Api\V1\Auth\AuthenticatedSessionController;
@@ -116,11 +117,12 @@ Route::prefix('v1')->group(function (): void {
                 Route::delete('/teaching-assignments/{record}', [TeachingAssignmentController::class, 'destroy'])->whereNumber('record');
                 Route::get('/attendance', [AttendanceController::class, 'index']);
                 Route::put('/attendance', [AttendanceController::class, 'store']);
+                Route::get('/reports/assessments', [AssessmentReportController::class, 'index']);
                 Route::get('/reports/attendance', [AttendanceReportController::class, 'index']);
-                Route::get('/reports/enrollment', [EnrollmentReportController::class, 'index']);
-                Route::get('/reports/workload', [TeacherWorkloadReportController::class, 'index']);
-                Route::get('/reports/finance', [FinanceReportController::class, 'index']);
                 Route::get('/reports/course-progress', [CourseProgressReportController::class, 'index']);
+                Route::get('/reports/enrollment', [EnrollmentReportController::class, 'index']);
+                Route::get('/reports/finance', [FinanceReportController::class, 'index']);
+                Route::get('/reports/workload', [TeacherWorkloadReportController::class, 'index']);
                 Route::get('/fees', [FeeRecordController::class, 'index']);
                 Route::post('/fees', [FeeRecordController::class, 'store']);
                 Route::post('/fees/{fee}/payments', [FeeRecordController::class, 'payment'])->whereNumber('fee');

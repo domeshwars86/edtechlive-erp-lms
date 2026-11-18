@@ -215,6 +215,12 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - The report returns aggregate values only and is tenant-scoped. A manager-side overview is displayed above the fee ledger; family fee views remain individually scoped. No payment provider or charge flow was added.
 - Focused API tests pass (**2 tests / 12 assertions**) covering totals, overdue partial balance, foreign-tenant exclusion, and teacher denial. Full API suite passes (**85 tests / 561 assertions**), Pint, web typecheck/lint, and production build (14 prerendered routes).
 
+## Assessment outcome report (19 November 2026)
+
+- Added `GET /api/v1/organizations/{organization}/reports/assessments` and an Assessments tab to the academic reports dashboard. Published quizzes show submitted and in-progress attempts, learner participation counts, and weighted average score percentages; no student identity is returned.
+- Admin, management, and independent educator roles see tenant totals. Teacher access is limited to published courses assigned to that teacher. Student and parent accounts are denied.
+- Focused API tests pass (**2 tests / 13 assertions**) covering weighted score totals, in-progress attempt handling, teacher course scoping, and student denial. Full API suite passes (**87 tests / 574 assertions**), Pint, web typecheck/lint, and production build (14 prerendered routes).
+
 ## Student course progress milestone (18 November 2026)
 
 - Added tenant-aware lesson completion records. Enrolled learners can mark/reopen published lessons and see a course completion count/percentage; course teachers and managers can review learner percentages for their authorized course. Draft lessons and inactive/non-enrolled courses are denied.
