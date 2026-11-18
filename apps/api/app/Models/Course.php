@@ -30,6 +30,11 @@ class Course extends Model
         return $this->hasMany(CourseLesson::class)->orderBy('sort_order')->orderBy('id');
     }
 
+    public function modules(): HasMany
+    {
+        return $this->hasMany(CourseModule::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     public function enrollments(): HasMany
     {
         return $this->hasMany(CourseEnrollment::class);

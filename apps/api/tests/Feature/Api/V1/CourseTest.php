@@ -19,6 +19,39 @@ class CourseTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_course_modules_are_ordered_and_only_published_student_modules_are_visible(): void
+    {
+        [$admin, $organization, $studentUser, $student] = $this->workspace();
+        Sanctum::actingAs($admin);
+        $base = "/api/v1/organizations/{$organization->id}";
+        $courseId = $this->postJson("{$base}/courses", ['title' => 'Science'])->assertCreated()->json('data.id');
+        $moduleId = $this->postJson("{$base}/courses/{$courseId}/modules", ['title' => 'Foundations'])
+            ->assertCreated()->assertJsonPath('data.sort_order', 1)->json('data.id');
+        $emptyModuleId = $this->postJson("{$base}/courses/{$courseId}/modules", ['title' => 'Advanced topics'])
+            ->assertCreated()->json('data.id');
+        $otherCourseId = $this->postJson("{$base}/courses", ['title' => 'Other course'])->assertCreated()->json('data.id');
+        $otherModuleId = $this->postJson("{$base}/courses/{$otherCourseId}/modules", ['title' => 'Foreign module'])->assertCreated()->json('data.id');
+
+        $this->patchJson("{$base}/courses/{$courseId}/modules/{$moduleId}", ['title' => 'Getting started', 'sort_order' => 2])
+            ->assertOk()->assertJsonPath('data.title', 'Getting started')->assertJsonPath('data.sort_order', 2);
+        $this->postJson("{$base}/courses/{$courseId}/lessons", [
+            'title' => 'Welcome', 'module_id' => $otherModuleId, 'content' => 'Study notes', 'status' => 'published',
+        ])->assertUnprocessable()->assertJsonValidationErrors('module_id');
+        $this->postJson("{$base}/courses/{$courseId}/lessons", [
+            'title' => 'Welcome', 'module_id' => $moduleId, 'content' => 'Study notes', 'status' => 'published',
+        ])->assertCreated();
+        $this->patchJson("{$base}/courses/{$courseId}", ['status' => 'published'])->assertOk();
+        $this->postJson("{$base}/courses/{$courseId}/enrollments", ['student_ids' => [$student->id]])->assertOk();
+
+        Sanctum::actingAs($studentUser);
+        $this->getJson("{$base}/courses/{$courseId}/modules")->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.title', 'Getting started')
+            ->assertJsonMissing(['title' => 'Advanced topics']);
+        $this->getJson("{$base}/courses/{$courseId}/lessons")->assertOk()
+            ->assertJsonPath('data.0.module.title', 'Getting started');
+        $this->assertDatabaseHas('course_modules', ['id' => $emptyModuleId, 'course_id' => $courseId]);
+    }
+
     public function test_manager_can_publish_course_after_publishing_lesson_and_enroll_student(): void
     {
         [$admin, $organization, $studentUser, $student] = $this->workspace();
@@ -69,6 +102,7 @@ class CourseTest extends TestCase
         $this->getJson("{$base}/courses")->assertOk()->assertJsonPath('data.0.id', $course->id);
         $this->postJson("{$base}/courses/{$course->id}/lessons", ['title' => 'Welcome', 'content' => 'Start here'])
             ->assertCreated();
+        $this->postJson("{$base}/courses/{$course->id}/modules", ['title' => 'My module'])->assertCreated();
         $this->patchJson("{$base}/courses/{$course->id}", ['title' => 'Updated course'])->assertOk();
 
         $otherTeacher = Teacher::query()->create([
@@ -79,6 +113,8 @@ class CourseTest extends TestCase
             'title' => 'Private course', 'status' => 'draft',
         ]);
         $this->patchJson("{$base}/courses/{$otherCourse->id}", ['title' => 'Stolen'])->assertNotFound();
+        $this->getJson("{$base}/courses/{$otherCourse->id}/modules")->assertNotFound();
+        $this->postJson("{$base}/courses/{$otherCourse->id}/modules", ['title' => 'Unauthorized'])->assertNotFound();
     }
 
     private function workspace(bool $withTeacher = false): array

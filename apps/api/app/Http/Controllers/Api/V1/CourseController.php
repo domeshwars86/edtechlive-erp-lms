@@ -102,7 +102,7 @@ class CourseController
         $membership = $this->access->membership($request, $organization);
         $record = Course::query()->where('organization_id', $organization)->findOrFail($course);
         $this->assertCourseVisible($request, $membership->role, $organization, $record);
-        $query = $record->lessons();
+        $query = $record->lessons()->with('module');
         if ($membership->role === OrganizationRole::Student) {
             $query->where('status', 'published');
         }
@@ -118,6 +118,7 @@ class CourseController
         $this->assertCourseEditor($request, $membership->role, $organization, $record);
         $data = $request->validate([
             'title' => ['required', 'string', 'min:2', 'max:160'],
+            'module_id' => ['nullable', 'integer', Rule::exists('course_modules', 'id')->where('organization_id', $organization)->where('course_id', $course)],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:10000'],
             'content' => ['nullable', 'string', 'max:50000'],
             'external_url' => ['nullable', 'url:https', 'max:2048'],
@@ -218,6 +219,12 @@ class CourseController
             'content' => $lesson->content,
             'external_url' => $lesson->external_url,
             'status' => $lesson->status,
+            'module' => $lesson->module ? [
+                'id' => $lesson->module->id,
+                'title' => $lesson->module->title,
+                'description' => $lesson->module->description,
+                'sort_order' => $lesson->module->sort_order,
+            ] : null,
         ];
     }
 }

@@ -189,6 +189,13 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Added feature tests for local timezone boundaries and student record isolation. Full API suite: **78 tests / 502 assertions**; Pint passed. Web typecheck, lint, and production build passed; the build prerendered 14 public routes.
 - Browser visual/authenticated regression remains unavailable because Windows Chrome cannot reach servers launched in the isolated shell.
 
+## Modular course organization (19 November 2026)
+
+- Added tenant- and course-scoped ordered modules, create/update routes, and optional lesson association. Students see modules only for enrolled published courses, and only when the module contains a published lesson; module descriptions/order flow into course screens.
+- Connected manager/teacher screens to create, edit, order modules and assign lessons; student course content is grouped by module. Lessons without a module remain visible in an “Other lessons” group.
+- Added API coverage for cross-course module rejection, teacher course ownership, and published-module student visibility. Full API suite: **79 tests / 527 assertions**; Pint passed. Web typecheck, lint and production build passed with 14 prerendered public routes.
+- Applied the additive module/lesson migration to local SQLite after confirming prior migrations were applied. PostgreSQL validation and browser regression remain outstanding.
+
 ## Student course progress milestone (18 November 2026)
 
 - Added tenant-aware lesson completion records. Enrolled learners can mark/reopen published lessons and see a course completion count/percentage; course teachers and managers can review learner percentages for their authorized course. Draft lessons and inactive/non-enrolled courses are denied.
