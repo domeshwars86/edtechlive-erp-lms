@@ -44,7 +44,7 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - Activity queries use organization/time indexes; chart state is keyed to the signed-in account, role, and selected organization to avoid showing prior workspace data during account switches.
 - The dashboard activity index migration has been applied to the configured local development SQLite database. PostgreSQL migration validation remains open.
 - The mobile dependency tree now overrides vulnerable Expo transitive copies with patched `glob@14.0.2`, `minimatch@11.0.1`, and Expo CLI-scoped `zod@4.6.6`; a registry-backed `npm audit --omit=dev` reports zero vulnerabilities. Expo Android bundle export and TypeScript verification passed with Node 20.19.4.
-- Web account connection errors now tell local developers to start the Laravel API on port 8001. Root setup documentation spells out running both servers and configuring a local SQLite database.
+- Web account connection errors now direct local developers to the documented two-service setup without assuming a fixed API port. Root setup documentation explains how to run the isolated local API and website together.
 - Added guarded `npm run setup:local` and `npm run dev:stack` commands so the API and website can be prepared and launched together. The setup script only permits `APP_ENV=local`, SQLite at the project's ignored `database/local-dev.sqlite`, and an empty `DB_URL`; it creates `.env` only when absent. Local setup completed with no pending migrations, and both server processes reported ready on alternate ports. Direct HTTP access is denied by this sandbox; browser automation stopped before navigation because it could not verify the current browser URL.
 
 ## Current limitations

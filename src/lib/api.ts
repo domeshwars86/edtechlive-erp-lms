@@ -1,6 +1,6 @@
 const apiBaseUrl = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 const unavailableMessage = import.meta.env.DEV
-  ? 'The local account API is unavailable. Start Laravel on port 8001 (see the local setup steps in README.md), then try again.'
+  ? 'The local account service is offline. Start the web and API servers using the local setup steps in README.md, then try again.'
   : 'The account service could not be reached. Check your connection and try again.'
 
 type ApiErrorBody = {
