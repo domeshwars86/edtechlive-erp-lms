@@ -14,10 +14,11 @@ type OrganizationSummary = {
 type StudentSummary = { kind: 'student'; date: string; active_courses: number; lessons_completed_week: number; assignments_pending: number; attendance_recent: { records: number; rate: number | null } }
 type TeacherSummary = { kind: 'teacher'; date: string; classes: number; students: number; reviews_pending: number; classes_this_week: number; courses: number }
 type ParentSummary = { kind: 'parent'; date: string; children: number; assignments_pending: number; attendance_recent: { records: number; rate: number | null }; upcoming_meetings: number }
-type Summary = OrganizationSummary | StudentSummary | TeacherSummary | ParentSummary
+type EducatorSummary = { kind: 'educator'; date: string; courses: number; learners: number; classes_this_week: number; reviews_pending: number }
+type Summary = OrganizationSummary | StudentSummary | TeacherSummary | ParentSummary | EducatorSummary
 type Stat = { label: string; value: string; note: string; icon: LucideIcon; tone: string }
 
-export default function DashboardSummary({ organizationId, role }: { organizationId: number; role: 'admin' | 'management' | 'student' | 'teacher' | 'parent' }) {
+export default function DashboardSummary({ organizationId, role }: { organizationId: number; role: 'admin' | 'management' | 'student' | 'teacher' | 'parent' | 'educator' }) {
   const [summary, setSummary] = useState<Summary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -32,7 +33,12 @@ export default function DashboardSummary({ organizationId, role }: { organizatio
     return () => { cancelled = true }
   }, [organizationId, role])
 
-  const stats: Stat[] = summary?.kind === 'parent' ? [
+  const stats: Stat[] = summary?.kind === 'educator' ? [
+    { label: 'Courses', value: String(summary.courses), note: 'Published in this workspace', icon: BookOpen, tone: 'blue' },
+    { label: 'Learners enrolled', value: String(summary.learners), note: 'Across published courses', icon: Users, tone: 'mint' },
+    { label: 'Classes this week', value: String(summary.classes_this_week), note: 'Scheduled live sessions', icon: CalendarDays, tone: 'lilac' },
+    { label: 'Assignments to review', value: String(summary.reviews_pending), note: 'Ungraded submissions', icon: ClipboardCheck, tone: 'peach' },
+  ] : summary?.kind === 'parent' ? [
     { label: 'Linked children', value: String(summary.children), note: 'Active linked student profiles', icon: UsersRound, tone: 'blue' },
     { label: 'Attendance', value: summary.attendance_recent.rate === null ? '—' : `${summary.attendance_recent.rate}%`, note: summary.attendance_recent.records ? `Last 30 days · ${summary.attendance_recent.records} marks` : 'No marks in the last 30 days', icon: ClipboardCheck, tone: 'mint' },
     { label: 'Homework to submit', value: String(summary.assignments_pending), note: 'Across linked children', icon: ListTodo, tone: 'lilac' },
@@ -56,7 +62,7 @@ export default function DashboardSummary({ organizationId, role }: { organizatio
 
   return <>
     {error && <div className="dashboard-summary-error" role="alert">Live overview could not be loaded: {error}</div>}
-    {loading && <p className="dashboard-summary-loading" role="status"><LoaderCircle className="master-spin" size={15} />Loading {role === 'student' ? 'learning' : role === 'teacher' ? 'teaching' : role === 'parent' ? 'family' : 'organization'} summary…</p>}
+    {loading && <p className="dashboard-summary-loading" role="status"><LoaderCircle className="master-spin" size={15} />Loading {role === 'student' ? 'learning' : role === 'teacher' ? 'teaching' : role === 'parent' ? 'family' : role === 'educator' ? 'educator' : 'organization'} summary…</p>}
     {!loading && !error && <section className="dash-stat-grid" aria-label="Live organization summary" aria-live="polite">{stats.map(({ label, value, note, icon: Icon, tone }) => <article className="dash-stat-card" key={label}><div className={`dash-stat-icon ${tone}`}><Icon size={18} /></div><small>{label}</small><b>{value}</b><em>{note}</em></article>)}</section>}
   </>
 }

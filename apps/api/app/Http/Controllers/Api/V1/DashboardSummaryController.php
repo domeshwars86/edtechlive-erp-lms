@@ -36,6 +36,9 @@ class DashboardSummaryController
         if ($membership->role === OrganizationRole::Parent) {
             return $this->parentSummary($request, $organization, $membership->organization->timezone ?: 'UTC');
         }
+        if ($membership->role === OrganizationRole::IndependentEducator) {
+            return $this->educatorSummary($organization, $membership->organization->timezone ?: 'UTC');
+        }
 
         abort_unless(in_array($membership->role, [
             OrganizationRole::Admin,
@@ -217,6 +220,29 @@ class DashboardSummaryController
                 'rate' => $attendanceRecords > 0 ? round(($attendance->get('present', 0) + $attendance->get('late', 0)) / $attendanceRecords * 100, 1) : null,
             ],
             'upcoming_meetings' => $upcomingMeetings,
+        ]]);
+    }
+
+    private function educatorSummary(int $organization, string $timezone): JsonResponse
+    {
+        $now = Carbon::now($timezone);
+        $weekEnd = $now->copy()->endOfWeek();
+        $courseIds = Course::query()->where('organization_id', $organization)
+            ->where('status', 'published')->pluck('id');
+        $learners = CourseEnrollment::query()->where('organization_id', $organization)
+            ->whereIn('course_id', $courseIds)->where('status', 'active')->distinct()->count('student_id');
+        $reviews = AssignmentSubmission::query()->where('organization_id', $organization)->whereNull('graded_at')
+            ->whereHas('assignment.course', fn ($query) => $query->where('status', 'published'))->count();
+        $classesThisWeek = Meeting::query()->where('organization_id', $organization)->where('kind', 'class')
+            ->where('status', 'scheduled')->whereBetween('starts_at', [$now->utc(), $weekEnd->utc()])->count();
+
+        return response()->json(['data' => [
+            'kind' => 'educator',
+            'date' => $now->toDateString(),
+            'courses' => $courseIds->count(),
+            'learners' => $learners,
+            'classes_this_week' => $classesThisWeek,
+            'reviews_pending' => $reviews,
         ]]);
     }
 }

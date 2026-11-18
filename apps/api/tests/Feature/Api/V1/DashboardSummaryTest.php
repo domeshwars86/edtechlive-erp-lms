@@ -266,6 +266,50 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('data.upcoming_meetings', 1);
     }
 
+    public function test_independent_educator_summary_counts_published_workspace_activity(): void
+    {
+        $organization = $this->organization('Sana Learning Studio');
+        $educator = User::factory()->create();
+        $this->membership($organization, $educator, OrganizationRole::IndependentEducator);
+        $learner = Student::query()->create([
+            'organization_id' => $organization->id, 'name' => 'Learner', 'admission_number' => 'S-1', 'status' => 'active',
+        ]);
+        $course = Course::query()->create([
+            'organization_id' => $organization->id, 'created_by' => $educator->id,
+            'title' => 'Published course', 'status' => 'published', 'published_at' => now(),
+        ]);
+        Course::query()->create([
+            'organization_id' => $organization->id, 'created_by' => $educator->id,
+            'title' => 'Draft course', 'status' => 'draft',
+        ]);
+        CourseEnrollment::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id,
+            'student_id' => $learner->id, 'enrolled_by' => $educator->id, 'status' => 'active',
+        ]);
+        $assignment = CourseAssignment::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id,
+            'created_by' => $educator->id, 'title' => 'Work', 'max_points' => 10, 'status' => 'published',
+        ]);
+        AssignmentSubmission::query()->create([
+            'organization_id' => $organization->id, 'assignment_id' => $assignment->id,
+            'student_id' => $learner->id, 'answer' => 'Answer', 'submitted_at' => now(),
+        ]);
+        Meeting::query()->create([
+            'organization_id' => $organization->id, 'created_by' => $educator->id, 'course_id' => $course->id,
+            'title' => 'Live class', 'starts_at' => Carbon::now('Asia/Kolkata')->addDay()->utc(),
+            'ends_at' => Carbon::now('Asia/Kolkata')->addDay()->addHour()->utc(),
+            'meeting_url' => 'https://meet.example.test/live', 'kind' => 'class', 'status' => 'scheduled',
+        ]);
+        Sanctum::actingAs($educator);
+
+        $this->getJson("/api/v1/organizations/{$organization->id}/dashboard/summary")->assertOk()
+            ->assertJsonPath('data.kind', 'educator')
+            ->assertJsonPath('data.courses', 1)
+            ->assertJsonPath('data.learners', 1)
+            ->assertJsonPath('data.classes_this_week', 1)
+            ->assertJsonPath('data.reviews_pending', 1);
+    }
+
     private function membership(Organization $organization, User $user, OrganizationRole $role): void
     {
         OrganizationMembership::query()->create([
