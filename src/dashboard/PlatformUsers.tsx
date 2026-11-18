@@ -12,12 +12,12 @@ type UserRow = {
 }
 type UserPage = { data: UserRow[]; meta: { current_page: number; last_page: number; total: number } }
 
-export default function PlatformUsers() {
+export default function PlatformUsers({ initialRole = '' }: { initialRole?: string }) {
   const [rows, setRows] = useState<UserRow[]>([])
   const [draftSearch, setDraftSearch] = useState('')
   const [search, setSearch] = useState('')
   const [verified, setVerified] = useState('')
-  const [role, setRole] = useState('')
+  const [role, setRole] = useState(initialRole)
   const [page, setPage] = useState(1)
   const [lastPage, setLastPage] = useState(1)
   const [total, setTotal] = useState(0)
