@@ -19,6 +19,7 @@ export type FamilyStudent = { id: number; name: string; admission_number: string
 export type StudentAttendance = { id: number; date: string; status: 'present' | 'absent' | 'late' | 'excused'; note: string | null; section: { id: number; name: string; class: string }; session: { id: number; name: string } }
 export type AssessmentResult = { id: number; title: string; course: string; score: string | null; max_score: string | null; attempt_number?: number; feedback?: string | null; completed_at: string | null }
 export type AssessmentResults = { quizzes: AssessmentResult[]; assignments: AssessmentResult[] }
+export type StudentProgress = { data: { course_id: number; title: string; lessons: number; completed_lessons: number; completion_percent: number }[]; summary: { courses: number; lessons: number; completed_lessons: number; completion_percent: number } }
 export type FamilyFee = { id: number; title: string; amount: string; paid_amount: string; balance: string; due_on: string | null; status: 'unpaid' | 'partial' | 'paid'; student: { id: number; name: string; admission_number: string | null } | null }
 export type DashboardSummary = Record<string, unknown> & { kind?: string }
 
