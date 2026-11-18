@@ -19,6 +19,46 @@ class CourseAssetController
 {
     public function __construct(private readonly OrganizationAccess $access) {}
 
+    public function organizationIndex(Request $request, int $organization): JsonResponse
+    {
+        $membership = $this->access->membership($request, $organization);
+        $query = CourseAsset::query()->where('organization_id', $organization)->with('course:id,title');
+
+        if ($membership->role === OrganizationRole::Student) {
+            $student = Student::query()->where('organization_id', $organization)
+                ->where('user_id', $request->user()->id)->where('status', 'active')->firstOrFail();
+            $query->where('is_published', true)->whereHas('course', fn ($course) => $course
+                ->where('status', 'published')
+                ->whereHas('enrollments', fn ($enrollment) => $enrollment
+                    ->where('student_id', $student->id)->where('status', 'active')));
+        } elseif ($membership->role === OrganizationRole::Teacher) {
+            $teacher = Teacher::query()->where('organization_id', $organization)
+                ->where('user_id', $request->user()->id)->where('status', 'active')->firstOrFail();
+            $query->whereHas('course', fn ($course) => $course->where('teacher_id', $teacher->id));
+        } else {
+            abort_unless(in_array($membership->role, [
+                OrganizationRole::Admin,
+                OrganizationRole::Management,
+                OrganizationRole::IndependentEducator,
+            ], true), 403);
+        }
+
+        $perPage = min(max($request->integer('per_page', 20), 1), 100);
+        $assets = $query->orderByDesc('created_at')->orderByDesc('id')->paginate($perPage);
+
+        return response()->json([
+            'data' => $assets->getCollection()->map(fn (CourseAsset $asset): array => $this->assetData($asset, $organization) + [
+                'course' => ['id' => $asset->course->id, 'title' => $asset->course->title],
+            ])->values(),
+            'meta' => [
+                'current_page' => $assets->currentPage(),
+                'last_page' => $assets->lastPage(),
+                'per_page' => $assets->perPage(),
+                'total' => $assets->total(),
+            ],
+        ]);
+    }
+
     public function index(Request $request, int $organization, int $course): JsonResponse
     {
         $membership = $this->access->membership($request, $organization);

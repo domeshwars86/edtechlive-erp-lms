@@ -8,6 +8,11 @@
 - The full API suite passed (**107 tests / 757 assertions**) with in-memory SQLite; `vendor/bin/pint --test`, web typecheck, and ESLint passed. The migration applied to the isolated local SQLite database; production build passed with 14 prerendered routes and a 490.99 kB main JavaScript bundle.
 - The Expo client now reads the account preference on restore/sign-in and saves changes through the same membership-checked endpoint. Mobile TypeScript passed and Android export bundled 564 modules (2.5 MB JavaScript payload); native device verification remains open.
 
+## Scoped document library (19 November 2026)
+
+- Added a paginated organization document endpoint and role-based web views. Administrators and management see tenant files, teachers see their course files, and students see only published files for actively enrolled courses.
+- Full Laravel suite passed (**109 tests / 767 assertions**) with in-memory SQLite and Pint; root typecheck, ESLint, and production build passed. The build prerendered 14 public routes and emitted a 492.31 kB main JavaScript bundle plus a lazy-loaded document-library chunk.
+
 ## Continuous quality workflow milestone (18 November 2026)
 
 - Added a GitHub Actions quality workflow for root web typecheck/lint/build, Laravel PHPUnit/Pint with in-memory SQLite, and mobile typecheck/Android bundle export. It is push/PR triggered, read-only for repository contents, and has no deployment step.

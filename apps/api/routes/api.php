@@ -89,6 +89,7 @@ Route::prefix('v1')->group(function (): void {
                 ->whereNumber('organization')->name('api.v1.organizations.show');
 
             Route::prefix('/organizations/{organization}')->whereNumber('organization')->group(function (): void {
+                Route::get('/documents', [CourseAssetController::class, 'organizationIndex']);
                 Route::get('/my/student', [FamilyController::class, 'student']);
                 Route::get('/my/student/attendance', [FamilyController::class, 'studentAttendance']);
                 Route::get('/my/student/results', [FamilyController::class, 'studentResults']);
