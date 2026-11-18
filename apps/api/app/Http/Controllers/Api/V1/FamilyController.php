@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\OrganizationRole;
+use App\Models\AcademicExamResult;
 use App\Models\AssignmentSubmission;
 use App\Models\AttendanceRecord;
 use App\Models\CourseEnrollment;
@@ -254,7 +255,21 @@ class FamilyController
                 'feedback' => $submission->feedback, 'completed_at' => $submission->graded_at?->toISOString(),
             ])->values();
 
-        return response()->json(['data' => ['quizzes' => $quizzes, 'assignments' => $assignments]]);
+        $exams = AcademicExamResult::query()->where('academic_exam_results.organization_id', $organization)
+            ->where('academic_exam_results.student_id', $student->id)
+            ->whereHas('paper.exam', fn (Builder $query) => $query->where('organization_id', $organization)->where('status', 'published'))
+            ->with(['paper.exam.academicSession:id,name', 'paper.section:id,name,academic_class_id', 'paper.section.academicClass:id,name', 'paper.subject:id,name'])
+            ->orderByDesc('updated_at')->limit(100)->get()
+            ->map(fn (AcademicExamResult $result): array => [
+                'id' => $result->id, 'exam' => $result->paper->exam->title,
+                'session' => $result->paper->exam->academicSession->name,
+                'class_section' => $result->paper->section->academicClass->name.' · '.$result->paper->section->name,
+                'subject' => $result->paper->subject->name, 'exam_on' => $result->paper->exam_on->toDateString(),
+                'score' => $result->score, 'max_marks' => $result->paper->max_marks,
+                'outcome' => $result->outcome, 'remarks' => $result->remarks,
+            ])->values();
+
+        return response()->json(['data' => ['exams' => $exams, 'quizzes' => $quizzes, 'assignments' => $assignments]]);
     }
 
     private function attendance(Request $request, int $organization, Student $student): JsonResponse

@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AcademicExamController;
+use App\Http\Controllers\Api\V1\AcademicExamReportController;
 use App\Http\Controllers\Api\V1\AcademicMasterController;
 use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\AssessmentReportController;
@@ -129,6 +131,13 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/attendance', [AttendanceController::class, 'index']);
                 Route::put('/attendance', [AttendanceController::class, 'store']);
                 Route::get('/reports/assessments', [AssessmentReportController::class, 'index']);
+                Route::get('/reports/exams', [AcademicExamReportController::class, 'index']);
+                Route::get('/exams', [AcademicExamController::class, 'index']);
+                Route::post('/exams', [AcademicExamController::class, 'store']);
+                Route::post('/exams/{exam}/papers', [AcademicExamController::class, 'storePaper'])->whereNumber('exam');
+                Route::post('/exams/{exam}/publish', [AcademicExamController::class, 'publish'])->whereNumber('exam');
+                Route::get('/exam-papers/{paper}/results', [AcademicExamController::class, 'results'])->whereNumber('paper');
+                Route::put('/exam-papers/{paper}/results', [AcademicExamController::class, 'saveResults'])->whereNumber('paper');
                 Route::get('/reports/attendance', [AttendanceReportController::class, 'index']);
                 Route::get('/reports/course-progress', [CourseProgressReportController::class, 'index']);
                 Route::get('/reports/enrollment', [EnrollmentReportController::class, 'index']);

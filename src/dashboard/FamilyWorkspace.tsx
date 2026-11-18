@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 type StudentProfile = { id: number; name: string; admission_number: string; academic_class?: { id: number; name: string } | null; academic_section?: { id: number; name: string } | null; academic_session?: { id: number; name: string } | null; relationship?: string; is_primary?: boolean }
 type AttendanceEntry = { id: number; date: string; status: 'present' | 'absent' | 'late' | 'excused'; note: string | null; section: { class: string; name: string }; session: { name: string } }
 type ListResult<T> = { data: T[]; meta?: { current_page: number; last_page: number; total: number } }
-type Results = { quizzes: { id: number; title: string; course: string; score: string | null; max_score: string | null; attempt_number: number; completed_at: string | null }[]; assignments: { id: number; title: string; course: string; score: string | null; max_score: string | null; feedback: string | null; completed_at: string | null }[] }
+type Results = { exams: { id: number; exam: string; session: string; class_section: string; subject: string; exam_on: string; score: string | null; max_marks: string; outcome: string; remarks: string | null }[]; quizzes: { id: number; title: string; course: string; score: string | null; max_score: string | null; attempt_number: number; completed_at: string | null }[]; assignments: { id: number; title: string; course: string; score: string | null; max_score: string | null; feedback: string | null; completed_at: string | null }[] }
 type Progress = { data: { course_id: number; title: string; lessons: number; completed_lessons: number; completion_percent: number }[]; summary: { courses: number; lessons: number; completed_lessons: number; completion_percent: number } }
 type HomeworkEntry = { id: number; title: string; course: string; due_at: string | null; max_points: string; submitted_at: string | null; score: string | null; feedback: string | null; status: 'pending' | 'overdue' | 'submitted' | 'graded' }
 
@@ -14,7 +14,7 @@ export default function FamilyWorkspace({ organizationId, role, active }: { orga
   const [students, setStudents] = useState<StudentProfile[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [entries, setEntries] = useState<AttendanceEntry[]>([])
-  const [results, setResults] = useState<Results>({ quizzes: [], assignments: [] })
+  const [results, setResults] = useState<Results>({ exams: [], quizzes: [], assignments: [] })
   const [progress, setProgress] = useState<Progress | null>(null)
   const [homework, setHomework] = useState<HomeworkEntry[]>([])
   const [total, setTotal] = useState(0)
@@ -52,7 +52,7 @@ export default function FamilyWorkspace({ organizationId, role, active }: { orga
   const showProgress = active === 'My progress' || active === 'Academic progress'
   const showHomework = active === 'Homework'
   useEffect(() => {
-    if (!showResults || !selected) { setResults({ quizzes: [], assignments: [] }); return }
+    if (!showResults || !selected) { setResults({ exams: [], quizzes: [], assignments: [] }); return }
     let cancelled = false
     setError('')
     const path = role === 'student' ? `${base}/student/results` : `${base}/children/${selected.id}/results`
@@ -94,6 +94,9 @@ export default function FamilyWorkspace({ organizationId, role, active }: { orga
       {entries.length ? <div className="dash-table-scroll attendance-table"><table><thead><tr><th>DATE</th><th>CLASS</th><th>SESSION</th><th>STATUS</th><th>NOTE</th></tr></thead><tbody>{entries.map(entry => <tr key={entry.id}><td><span className="family-date"><CalendarDays size={14} />{new Date(`${entry.date}T00:00:00`).toLocaleDateString()}</span></td><td>{entry.section.class} · {entry.section.name}</td><td>{entry.session.name}</td><td><span className={`family-attendance-status ${entry.status}`}>{entry.status}</span></td><td>{entry.note || '—'}</td></tr>)}</tbody></table></div> : !error && <p className="master-empty"><ClipboardCheck size={18} />No attendance records have been shared yet.</p>}
     </section>}
     {showResults && selected && <section className="dash-panel dash-masters-panel"><div className="dash-panel-heading"><div><span className="dash-panel-kicker">{selected.name.toUpperCase()}</span><h2>Completed assessments</h2><p className="dash-record-subtitle">Quiz scores and graded assignment feedback for this linked student.</p></div></div>
+      <p className="dash-record-subtitle">Published school exam results, course quiz scores, and graded assignment feedback for this linked student.</p>
+      <h3 className="family-results-heading">School examinations</h3>
+      {results.exams.length ? <div className="dash-table-scroll attendance-table"><table><thead><tr><th>EXAMINATION</th><th>SESSION · CLASS</th><th>SUBJECT</th><th>RESULT</th><th>EXAM DATE</th><th>REMARKS</th></tr></thead><tbody>{results.exams.map(result => <tr key={result.id}><td>{result.exam}</td><td>{result.session} · {result.class_section}</td><td>{result.subject}</td><td><b>{result.outcome === 'graded' ? `${result.score} / ${result.max_marks}` : result.outcome}</b></td><td>{new Date(`${result.exam_on}T00:00:00`).toLocaleDateString()}</td><td>{result.remarks || '—'}</td></tr>)}</tbody></table></div> : <p className="master-empty"><ClipboardCheck size={18} />No school examination results have been published.</p>}
       <h3 className="family-results-heading">Tests &amp; quizzes</h3>
       {results.quizzes.length ? <div className="dash-table-scroll attendance-table"><table><thead><tr><th>ASSESSMENT</th><th>COURSE</th><th>SCORE</th><th>ATTEMPT</th><th>COMPLETED</th></tr></thead><tbody>{results.quizzes.map(result => <tr key={result.id}><td>{result.title}</td><td>{result.course}</td><td><b>{result.score ?? '—'}</b> / {result.max_score ?? '—'}</td><td>{result.attempt_number}</td><td>{result.completed_at ? new Date(result.completed_at).toLocaleDateString() : '—'}</td></tr>)}</tbody></table></div> : <p className="master-empty"><ClipboardCheck size={18} />No completed quizzes are available yet.</p>}
       <h3 className="family-results-heading">Graded assignments</h3>

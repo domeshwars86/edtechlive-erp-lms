@@ -270,4 +270,12 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Added tenant-scoped CSV statement import (maximum 500 rows), duplicate-content protection, opening/closing balance validation, exact-amount and seven-day transaction matching against fee receipts or paid expenses, and reversible one-to-one matches. Candidate lookup excludes already reconciled ledger entries; student, parent and teacher roles are denied.
 - Full API suite passed (**102 tests / 705 assertions**) using in-memory SQLite; Pint passed. Reconciliation migrations applied to the ignored local SQLite development database through `npm run setup:local`.
 - Root `npm run typecheck`, `npm run lint`, and `npm run build` passed. Build prerendered 14 public routes; the reconciliation UI is a lazy-loaded chunk and the main bundle remains below the 500 kB warning threshold (488.00 kB).
-- PostgreSQL CI execution, duplicate statement detection, and visual browser review remain open.
+- PostgreSQL CI execution and visual browser review remain open.
+
+## Institution examination results (19 November 2026)
+
+- Added tenant-scoped exam schedules and subject papers per section, assigned-teacher result entry, score and roster validation, absent/excused outcomes, manager publication requiring a result for every active student, and locked post-publication marks.
+- Student and explicitly linked parent views receive published school exam results only. Web family results and the Expo assessment history now include school marks; admin/management can schedule and publish, and teachers can grade only assigned section/session/subjects.
+- Added an identity-free published-exam report by session, exam, section and subject; exact teacher assignment scope is enforced. Coverage checks graded/absent totals and average marks.
+- Full API suite passed (**105 tests / 750 assertions**) with in-memory SQLite; `vendor/bin/pint --test` passed, and the exam migration applied to local SQLite. Teacher tests verify unrelated subject papers are omitted from both paper lists and the aggregate report.
+- Root TypeScript, ESLint, production build (14 prerendered routes; 490.62 kB main JS), mobile TypeScript, and Android JavaScript export (564 modules) passed. Native device verification and PostgreSQL CI remain open.
