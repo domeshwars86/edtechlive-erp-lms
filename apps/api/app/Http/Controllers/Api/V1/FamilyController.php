@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\OrganizationRole;
+use App\Models\AssignmentSubmission;
 use App\Models\AttendanceRecord;
+use App\Models\QuizAttempt;
 use App\Models\Student;
 use App\Models\StudentGuardian;
 use App\Services\OrganizationAccess;
@@ -66,6 +68,60 @@ class FamilyController
             ->where('student_id', $studentRecord->id)->where('guardian_user_id', $request->user()->id)->exists(), 404);
 
         return $this->attendance($request, $organization, $studentRecord);
+    }
+
+    public function studentResults(Request $request, int $organization): JsonResponse
+    {
+        $membership = $this->access->membership($request, $organization);
+        abort_unless($membership->role === OrganizationRole::Student, 403);
+        $student = Student::query()->where('organization_id', $organization)
+            ->where('user_id', $request->user()->id)->where('status', 'active')->firstOrFail();
+
+        return $this->results($organization, $student);
+    }
+
+    public function childResults(Request $request, int $organization, int $student): JsonResponse
+    {
+        $membership = $this->access->membership($request, $organization);
+        abort_unless($membership->role === OrganizationRole::Parent, 403);
+        $studentRecord = Student::query()->where('organization_id', $organization)->where('status', 'active')->findOrFail($student);
+        abort_unless(StudentGuardian::query()->where('organization_id', $organization)
+            ->where('student_id', $studentRecord->id)->where('guardian_user_id', $request->user()->id)->exists(), 404);
+
+        return $this->results($organization, $studentRecord);
+    }
+
+    private function results(int $organization, Student $student): JsonResponse
+    {
+        $quizzes = QuizAttempt::query()->where('quiz_attempts.organization_id', $organization)
+            ->where('quiz_attempts.student_id', $student->id)->whereNotNull('quiz_attempts.submitted_at')
+            ->where('course_quizzes.organization_id', $organization)->where('courses.organization_id', $organization)
+            ->where('course_quizzes.status', 'published')->where('courses.status', 'published')
+            ->join('course_quizzes', 'course_quizzes.id', '=', 'quiz_attempts.quiz_id')
+            ->join('courses', 'courses.id', '=', 'course_quizzes.course_id')
+            ->select('quiz_attempts.id', 'quiz_attempts.score', 'quiz_attempts.max_score', 'quiz_attempts.attempt_number', 'quiz_attempts.submitted_at', 'course_quizzes.title', 'courses.title as course_title')
+            ->orderByDesc('quiz_attempts.submitted_at')->limit(100)->get()
+            ->map(fn (QuizAttempt $attempt): array => [
+                'id' => $attempt->id, 'title' => $attempt->title, 'course' => $attempt->course_title,
+                'score' => $attempt->score, 'max_score' => $attempt->max_score,
+                'attempt_number' => $attempt->attempt_number, 'completed_at' => $attempt->submitted_at?->toISOString(),
+            ])->values();
+
+        $assignments = AssignmentSubmission::query()->where('assignment_submissions.organization_id', $organization)
+            ->where('assignment_submissions.student_id', $student->id)->whereNotNull('assignment_submissions.graded_at')
+            ->where('course_assignments.organization_id', $organization)->where('courses.organization_id', $organization)
+            ->where('course_assignments.status', 'published')->where('courses.status', 'published')
+            ->join('course_assignments', 'course_assignments.id', '=', 'assignment_submissions.assignment_id')
+            ->join('courses', 'courses.id', '=', 'course_assignments.course_id')
+            ->select('assignment_submissions.id', 'assignment_submissions.awarded_points', 'assignment_submissions.feedback', 'assignment_submissions.graded_at', 'course_assignments.title', 'course_assignments.max_points', 'courses.title as course_title')
+            ->orderByDesc('assignment_submissions.graded_at')->limit(100)->get()
+            ->map(fn (AssignmentSubmission $submission): array => [
+                'id' => $submission->id, 'title' => $submission->title, 'course' => $submission->course_title,
+                'score' => $submission->awarded_points, 'max_score' => $submission->max_points,
+                'feedback' => $submission->feedback, 'completed_at' => $submission->graded_at?->toISOString(),
+            ])->values();
+
+        return response()->json(['data' => ['quizzes' => $quizzes, 'assignments' => $assignments]]);
     }
 
     private function attendance(Request $request, int $organization, Student $student): JsonResponse

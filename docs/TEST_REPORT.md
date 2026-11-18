@@ -218,6 +218,7 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 ## Assessment outcome report (19 November 2026)
 
 - Added `GET /api/v1/organizations/{organization}/reports/assessments` and an Assessments tab to the academic reports dashboard. Published quizzes show submitted and in-progress attempts, learner participation counts, and weighted average scores. Published assignments show submissions, graded/awaiting-review counts, learner participation, and weighted score averages. No student identity is returned.
+- Connected parent Examination results and student Results dashboards to child/self-scoped result APIs. Responses contain only published-course submitted quiz scores and graded assignment scores/feedback; no answer or submission text is returned. Focused family-result tests pass (2 tests / 13 assertions), and the complete API suite passes (90 tests / 609 assertions). TypeScript, ESLint, production build (14 prerendered routes), and Pint pass.
 - Admin, management, and independent educator roles see tenant totals. Teacher access is limited to published courses assigned to that teacher. Student and parent accounts are denied.
 - Focused API tests pass (**2 tests / 22 assertions**) covering quiz and assignment weighted score totals, in-progress handling, grading backlog, teacher course scoping, and student denial. Full API suite passes (**87 tests / 583 assertions**), Pint, web typecheck/lint, and production build (14 prerendered routes).
 
