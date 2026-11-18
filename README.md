@@ -24,31 +24,25 @@ An education ERP and learning platform for institutions, independent educators, 
 
 Requirements: Node.js 20.19.4+ (or 22.13.0+), npm, PHP 8.3+, Composer 2.x, and the PHP extensions in `apps/api/composer.json`.
 
-The account screens need both the Laravel API and the Vite frontend running. On a fresh checkout, prepare the API first in PowerShell:
-
-```powershell
-cd apps/api
-composer install
-Copy-Item .env.example .env
-```
-
-Edit `apps/api/.env` for local development: set `DB_CONNECTION=sqlite`, `DB_DATABASE=database/local-dev.sqlite`, `SESSION_DRIVER=file`, `CACHE_STORE=file`, and `QUEUE_CONNECTION=sync`. Then create the local database, generate its app key and run migrations:
-
-```powershell
-New-Item -ItemType File database/local-dev.sqlite -Force
-php artisan key:generate
-php artisan migrate
-php artisan serve --host=127.0.0.1 --port=8001
-```
-
-In a second terminal, from the repository root, install and start the web frontend:
+The account screens need both the Laravel API and Vite frontend. Install the web and API dependencies once:
 
 ```powershell
 npm install
-npm run dev -- --host 127.0.0.1 --port 4173
+cd apps/api
+composer install
+cd ../..
 ```
 
-Open [http://127.0.0.1:4173](http://127.0.0.1:4173). Vite proxies `/api` and `/sanctum` to `http://127.0.0.1:8001`; set `VITE_API_PROXY_TARGET` only when using a different API port. Verification and password reset messages use Laravel's configured mail transport; the default local log transport records links in `apps/api/storage/logs/laravel.log`.
+Prepare the local API database and start both services from the repository root:
+
+```powershell
+npm run setup:local
+npm run dev:stack
+```
+
+Open [http://127.0.0.1:4173](http://127.0.0.1:4173). The launcher starts Laravel on port 8001 and Vite on port 4173, and stops both when you press Ctrl+C. If either port is already in use, set `EDTECHLIVE_API_PORT` or `EDTECHLIVE_WEB_PORT` before running it; the Vite API proxy is adjusted to match.
+
+`setup:local` creates `apps/api/.env` only when it is missing, then uses the isolated `apps/api/database/local-dev.sqlite` file, generates an app key if needed, and applies outstanding local migrations. It refuses non-local or non-SQLite database settings and never runs migrations against a server database. If an existing `.env` needs adjustment, keep `APP_ENV=local`, `DB_CONNECTION=sqlite`, `DB_DATABASE=database/local-dev.sqlite`, and leave `DB_URL` empty. Verification and password-reset messages use Laravel's log mail transport; local links are written to `apps/api/storage/logs/laravel.log`.
 
 The root `.env.example` configures Vite to proxy `/api` and `/sanctum` to Laravel. The API's `.env.example` documents `FRONTEND_URL`, CORS origins and Sanctum stateful domains.
 

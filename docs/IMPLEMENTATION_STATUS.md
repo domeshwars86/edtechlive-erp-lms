@@ -40,10 +40,11 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - The dashboard activity index migration has been applied to the configured local development SQLite database. PostgreSQL migration validation remains open.
 - The mobile dependency tree now overrides vulnerable Expo transitive copies with patched `glob@14.0.2`, `minimatch@11.0.1`, and Expo CLI-scoped `zod@4.6.6`; a registry-backed `npm audit --omit=dev` reports zero vulnerabilities. Expo Android bundle export and TypeScript verification passed with Node 20.19.4.
 - Web account connection errors now tell local developers to start the Laravel API on port 8001. Root setup documentation spells out running both servers and configuring a local SQLite database.
+- Added guarded `npm run setup:local` and `npm run dev:stack` commands so the API and website can be prepared and launched together. The setup script only permits `APP_ENV=local`, SQLite at the project's ignored `database/local-dev.sqlite`, and an empty `DB_URL`; it creates `.env` only when absent. Local setup completed with no pending migrations, and both server processes reported ready on alternate ports. Direct HTTP access is denied by this sandbox; browser automation stopped before navigation because it could not verify the current browser URL.
 
 ## Current limitations
 
-- API database migrations have not been applied to PostgreSQL in this workspace; no local PostgreSQL client, service, or Docker runtime is available. CI now includes an isolated PostgreSQL 16 migration and full API test job, but it has not run from this local branch.
+- API database migrations have not been applied to PostgreSQL in this workspace; PostgreSQL 17 tools are installed outside `PATH`, but no server responds on port 5432, service-manager access is denied, and Docker is unavailable. CI now includes an isolated PostgreSQL 16 migration and full API test job, but it has not run from this local branch.
 - Email delivery must be configured for verification, reset, and organization invitation links; local development logs messages.
 - Contact enquiries are stored through a public throttled API after explicit consent and can notify a configured recipient. Staff inbox access requires a verified account whose email is listed in `ENQUIRY_ADMIN_EMAILS`; retention cleanup remains open.
 - Fee records are manual ledger entries only. Payment gateway integration, refund handling, idempotency, reconciliation reporting, and a dedicated finance role remain open.

@@ -224,7 +224,13 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 ## PostgreSQL CI gate (19 November 2026)
 
 - Added a separate PostgreSQL 16 service job to `.github/workflows/quality.yml`. It installs `pdo_pgsql`, applies a fresh schema to a disposable CI database, then runs the complete API test suite.
-- Workflow YAML parses with the installed `js-yaml` parser. The job has not executed from this checkout; no local PostgreSQL server, client, or Docker runtime is available. PostgreSQL compatibility remains unverified until the CI job runs.
+- Workflow YAML parses with the installed `js-yaml` parser. The job has not executed from this checkout; PostgreSQL 17 client/server tools are installed outside `PATH`, but no server responds on port 5432, service-manager access is denied, and Docker is unavailable. PostgreSQL compatibility remains unverified until the CI job runs.
+
+## Local development launcher (19 November 2026)
+
+- Added `npm run setup:local` to create a local-only SQLite API configuration when no `.env` exists, generate an app key if missing, create the ignored database file, and apply additive migrations. It refuses non-local environments, non-SQLite connections, alternate database paths, and non-empty `DB_URL` values.
+- Added `npm run dev:stack` to start Laravel and Vite together, stop both on exit, and support alternate ports through `EDTECHLIVE_API_PORT` and `EDTECHLIVE_WEB_PORT`.
+- `npm run setup:local` completed successfully (`Nothing to migrate`). `npm run dev:stack` launched Laravel and Vite and both printed ready messages on alternate ports. Direct HTTP requests are denied by the sandbox socket policy; browser automation also stopped before navigation because it could not verify the current browser URL.
 
 ## Student course progress milestone (18 November 2026)
 

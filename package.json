@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
+    "setup:local": "node scripts/setup-local-api.mjs",
+    "dev:stack": "node scripts/dev-stack.mjs",
     "build": "tsc -b && vite build && vite build --ssr src/entry-server.tsx --outDir dist-server --emptyOutDir && node scripts/prerender.mjs",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
