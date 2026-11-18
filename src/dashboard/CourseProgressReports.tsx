@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, BarChart3, LoaderCircle } from 'lucide-react'
+import { AlertCircle, BarChart3, Download, LoaderCircle } from 'lucide-react'
 import { api } from '../lib/api'
+import { downloadCsv } from '../lib/csv'
 
 type CourseProgressRow = { course_id: number; title: string; lessons: number; learners: number; average_percent: number; completed_learners: number }
 type CourseProgressReport = { data: CourseProgressRow[]; summary: { courses: number; learners: number; average_percent: number } }
@@ -21,7 +22,7 @@ export default function CourseProgressReports({ organizationId }: { organization
   }, [organizationId])
 
   return <section className="dash-panel dash-masters-panel">
-    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ACADEMIC REPORTS</span><h2>Course progress</h2><p className="dash-record-subtitle">Completion across published courses and active learners. Student names and individual records are not included.</p></div></div>
+    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ACADEMIC REPORTS</span><h2>Course progress</h2><p className="dash-record-subtitle">Completion across published courses and active learners. Student names and individual records are not included.</p></div><button className="dash-secondary-button" type="button" disabled={loading || !report} onClick={() => report && downloadCsv('course-progress.csv', ['Course', 'Lessons', 'Learners', 'Average completion (%)', 'Completed learners'], report.data.map(course => [course.title, course.lessons, course.learners, course.average_percent, course.completed_learners]))}><Download size={14} />Export CSV</button></div>
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
     {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading course progress…</p> : report && <>
       <div className="report-stat-grid"><article><small>PUBLISHED COURSES</small><b>{report.summary.courses}</b></article><article><small>ACTIVE ENROLLMENTS</small><b>{report.summary.learners}</b></article><article><small>AVERAGE COMPLETION</small><b>{report.summary.average_percent}%</b></article></div>

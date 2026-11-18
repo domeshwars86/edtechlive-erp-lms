@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, BookOpen, LoaderCircle, UsersRound } from 'lucide-react'
+import { AlertCircle, BookOpen, Download, LoaderCircle, UsersRound } from 'lucide-react'
 import { api } from '../lib/api'
+import { downloadCsv } from '../lib/csv'
 
 type Section = { section_id: number; class: string; section: string; active: boolean; capacity: number | null; active_students: number; active_course_enrollments: number }
 type Session = { session_id: number; session: string; is_current: boolean; is_active: boolean; starts_on: string; ends_on: string; active_students: number; active_course_enrollments: number; sections: Section[] }
@@ -22,7 +23,7 @@ export default function EnrollmentReport({ organizationId }: { organizationId: n
   }, [organizationId])
 
   return <section className="dash-panel dash-masters-panel">
-    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ACADEMIC REPORTS</span><h2>Enrollment overview</h2><p className="dash-record-subtitle">Active learner placement by academic session and section, plus course enrollment totals.</p></div></div>
+    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ACADEMIC REPORTS</span><h2>Enrollment overview</h2><p className="dash-record-subtitle">Active learner placement by academic session and section, plus course enrollment totals.</p></div><button className="dash-secondary-button" type="button" disabled={loading || !report} onClick={() => report && downloadCsv('enrollment-overview.csv', ['Session', 'Current session', 'Session active', 'Class', 'Section', 'Section active', 'Active students', 'Active course enrollments', 'Capacity'], report.sessions.flatMap(session => session.sections.length ? session.sections.map(section => [session.session, session.is_current ? 'Yes' : 'No', session.is_active ? 'Yes' : 'No', section.class, section.section, section.active ? 'Yes' : 'No', section.active_students, section.active_course_enrollments, section.capacity]) : [[session.session, session.is_current ? 'Yes' : 'No', session.is_active ? 'Yes' : 'No', '', '', '', session.active_students, session.active_course_enrollments, '']]))}><Download size={14} />Export CSV</button></div>
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
     {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading enrollment report…</p> : report && <>
       <div className="report-stat-grid"><article><small>ACTIVE STUDENTS</small><b>{report.summary.active_students}</b></article><article><small>UNASSIGNED STUDENTS</small><b>{report.summary.unassigned_students}</b></article><article><small>STUDENTS IN PUBLISHED COURSES</small><b>{report.summary.students_with_published_courses}</b></article><article><small>ACTIVE COURSE ENROLLMENTS</small><b>{report.summary.active_course_enrollments}</b></article></div>

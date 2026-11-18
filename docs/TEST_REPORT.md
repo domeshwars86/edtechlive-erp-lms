@@ -317,3 +317,9 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Added an identity-free published-exam report by session, exam, section and subject; exact teacher assignment scope is enforced. Coverage checks graded/absent totals and average marks.
 - Full API suite passed (**105 tests / 750 assertions**) with in-memory SQLite; `vendor/bin/pint --test` passed, and the exam migration applied to local SQLite. Teacher tests verify unrelated subject papers are omitted from both paper lists and the aggregate report.
 - Root TypeScript, ESLint, production build (14 prerendered routes; 490.62 kB main JS), mobile TypeScript, and Android JavaScript export (564 modules) passed. Native device verification and PostgreSQL CI remain open.
+
+## Academic report CSV export (19 November 2026)
+
+- Added browser CSV export for attendance by class/section and date range, course progress, enrollment by session/section, and teacher workload. CSV values are quoted and spreadsheet formula prefixes are neutralized; rows reflect the data already scoped for the report view.
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed. Production build prerendered 14 public routes and produced a 485.19 kB main JavaScript bundle. Lint initially identified a disallowed control-character regex; the implementation was adjusted and the final lint run passed.
+- Browser download behavior has not been visually exercised in an authenticated browser in this environment.
