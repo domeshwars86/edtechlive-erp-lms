@@ -19,6 +19,7 @@
 - Mobile meeting access milestone: mobile TypeScript, Android bundle export and root ESLint passed. The app loads the membership-scoped meeting list, displays upcoming times, and only offers the manual HTTPS join link while the scheduled meeting is live. Provider room creation and native device verification remain untested.
 - Mobile teacher grading milestone: mobile TypeScript, Android JS bundle export and root ESLint passed after connecting course-scoped submission review and score/feedback writes to the existing teacher-authorized APIs. Server-side maximum-score and ownership validation remains authoritative; no live learner records were accessed.
 - Mobile family finance and attendance milestone: mobile TypeScript, Android JS bundle export and root ESLint passed after connecting student profile/attendance/fee reads and parent linked-child attendance/fee reads. API tests cover the underlying student/guardian privacy scopes; no production/student data was used.
+- Mobile verification recovery milestone: added an explicit resend-verification action for unverified sign-in attempts using the existing throttled endpoint and its non-enumerating response. Mobile TypeScript, Android JS bundle export and root ESLint passed. No email was sent during verification.
 
 ## Contact enquiry inbox milestone (18 November 2026)
 

@@ -44,6 +44,7 @@ export default function App() {
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [verificationNeeded, setVerificationNeeded] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -119,7 +120,7 @@ export default function App() {
   }, [active, token])
 
   async function signIn() {
-    setBusy(true); setError('')
+    setBusy(true); setError(''); setSuccess(''); setVerificationNeeded(false)
     try {
       const result = await mobileApi.login(email.trim(), password)
       const organizationList = await mobileApi.get<{ data: OrganizationMembership[] }>('/api/v1/organizations?per_page=100', result.token)
@@ -129,9 +130,20 @@ export default function App() {
       setPassword('')
     } catch (reason) {
       if (reason instanceof ApiError && reason.code === 'email_verification_required') {
-        setError('Verify your email before signing in. Request a new link from the web sign-in page.')
+        setVerificationNeeded(true)
+        setError('Verify your email before signing in. Request a new link below.')
       } else setError(reason instanceof Error ? reason.message : 'Could not sign in.')
     } finally { setBusy(false) }
+  }
+
+  async function resendVerification() {
+    if (!email.trim()) { setError('Enter the email address for your account first.'); return }
+    setBusy(true); setError(''); setSuccess('')
+    try {
+      await mobileApi.post('/api/v1/auth/email/verification-notification', '', { email: email.trim() })
+      setSuccess('If this address has an unverified account, a new verification link has been sent.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not request a verification link.') }
+    finally { setBusy(false) }
   }
 
   async function chooseOrganization(membership: OrganizationMembership, currentToken = token) {
@@ -245,11 +257,11 @@ export default function App() {
     try { if (current) await mobileApi.post('/api/v1/auth/logout', current) }
     catch { /* Local credentials must still be removed if the API is offline. */ }
     await SecureStore.deleteItemAsync(TOKEN_KEY); await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
-    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setCourses([]); setSelectedCourse(null); setLessons([]); setBusy(false)
+    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setFamilyFees([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
   }
 
   if (busy && !user) return <Splash />
-  if (!user) return <Login email={email} setEmail={setEmail} password={password} setPassword={setPassword} busy={busy} error={error} onSubmit={() => void signIn()} />
+  if (!user) return <Login email={email} setEmail={value => { setEmail(value); setVerificationNeeded(false); setError(''); setSuccess('') }} password={password} setPassword={setPassword} busy={busy} error={error} success={success} verificationNeeded={verificationNeeded} onResend={() => void resendVerification()} onSubmit={() => void signIn()} />
   if (!active) return <OrganizationPicker user={user} memberships={memberships} busy={busy} error={error} onChoose={membership => void chooseOrganization(membership)} onSignOut={() => void signOut()} />
 
   return <View style={styles.screen}><StatusBar barStyle="dark-content" backgroundColor="#f4f7fc" />
@@ -354,12 +366,14 @@ function summaryCards(summary: DashboardSummary, role: OrganizationMembership['r
 
 function Splash() { return <View style={styles.splash}><ActivityIndicator color="#2d63c7" size="large" /><Text style={styles.subtitle}>Connecting to edTechLive…</Text></View> }
 
-function Login({ email, setEmail, password, setPassword, busy, error, onSubmit }: { email: string; setEmail: (value: string) => void; password: string; setPassword: (value: string) => void; busy: boolean; error: string; onSubmit: () => void }) {
+function Login({ email, setEmail, password, setPassword, busy, error, success, verificationNeeded, onResend, onSubmit }: { email: string; setEmail: (value: string) => void; password: string; setPassword: (value: string) => void; busy: boolean; error: string; success: string; verificationNeeded: boolean; onResend: () => void; onSubmit: () => void }) {
   return <View style={styles.loginScreen}><StatusBar barStyle="dark-content" backgroundColor="#f4f7fc" /><View style={styles.loginCard}>
     <Text style={styles.brand}>edTechLive</Text><Text style={styles.pageTitle}>Welcome back</Text><Text style={styles.subtitle}>Sign in to your learning workspace.</Text>
     <Text style={styles.inputLabel}>Email address</Text><TextInput autoCapitalize="none" autoComplete="email" keyboardType="email-address" value={email} onChangeText={setEmail} placeholder="you@example.com" style={styles.input} editable={!busy} />
     <Text style={styles.inputLabel}>Password</Text><TextInput autoComplete="password" secureTextEntry value={password} onChangeText={setPassword} placeholder="Your password" style={styles.input} editable={!busy} onSubmitEditing={onSubmit} returnKeyType="go" />
     {error ? <Text style={styles.error}>{error}</Text> : null}
+    {success ? <Text style={styles.success}>{success}</Text> : null}
+    {verificationNeeded ? <Pressable onPress={onResend} disabled={busy} style={styles.resendButton}><Text style={styles.link}>{busy ? 'Requesting link…' : 'Resend verification link'}</Text></Pressable> : null}
     <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={onSubmit} disabled={busy}><Text style={styles.primaryButtonText}>{busy ? 'Signing in…' : 'Sign in'}</Text></Pressable>
     <Text style={styles.footer}>Use the same verified account as the web portal.</Text>
   </View></View>
@@ -433,5 +447,6 @@ const styles = StyleSheet.create({
   empty: { padding: 15, marginTop: 8, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
   backLink: { color: '#446eb7', fontSize: 11, fontWeight: '700', marginTop: 7 },
   link: { color: '#3c6fc2', fontWeight: '700', fontSize: 10, marginTop: 9 },
+  resendButton: { alignSelf: 'flex-start', marginTop: 4, paddingVertical: 4 },
   footer: { color: '#a0acb9', fontSize: 8, lineHeight: 14, marginTop: 20, textAlign: 'center' },
 })
