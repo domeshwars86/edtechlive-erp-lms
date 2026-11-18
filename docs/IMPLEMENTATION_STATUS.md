@@ -4,7 +4,7 @@
 
 ## Current milestone
 
-Phase 7 — free-first integrations. The public website and seven role dashboard layouts are in place. Registration, login, verification, recovery, organization membership/invitations, academic masters, rosters, assignments, attendance, timetable, student/guardian access, attendance and course progress reports, LMS course/material/assessment/progress, manual meetings, contact intake, manual fee records, and scoped in-app notifications use Laravel APIs. Teacher attendance/courses/meetings and student/parent data are profile/link scoped. Provider room creation, broader exams, other academic reports and overview metrics remain unfinished; the fee ledger is not a payment gateway. PostgreSQL and production email delivery remain unverified.
+Phase 7 — free-first integrations and mobile foundation. The responsive public website, seven role dashboards, Laravel ERP/LMS APIs and the connected web workflows listed below are in place. A new Expo React Native client now signs into the shared API, stores its Sanctum token with SecureStore, selects organization membership, and loads role-scoped summaries, courses and published lessons. Mobile work is an initial vertical slice; assignment, attendance, quiz, notification and teacher-management screens and native device builds remain open. Production email, PostgreSQL validation, external integrations and deployment remain unverified.
 
 ## Implemented
 
@@ -33,6 +33,7 @@ Phase 7 — free-first integrations. The public website and seven role dashboard
 - The dashboard notification bell lists and marks recipient-owned notifications within the active organization. Fee issuance/receipt and meeting scheduling create notices for relevant students, linked guardians, assigned teachers or managers. Email/push delivery, announcements, notification preferences and retention policies remain open.
 - API and web setup/auth configuration is documented in `.env.example` files and `apps/api/README.md`.
 - Multi-organization users can reopen the verified membership chooser from the dashboard workspace control. Selection changes the active role/workspace in the current frontend session; a persistent active-organization preference is not implemented.
+- The Expo SDK 56 mobile app in `apps/mobile` uses the shared Sanctum API, Expo SecureStore token persistence, membership selection, role-scoped summary/course APIs and published lesson reading. Android and iOS native toolchains/device builds are not available in this workspace; broader mobile workflows remain open.
 
 ## Current limitations
 
@@ -45,6 +46,7 @@ Phase 7 — free-first integrations. The public website and seven role dashboard
 - Super-admin overview counts/activity and several broader exam/result workflows remain sample data. Admin, management, independent educator, teacher, student, and parent top-line metrics and role-scoped upcoming meeting panels are live; the learning activity chart remains illustrative; role-scoped timetable entries and private family notifications feed the lower dashboard panel. LMS covers course/lesson authoring and publication, manual enrollment, text assignments, student submissions, grading, feedback, timed MCQ quizzes, per-quiz result history, private downloads, and course-scoped learner progress. Modules, malware scanning, durable production file storage and broader examinations are not implemented.
 - Student and guardian links can be established through accepted invitations or managed directly by authorized organization staff; student roster reconciliation, consent/retention workflows, persistent organization switching API, granular policies, audit trail, MFA, and remaining academic entities remain future work.
 - Sitemap host must be replaced with the eventual production domain; legal drafts need review.
+- Mobile is a working-source foundation only: device/emulator verification, assignments/submissions, quizzes/results, attendance, notifications, profile workflows, teacher actions, and release signing are outstanding. Expo dependency audit could not reach the npm registry in this environment.
 - npm audit has nine high severity findings through `picomatch@4.0.7`; do not apply its incompatible Vite 6.2.7 downgrade without an upstream-compatible fix.
 
 ## Verification
@@ -67,5 +69,5 @@ Phase 7 — free-first integrations. The public website and seven role dashboard
 3. Expand reports to enrollment, timetable/workload and finance metrics.
 4. Build the staff enquiry review/response workflow and define enquiry retention; configure real email delivery before promising a response.
 5. Reassess npm audit advisories when compatible upstream dependency releases are available.
-6. Add payment sandbox/gateway only after provider selection and finance workflow requirements are approved.
-7. Connect a supported meeting provider, and configure email/push channels after provider credentials and consent requirements are established.
+6. Extend the mobile app with learner assignments/quizzes and teacher attendance/grading, then verify on Android/iOS toolchains.
+7. Add payment sandbox/gateway only after provider selection and finance workflow requirements are approved; connect meeting/email/push integrations after provider credentials and consent requirements are established.

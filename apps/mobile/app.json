@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "edTechLive",
+    "slug": "edtechlive",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "edtechlive",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.edtechlive.mobile"
+    },
+    "android": {
+      "package": "com.edtechlive.mobile"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}

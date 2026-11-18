@@ -2,6 +2,13 @@
 
 **Updated:** 18 November 2026
 
+## Expo mobile foundation milestone (18 November 2026)
+
+- Added `apps/mobile`, an Expo SDK 56 / React Native 0.85 app with verified API sign-in, SecureStore token persistence, organization selection, scoped role summaries, course lists and published lesson reading.
+- Mobile `npm run typecheck` passed on Node 20.19.4. `npx expo install --check` found dependencies aligned with the local SDK 56 compatibility map; Expo noted network access was disabled, so remote validation was unavailable.
+- `npx expo export --platform android --no-bytecode --no-minify` passed and emitted the Android JavaScript bundle (564 modules, 2.4 MB). Bytecode was disabled for this sandbox export because the Hermes temp output path was inaccessible; this is a bundle check, not a signed/native APK build.
+- Native Android/iOS builds and device flows are not verified because Android SDK/emulator and Xcode toolchains are unavailable here. npm audit could not contact the registry (DNS unavailable).
+
 ## Contact enquiry inbox milestone (18 November 2026)
 
 - Focused contact enquiry inbox suite — **4 passed / 14 assertions**. Covers allowlisted access, search/status filters, denied non-operators, valid status changes with reviewer audit, and invalid filters/status values.

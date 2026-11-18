@@ -7,3 +7,7 @@ dist-server/
 .env.*
 !.env.example
 .phpunit.cache/
+apps/mobile/node_modules/
+apps/mobile/.expo/
+apps/mobile/.expo-build/
+apps/mobile/.expo-tmp/
