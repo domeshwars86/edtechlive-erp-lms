@@ -6,10 +6,12 @@ use App\Enums\OrganizationRole;
 use App\Models\Course;
 use App\Models\CourseAsset;
 use App\Models\Student;
+use App\Models\StudentGuardian;
 use App\Models\Teacher;
 use App\Services\OrganizationAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -31,6 +33,12 @@ class CourseAssetController
                 ->where('status', 'published')
                 ->whereHas('enrollments', fn ($enrollment) => $enrollment
                     ->where('student_id', $student->id)->where('status', 'active')));
+        } elseif ($membership->role === OrganizationRole::Parent) {
+            $studentIds = $this->linkedStudentIds($request, $organization);
+            $query->where('is_published', true)->whereHas('course', fn ($course) => $course
+                ->where('status', 'published')
+                ->whereHas('enrollments', fn ($enrollment) => $enrollment
+                    ->whereIn('student_id', $studentIds)->where('status', 'active')));
         } elseif ($membership->role === OrganizationRole::Teacher) {
             $teacher = Teacher::query()->where('organization_id', $organization)
                 ->where('user_id', $request->user()->id)->where('status', 'active')->firstOrFail();
@@ -63,9 +71,9 @@ class CourseAssetController
     {
         $membership = $this->access->membership($request, $organization);
         $courseRecord = Course::query()->where('organization_id', $organization)->findOrFail($course);
-        $student = $this->authorizeCourseRead($request, $membership->role, $organization, $courseRecord);
+        $learnerView = $this->authorizeCourseRead($request, $membership->role, $organization, $courseRecord);
         $assets = CourseAsset::query()->where('organization_id', $organization)->where('course_id', $courseRecord->id)
-            ->when($student, fn ($query) => $query->where('is_published', true))->orderBy('title')->get();
+            ->when($learnerView, fn ($query) => $query->where('is_published', true))->orderBy('title')->get();
 
         return response()->json(['data' => $assets->map(fn (CourseAsset $asset): array => $this->assetData($asset, $organization))->values()]);
     }
@@ -120,8 +128,8 @@ class CourseAssetController
     {
         $asset = CourseAsset::query()->where('organization_id', $organization)->with('course')->findOrFail($record);
         $membership = $this->access->membership($request, $organization);
-        $student = $this->authorizeCourseRead($request, $membership->role, $organization, $asset->course);
-        abort_if($student && ! $asset->is_published, 404);
+        $learnerView = $this->authorizeCourseRead($request, $membership->role, $organization, $asset->course);
+        abort_if($learnerView && ! $asset->is_published, 404);
         abort_unless(Storage::disk('private')->exists($asset->storage_path), 404);
 
         return Storage::disk('private')->download($asset->storage_path, $asset->original_name, [
@@ -130,18 +138,34 @@ class CourseAssetController
         ]);
     }
 
-    private function authorizeCourseRead(Request $request, OrganizationRole $role, int $organization, Course $course): ?Student
+    private function authorizeCourseRead(Request $request, OrganizationRole $role, int $organization, Course $course): bool
     {
         if ($role === OrganizationRole::Student) {
             $student = Student::query()->where('organization_id', $organization)->where('user_id', $request->user()->id)
                 ->where('status', 'active')->firstOrFail();
             abort_unless($course->status === 'published' && $course->enrollments()->where('student_id', $student->id)->where('status', 'active')->exists(), 404);
 
-            return $student;
+            return true;
+        }
+        if ($role === OrganizationRole::Parent) {
+            $studentIds = $this->linkedStudentIds($request, $organization);
+            abort_unless($studentIds->isNotEmpty(), 404);
+            abort_unless($course->status === 'published' && $course->enrollments()
+                ->whereIn('student_id', $studentIds)->where('status', 'active')->exists(), 404);
+
+            return true;
         }
         $this->assertCourseEditor($request, $role, $organization, $course);
 
-        return null;
+        return false;
+    }
+
+    private function linkedStudentIds(Request $request, int $organization): Collection
+    {
+        return StudentGuardian::query()->where('organization_id', $organization)
+            ->where('guardian_user_id', $request->user()->id)
+            ->whereHas('student', fn ($student) => $student->where('status', 'active'))
+            ->pluck('student_id');
     }
 
     private function assertCourseEditor(Request $request, OrganizationRole $role, int $organization, Course $course): void

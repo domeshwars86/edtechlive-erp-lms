@@ -11,6 +11,7 @@ use App\Models\CourseEnrollment;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\Student;
+use App\Models\StudentGuardian;
 use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -54,7 +55,7 @@ class CourseAssetTest extends TestCase
             'title' => 'Private draft', 'original_name' => 'draft.pdf', 'storage_path' => 'draft.pdf',
             'mime_type' => 'application/pdf', 'size_bytes' => 10, 'is_published' => false,
         ]);
-        CourseAsset::query()->create([
+        $otherAsset = CourseAsset::query()->create([
             'organization_id' => $organization->id, 'course_id' => $unrelatedCourse->id, 'uploaded_by' => $admin->id,
             'title' => 'Other course notes', 'original_name' => 'other.pdf', 'storage_path' => 'other.pdf',
             'mime_type' => 'application/pdf', 'size_bytes' => 10, 'is_published' => true,
@@ -70,6 +71,22 @@ class CourseAssetTest extends TestCase
             ->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->assertStringContainsString('%PDF-1.4', Storage::disk('private')->get($asset->storage_path));
         $this->assertDatabaseHas('course_enrollments', ['course_id' => $course->id, 'student_id' => $student->id, 'status' => 'active']);
+
+        $parent = User::factory()->create(['email' => 'parent@example.com']);
+        OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $parent->id,
+            'role' => OrganizationRole::Parent, 'status' => MembershipStatus::Active, 'accepted_at' => now(),
+        ]);
+        StudentGuardian::query()->create([
+            'organization_id' => $organization->id, 'student_id' => $student->id,
+            'guardian_user_id' => $parent->id, 'linked_by' => $admin->id,
+            'relationship' => 'parent', 'is_primary' => true, 'linked_at' => now(),
+        ]);
+        Sanctum::actingAs($parent);
+        $this->getJson("{$base}/documents")->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Water cycle notes');
+        $this->get("{$base}/assets/{$assetId}/download")->assertOk();
+        $this->get("{$base}/assets/{$otherAsset->id}/download")->assertNotFound();
     }
 
     public function test_unenrolled_student_cannot_view_course_materials(): void

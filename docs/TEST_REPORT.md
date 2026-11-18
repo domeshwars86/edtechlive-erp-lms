@@ -23,6 +23,7 @@
 
 - Added a paginated organization document endpoint and role-based web views. Administrators and management see tenant files, teachers see their course files, and students see only published files for actively enrolled courses.
 - Full Laravel suite passed (**109 tests / 767 assertions**) with in-memory SQLite and Pint; root typecheck, ESLint, and production build passed. The build prerendered 14 public routes and emitted a 481.79 kB main JavaScript bundle plus separate lazy-loaded document-library and management-roster chunks.
+- Parents now see published study materials only for active children connected through an explicit guardian link and active enrollment. Parent download and unrelated-course denial are covered. Full API regression passed (**112 tests / 799 assertions**), as did Pint, root TypeScript, ESLint, and production build (14 routes; 484.47 kB main bundle).
 - The management roster route now switches between student and teacher records using the existing management-authorized APIs. Web typecheck, ESLint, and production build passed after the dashboard connection.
 - Independent educator course, lesson, learner, assessment and meeting destinations now use the existing tenant-scoped APIs; management Performance uses aggregate assessment outcomes. Web typecheck, ESLint, and production build passed (482.45 kB main bundle; 14 routes prerendered).
 
