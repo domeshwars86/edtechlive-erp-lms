@@ -6,6 +6,12 @@ export type OrganizationMembership = {
 }
 export type Course = { id: number; title: string; level: string | null; description: string | null; status: string; subject: { id: number; name: string } | null; teacher: { id: number; name: string } | null }
 export type Lesson = { id: number; title: string; sort_order: number; content: string | null; external_url: string | null; status: 'draft' | 'published' }
+export type AssignmentSubmission = { id: number; assignment_id: number; answer: string; submitted_at: string | null; awarded_points: number | null; feedback: string | null; graded_at: string | null }
+export type CourseAssignment = { id: number; course_id: number; title: string; instructions: string | null; due_at: string | null; max_points: number; status: 'draft' | 'published'; submission: AssignmentSubmission | null }
+export type QuizQuestion = { id: number; prompt: string; options: string[]; points: number; sort_order: number }
+export type QuizAttempt = { id: number; attempt_number: number; answers: Record<number, number> | null; score: number | null; max_score: number | null; started_at: string; submitted_at: string | null }
+export type CourseQuiz = { id: number; course_id: number; title: string; instructions: string | null; time_limit_minutes: number | null; max_attempts: number; status: 'draft' | 'published'; questions: QuizQuestion[]; attempts_used: number | null; latest_result: QuizAttempt | null }
+export type QuizRun = { attempt: QuizAttempt; quiz: Pick<CourseQuiz, 'id' | 'title' | 'instructions' | 'time_limit_minutes'>; questions: QuizQuestion[] }
 export type DashboardSummary = Record<string, unknown> & { kind?: string }
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '')
@@ -42,5 +48,6 @@ export const mobileApi = {
     method: 'POST', body: JSON.stringify({ email, password, device_name: 'edTechLive mobile' }),
   }),
   get: <T>(path: string, token: string) => request<T>(path, token),
-  post: <T>(path: string, token: string) => request<T>(path, token, { method: 'POST' }),
+  post: <T>(path: string, token: string, data?: unknown) => request<T>(path, token, { method: 'POST', ...(data === undefined ? {} : { body: JSON.stringify(data) }) }),
+  patch: <T>(path: string, token: string, data: unknown) => request<T>(path, token, { method: 'PATCH', body: JSON.stringify(data) }),
 }

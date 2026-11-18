@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
-import { ApiError, mobileApi, type ApiUser, type Course, type DashboardSummary, type Lesson, type OrganizationMembership } from './src/api'
+import { ApiError, mobileApi, type ApiUser, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type Lesson, type OrganizationMembership, type QuizRun } from './src/api'
 
 const TOKEN_KEY = 'edtechlive.mobile.token'
 const ORGANIZATION_KEY = 'edtechlive.mobile.organization'
 const roleNames: Record<OrganizationMembership['role'], string> = {
   admin: 'Administrator', management: 'Management', teacher: 'Teacher', student: 'Student', parent: 'Parent / guardian', independent_educator: 'Independent educator',
 }
+type MobileNotice = { id: string; type: string; title: string; body: string; read_at: string | null; created_at: string | null }
 
 export default function App() {
   const [token, setToken] = useState('')
@@ -15,9 +16,15 @@ export default function App() {
   const [memberships, setMemberships] = useState<OrganizationMembership[]>([])
   const [active, setActive] = useState<OrganizationMembership | null>(null)
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
+  const [notices, setNotices] = useState<MobileNotice[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [lessons, setLessons] = useState<Lesson[]>([])
+  const [assignments, setAssignments] = useState<CourseAssignment[]>([])
+  const [quizzes, setQuizzes] = useState<CourseQuiz[]>([])
+  const [quizRun, setQuizRun] = useState<QuizRun | null>(null)
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({})
+  const [assignmentDrafts, setAssignmentDrafts] = useState<Record<number, string>>({})
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(true)
@@ -52,10 +59,12 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setCourses([]); setLessons([])
+    setSummary(null); setNotices([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null)
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
-      .then(result => { if (!cancelled) setSummary(result.data) })]
+      .then(result => { if (!cancelled) setSummary(result.data) }),
+    mobileApi.get<{ data: MobileNotice[] }>(`${base}/notifications?per_page=10`, token)
+      .then(result => { if (!cancelled) setNotices(result.data) })]
     if (active.role !== 'parent') {
       tasks.push(mobileApi.get<{ data: Course[] }>(`${base}/courses?per_page=100`, token)
         .then(result => { if (!cancelled) setCourses(result.data) }))
@@ -92,10 +101,56 @@ export default function App() {
     if (!active || !token) return
     setBusy(true); setError('')
     try {
-      const result = await mobileApi.get<{ data: Lesson[] }>(`/api/v1/organizations/${active.organization.id}/courses/${course.id}/lessons`, token)
-      setSelectedCourse(course); setLessons(result.data)
+      const base = `/api/v1/organizations/${active.organization.id}/courses/${course.id}`
+      const [lessonResult, assignmentResult, quizResult] = await Promise.all([
+        mobileApi.get<{ data: Lesson[] }>(`${base}/lessons`, token),
+        mobileApi.get<{ data: CourseAssignment[] }>(`${base}/assignments`, token),
+        mobileApi.get<{ data: CourseQuiz[] }>(`${base}/quizzes`, token),
+      ])
+      setSelectedCourse(course); setLessons(lessonResult.data); setAssignments(assignmentResult.data); setQuizzes(quizResult.data); setQuizRun(null)
+      setAssignmentDrafts(Object.fromEntries(assignmentResult.data.map(item => [item.id, item.submission?.answer ?? ''])))
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not open this course.') }
     finally { setBusy(false) }
+  }
+
+  async function submitAssignment(assignment: CourseAssignment) {
+    if (!active || !token) return
+    setBusy(true); setError('')
+    try {
+      const result = await mobileApi.post<{ data: CourseAssignment['submission'] }>(`/api/v1/organizations/${active.organization.id}/assignments/${assignment.id}/submissions`, token, { answer: assignmentDrafts[assignment.id] ?? '' })
+      setAssignments(items => items.map(item => item.id === assignment.id ? { ...item, submission: result.data } : item))
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not submit this assignment.') }
+    finally { setBusy(false) }
+  }
+
+  async function startQuiz(quiz: CourseQuiz) {
+    if (!active || !token) return
+    setBusy(true); setError('')
+    try {
+      const result = await mobileApi.post<{ data: QuizRun }>(`/api/v1/organizations/${active.organization.id}/quizzes/${quiz.id}/attempts`, token)
+      setQuizRun(result.data); setQuizAnswers({})
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not start this quiz.') }
+    finally { setBusy(false) }
+  }
+
+  async function submitQuiz() {
+    if (!active || !token || !quizRun) return
+    setBusy(true); setError('')
+    try {
+      const answers = Object.entries(quizAnswers).map(([questionId, selectedOption]) => ({ question_id: Number(questionId), selected_option: selectedOption }))
+      const result = await mobileApi.patch<{ data: QuizRun['attempt'] }>(`/api/v1/organizations/${active.organization.id}/quizzes/${quizRun.quiz.id}/attempts/${quizRun.attempt.id}`, token, { answers })
+      setQuizzes(items => items.map(item => item.id === quizRun.quiz.id ? { ...item, attempts_used: (item.attempts_used ?? 0) + 1, latest_result: result.data } : item))
+      setQuizRun(null)
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not submit this quiz.') }
+    finally { setBusy(false) }
+  }
+
+  async function markNoticeRead(notice: MobileNotice) {
+    if (!active || !token || notice.read_at) return
+    try {
+      await mobileApi.post(`/api/v1/organizations/${active.organization.id}/notifications/${notice.id}/read`, token)
+      setNotices(items => items.map(item => item.id === notice.id ? { ...item, read_at: new Date().toISOString() } : item))
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not update this notification.') }
   }
 
   async function signOut() {
@@ -114,16 +169,24 @@ export default function App() {
   return <View style={styles.screen}><StatusBar barStyle="dark-content" backgroundColor="#f4f7fc" />
     <View style={styles.topBar}><View style={{ flex: 1 }}><Text style={styles.brand}>edTechLive</Text><Text style={styles.orgName}>{active.organization.name}</Text></View><Pressable onPress={() => { setActive(null); setSelectedCourse(null) }} style={styles.topAction}><Text style={styles.topActionText}>Switch</Text></Pressable><Pressable onPress={() => void signOut()} style={styles.topAction}><Text style={styles.topActionText}>Sign out</Text></Pressable></View>
     <ScrollView contentContainerStyle={styles.content}>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
       {selectedCourse ? <>
         <Pressable onPress={() => setSelectedCourse(null)}><Text style={styles.backLink}>‹  All courses</Text></Pressable>
         <Text style={styles.pageTitle}>{selectedCourse.title}</Text><Text style={styles.subtitle}>{selectedCourse.subject?.name ?? 'Course'}{selectedCourse.teacher?.name ? ` · ${selectedCourse.teacher.name}` : ''}</Text>
+        {quizRun ? <View style={styles.activityCard}><Pressable onPress={() => setQuizRun(null)}><Text style={styles.backLink}>‹  Course content</Text></Pressable><Text style={styles.sectionTitle}>{quizRun.quiz.title}</Text>{quizRun.quiz.instructions ? <Text style={styles.courseMeta}>{quizRun.quiz.instructions}</Text> : null}{quizRun.questions.map((question, index) => <View key={question.id} style={styles.questionBlock}><Text style={styles.courseTitle}>{index + 1}. {question.prompt}</Text>{question.options.map((option, optionIndex) => <Pressable key={optionIndex} onPress={() => setQuizAnswers(current => ({ ...current, [question.id]: optionIndex }))} style={[styles.option, quizAnswers[question.id] === optionIndex && styles.optionSelected]}><Text style={styles.courseMeta}>{String.fromCharCode(65 + optionIndex)}. {option}</Text></Pressable>)}</View>)}<Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void submitQuiz()} disabled={busy}><Text style={styles.primaryButtonText}>{busy ? 'Submitting…' : 'Submit quiz'}</Text></Pressable></View> : <>
         <Text style={styles.sectionTitle}>Lessons</Text>
         {lessons.length ? lessons.filter(lesson => lesson.status === 'published').map((lesson, index) => <View style={styles.lessonCard} key={lesson.id}><Text style={styles.lessonNumber}>{String(index + 1).padStart(2, '0')}</Text><View style={{ flex: 1 }}><Text style={styles.courseTitle}>{lesson.title}</Text>{lesson.content ? <Text style={styles.courseMeta} numberOfLines={3}>{lesson.content}</Text> : null}{lesson.external_url ? <Pressable onPress={() => void Linking.openURL(lesson.external_url!)}><Text style={styles.link}>Open lesson resource</Text></Pressable> : null}</View></View>) : <Empty text="No published lessons are available in this course yet." />}
+        <Text style={styles.sectionTitle}>Assignments</Text>
+        {assignments.length ? assignments.map(item => <View style={styles.activityCard} key={item.id}><Text style={styles.courseTitle}>{item.title}</Text><Text style={styles.courseMeta}>{item.instructions || 'Written response'} · Up to {item.max_points} points{item.due_at ? ` · Due ${new Date(item.due_at).toLocaleDateString()}` : ''}</Text>{item.submission?.graded_at ? <Text style={styles.resultText}>Graded: {item.submission.awarded_points}/{item.max_points}{item.submission.feedback ? ` · ${item.submission.feedback}` : ''}</Text> : null}{active.role === 'student' ? <><TextInput multiline value={assignmentDrafts[item.id] ?? ''} onChangeText={value => setAssignmentDrafts(current => ({ ...current, [item.id]: value }))} placeholder="Write your response" style={styles.answerInput} editable={!busy && !item.submission?.graded_at} /><Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void submitAssignment(item)} disabled={busy || !assignmentDrafts[item.id]?.trim() || Boolean(item.submission?.graded_at)}><Text style={styles.primaryButtonText}>{item.submission ? 'Update submission' : 'Submit assignment'}</Text></Pressable></> : null}</View>) : <Empty text="No published assignments in this course." />}
+        <Text style={styles.sectionTitle}>Quizzes</Text>
+        {quizzes.length ? quizzes.map(quiz => <View style={styles.activityCard} key={quiz.id}><Text style={styles.courseTitle}>{quiz.title}</Text><Text style={styles.courseMeta}>{quiz.questions.length} questions · {quiz.time_limit_minutes ? `${quiz.time_limit_minutes} minutes` : 'No time limit'} · {quiz.attempts_used ?? 0}/{quiz.max_attempts} attempts</Text>{quiz.latest_result?.submitted_at ? <Text style={styles.resultText}>Latest result: {quiz.latest_result.score}/{quiz.latest_result.max_score}</Text> : null}{active.role === 'student' && (quiz.attempts_used ?? 0) < quiz.max_attempts ? <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void startQuiz(quiz)} disabled={busy}><Text style={styles.primaryButtonText}>Start quiz</Text></Pressable> : null}</View>) : <Empty text="No published quizzes in this course." />}
+        </>}
       </> : <>
         <Text style={styles.eyebrow}>YOUR LEARNING SPACE</Text><Text style={styles.pageTitle}>Welcome, {user.name.split(' ')[0]}</Text><Text style={styles.subtitle}>{roleNames[active.role]} · {active.organization.type.replaceAll('_', ' ')}</Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
         {summary ? <View style={styles.statGrid}>{summaryCards(summary, active.role).map(item => <View style={styles.statCard} key={item.label}><Text style={styles.statValue}>{item.value}</Text><Text style={styles.statLabel}>{item.label}</Text></View>)}</View> : null}
-        {active.role === 'parent' ? <View style={styles.infoCard}><Text style={styles.courseTitle}>Family updates</Text><Text style={styles.courseMeta}>Your linked-child details are available through the family workspace; the mobile summary is connected.</Text></View> : <>
+        <Text style={styles.sectionTitle}>Recent updates</Text>
+        {notices.length ? notices.map(notice => <Pressable key={notice.id} onPress={() => void markNoticeRead(notice)} style={[styles.noticeCard, !notice.read_at && styles.noticeUnread]}><Text style={styles.courseTitle}>{notice.title}</Text><Text style={styles.courseMeta}>{notice.body}</Text>{notice.created_at ? <Text style={styles.noticeDate}>{new Date(notice.created_at).toLocaleString()}</Text> : null}</Pressable>) : <Empty text="No recent updates." />}
+        {active.role === 'parent' ? <View style={styles.infoCard}><Text style={styles.courseTitle}>Family updates</Text><Text style={styles.courseMeta}>Updates above are restricted to your linked family workspace.</Text></View> : <>
           <Text style={styles.sectionTitle}>{active.role === 'student' ? 'My courses' : active.role === 'teacher' ? 'My courses' : 'Courses in this workspace'}</Text>
           {courses.length ? courses.map(course => <Pressable style={styles.courseCard} key={course.id} onPress={() => void openCourse(course)}><View style={styles.courseIcon}><Text style={styles.courseIconText}>{course.title.slice(0, 1).toUpperCase()}</Text></View><View style={{ flex: 1 }}><Text style={styles.courseTitle}>{course.title}</Text><Text style={styles.courseMeta}>{course.subject?.name ?? course.level ?? 'Learning course'}{course.teacher?.name ? ` · ${course.teacher.name}` : ''}</Text></View><Text style={styles.chevron}>›</Text></Pressable>) : <Empty text="No courses are available in this organization yet." />}
         </>}
@@ -222,8 +285,17 @@ const styles = StyleSheet.create({
   courseMeta: { color: '#8795a5', fontSize: 9, lineHeight: 15, marginTop: 4 },
   chevron: { color: '#99a7b4', fontSize: 23 },
   lessonCard: { padding: 12, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3', flexDirection: 'row', gap: 10, marginBottom: 8 },
+  activityCard: { gap: 9, padding: 13, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3', marginBottom: 9 },
+  questionBlock: { gap: 7, marginTop: 9 },
+  option: { padding: 11, borderRadius: 9, borderWidth: 1, borderColor: '#e2eaf2', backgroundColor: '#fff' },
+  optionSelected: { borderColor: '#3869c8', backgroundColor: '#edf3ff' },
+  answerInput: { minHeight: 100, padding: 12, borderRadius: 9, borderWidth: 1, borderColor: '#e2eaf2', textAlignVertical: 'top', color: '#2b4158' },
+  resultText: { color: '#3869c8', fontSize: 11, fontWeight: '700' },
   lessonNumber: { color: '#7e96bf', fontSize: 10, fontWeight: '800' },
   infoCard: { marginTop: 18, padding: 14, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
+  noticeCard: { padding: 12, marginBottom: 8, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
+  noticeUnread: { borderLeftColor: '#3869c8', borderLeftWidth: 3 },
+  noticeDate: { color: '#9aa7b5', fontSize: 8, marginTop: 6 },
   empty: { padding: 15, marginTop: 8, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
   backLink: { color: '#446eb7', fontSize: 11, fontWeight: '700', marginTop: 7 },
   link: { color: '#3c6fc2', fontWeight: '700', fontSize: 10, marginTop: 9 },

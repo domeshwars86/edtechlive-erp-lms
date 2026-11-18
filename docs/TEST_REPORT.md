@@ -8,6 +8,7 @@
 - Mobile `npm run typecheck` passed on Node 20.19.4. `npx expo install --check` found dependencies aligned with the local SDK 56 compatibility map; Expo noted network access was disabled, so remote validation was unavailable.
 - `npx expo export --platform android --no-bytecode --no-minify` passed and emitted the Android JavaScript bundle (564 modules, 2.4 MB). Bytecode was disabled for this sandbox export because the Hermes temp output path was inaccessible; this is a bundle check, not a signed/native APK build.
 - Native Android/iOS builds and device flows are not verified because Android SDK/emulator and Xcode toolchains are unavailable here. npm audit could not contact the registry (DNS unavailable).
+- Follow-up mobile LMS milestone: mobile TypeScript check and Android JavaScript export passed after wiring student written submissions, server-scored timed quiz attempts/result history, and scoped in-app notification read receipts. Native/device verification remains open.
 
 ## Contact enquiry inbox milestone (18 November 2026)
 
