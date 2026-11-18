@@ -21,21 +21,29 @@ An education ERP and learning platform for institutions, independent educators, 
 
 ## Run locally
 
-Requirements: Node.js 20+, npm, PHP 8.3+, Composer 2.x, and the PHP extensions in `apps/api/composer.json`.
+Requirements: Node.js 20.19.4+ (or 22.13.0+), npm, PHP 8.3+, Composer 2.x, and the PHP extensions in `apps/api/composer.json`.
 
-```sh
-npm install
+The account screens need both the Laravel API and the Vite frontend running. On a fresh checkout, prepare the API first in PowerShell:
+
+```powershell
+cd apps/api
+composer install
+Copy-Item .env.example .env
 ```
 
-Configure `apps/api/.env` for a local SQLite database, migrate it, and run Laravel on port 8001. Start the web app on port 4173 in another terminal:
+Edit `apps/api/.env` for local development: set `DB_CONNECTION=sqlite`, `DB_DATABASE=database/local-dev.sqlite`, `SESSION_DRIVER=file`, `CACHE_STORE=file`, and `QUEUE_CONNECTION=sync`. Then create the local database, generate its app key and run migrations:
 
-```sh
-cd apps/api
+```powershell
+New-Item -ItemType File database/local-dev.sqlite -Force
+php artisan key:generate
 php artisan migrate
 php artisan serve --host=127.0.0.1 --port=8001
 ```
 
-```sh
+In a second terminal, from the repository root, install and start the web frontend:
+
+```powershell
+npm install
 npm run dev -- --host 127.0.0.1 --port 4173
 ```
 

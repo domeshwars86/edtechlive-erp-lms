@@ -34,6 +34,8 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - API and web setup/auth configuration is documented in `.env.example` files and `apps/api/README.md`.
 - Multi-organization users can reopen the verified membership chooser from the dashboard workspace control. Selection changes the active role/workspace in the current frontend session; a persistent active-organization preference is not implemented.
 - The Expo SDK 56 mobile app in `apps/mobile` uses the shared Sanctum API, Expo SecureStore token persistence, membership selection, role-scoped summaries, published lesson reading, student/parent profile and attendance reads, family-scoped fee records, student assignment submissions, scoped teacher grading, timed quizzes/results, notification read receipts, teacher attendance registers scoped to assigned sections, and role-scoped meeting details/join links. Android and iOS native toolchains/device builds are not available in this workspace.
+- The mobile dependency tree now overrides vulnerable Expo transitive copies with patched `glob@14.0.2`, `minimatch@11.0.1`, and Expo CLI-scoped `zod@4.6.6`; a registry-backed `npm audit --omit=dev` reports zero vulnerabilities. Expo Android bundle export and TypeScript verification passed with Node 20.19.4.
+- Web account connection errors now tell local developers to start the Laravel API on port 8001. Root setup documentation spells out running both servers and configuring a local SQLite database.
 
 ## Current limitations
 
@@ -46,8 +48,8 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - Super-admin overview counts/activity and several broader exam/result workflows remain sample data. Admin, management, independent educator, teacher, student, and parent top-line metrics and role-scoped upcoming meeting panels are live; the learning activity chart remains illustrative; role-scoped timetable entries and private family notifications feed the lower dashboard panel. LMS covers course/lesson authoring and publication, manual enrollment, text assignments, student submissions, grading, feedback, timed MCQ quizzes, per-quiz result history, private downloads, and course-scoped learner progress. Modules, malware scanning, durable production file storage and broader examinations are not implemented.
 - Student and guardian links can be established through accepted invitations or managed directly by authorized organization staff; student roster reconciliation, consent/retention workflows, persistent organization switching API, granular policies, audit trail, MFA, and remaining academic entities remain future work.
 - Sitemap host must be replaced with the eventual production domain; legal drafts need review.
-- Mobile source is verified through TypeScript and Android JavaScript bundle export; device/emulator verification, meetings, profiles, and release signing remain outstanding. Expo dependency audit could not reach the npm registry in this environment.
-- npm audit has nine high severity findings through `picomatch@4.0.7`; do not apply its incompatible Vite 6.2.7 downgrade without an upstream-compatible fix.
+- Mobile source is verified through TypeScript and Android JavaScript bundle export; device/emulator verification and release signing remain outstanding. The latest registry-backed mobile production audit reports zero vulnerabilities.
+- Latest root `npm audit` reports zero vulnerabilities across 168 installed dependencies. Continue periodic audits after dependency updates.
 
 ## Verification
 
@@ -63,6 +65,8 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - Local HTTP smoke check — admin workspace page and Vite-proxied Laravel health endpoint both returned 200.
 - `vendor/bin/pint --test` — passed after correcting import order. No PostgreSQL migration or deployment has been performed.
 - Latest guardian-link milestone verification: **65 PHPUnit tests / 443 assertions**, frontend typecheck/lint/build, and Pint passed; local SQLite schema required no change.
+- Mobile dependency remediation: scoped Expo CLI Zod 4 override and patched glob/minimatch overrides; Node 20.19.4 TypeScript check and Android export passed (564 modules), `npm audit --omit=dev` passed with zero vulnerabilities. Root `npm audit` also passed with zero vulnerabilities.
+- After the local account setup and API error guidance edits, root typecheck, ESLint and production build passed (14 prerendered public routes); backend suite passed (**76 tests / 493 assertions**) and Pint passed. Expo dependency compatibility check passed using its bundled offline SDK map.
 
 ## Next
 
@@ -70,6 +74,6 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 2. Continue LMS workflows with modular course organization, broader examinations, and assignment result history; extend academic reporting to enrollment, timetable/workload, and finance.
 3. Expand reports to enrollment, timetable/workload and finance metrics.
 4. Build the staff enquiry review/response workflow and define enquiry retention; configure real email delivery before promising a response.
-5. Reassess npm audit advisories when compatible upstream dependency releases are available.
+5. Keep npm audit in the regular dependency maintenance cycle and review future override compatibility against the Expo SDK.
 6. Extend mobile teacher grading, meeting and profile workflows, then verify on Android/iOS toolchains.
 7. Add payment sandbox/gateway only after provider selection and finance workflow requirements are approved; connect meeting/email/push integrations after provider credentials and consent requirements are established.

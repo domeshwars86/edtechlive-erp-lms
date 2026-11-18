@@ -1,4 +1,7 @@
 const apiBaseUrl = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+const unavailableMessage = import.meta.env.DEV
+  ? 'The local account API is unavailable. Start Laravel on port 8001 (see the local setup steps in README.md), then try again.'
+  : 'The account service could not be reached. Check your connection and try again.'
 
 type ApiErrorBody = {
   message?: string
@@ -51,7 +54,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     })
   } catch (reason) {
     if (reason instanceof ApiError) throw reason
-    throw new ApiError('The account service could not be reached. Check your connection and try again.', 0)
+    throw new ApiError(unavailableMessage, 0)
   }
 
   const body = await response.json().catch(() => ({})) as ApiErrorBody & T

@@ -169,7 +169,16 @@
 
 Browser preview checks from 18 November 2026 previously reviewed public routes, course filtering and all seven dashboard preview roles across representative viewport widths. This milestone's browser check focused on the new account forms and was not a full responsive regression pass.
 
-`npm audit` identified nine high findings in the Vite/TypeScript-ESLint dependency tree via `picomatch@4.0.7`. The registry reported 4.0.7 as the latest picomatch release and recommended an incompatible Vite 6.2.7 downgrade; that downgrade was not applied. Recheck when compatible upstream fixes are available.
+An earlier audit identified nine high findings through `picomatch@4.0.7`; the incompatible Vite downgrade it suggested was not applied. The latest registry-backed root audit on 18 November 2026 reports zero vulnerabilities.
+
+## Dependency security and local account setup (18 November 2026)
+
+- Patched the Expo SDK 56 transitive CLI dependencies with narrowly scoped npm overrides: `glob@14.0.2`, `minimatch@11.0.1`, and CLI-only `zod@4.6.6`.
+- With Node 20.19.4, mobile TypeScript verification passed and Expo exported the Android JavaScript bundle (564 modules). Registry-backed mobile `npm audit --omit=dev` and root `npm audit` each reported **zero vulnerabilities**.
+- Added a Node engine range to the mobile package to match the React Native/Metro requirement and expanded fresh-checkout setup steps for both local servers and SQLite.
+- In development, web account network failures now point to the Laravel API on port 8001; production retains a general service-unavailable message.
+- Root typecheck, lint and production build passed (14 prerendered public routes); API regression suite passed (**76 tests / 493 assertions**) and Pint passed. Expo SDK dependency check passed using the bundled dependency map; online Expo version validation was unavailable.
+- Browser account creation remains unverified here: the isolated shell server was not reachable from Windows Chrome, so no live sign-up or verification mail was submitted.
 
 ## Student course progress milestone (18 November 2026)
 
