@@ -43,6 +43,10 @@ Open [http://127.0.0.1:4173](http://127.0.0.1:4173). Vite proxies `/api` and `/s
 
 The root `.env.example` configures Vite to proxy `/api` and `/sanctum` to Laravel. The API's `.env.example` documents `FRONTEND_URL`, CORS origins and Sanctum stateful domains.
 
+## Mobile app
+
+The Expo client setup and role/workflow coverage are documented in [`apps/mobile/README.md`](apps/mobile/README.md). For Android emulator development, point `EXPO_PUBLIC_API_URL` at `http://10.0.2.2:8001`; physical devices need the development computer's LAN address and an API server bound to its network interface. Native Android/iOS builds still require the respective platform toolchains.
+
 ## Checks
 
 ```sh
