@@ -8,6 +8,7 @@ use App\Models\FeeRecord;
 use App\Models\Student;
 use App\Models\StudentGuardian;
 use App\Services\OrganizationAccess;
+use App\Services\OrganizationNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,7 @@ use Illuminate\Validation\ValidationException;
 
 class FeeRecordController
 {
-    public function __construct(private readonly OrganizationAccess $access) {}
+    public function __construct(private readonly OrganizationAccess $access, private readonly OrganizationNotifier $notifier) {}
 
     public function index(Request $request, int $organization): JsonResponse
     {
@@ -74,6 +75,7 @@ class FeeRecordController
             'status' => 'unpaid',
             'created_by' => $request->user()->id,
         ]);
+        $this->notifier->feeIssued($record, $request->user()->id);
 
         return response()->json(['data' => $this->feeData($record->load(['student:id,name,admission_number', 'payments']))], 201);
     }
@@ -112,6 +114,7 @@ class FeeRecordController
 
             return $record->refresh()->load(['student:id,name,admission_number', 'payments']);
         });
+        $this->notifier->feePaymentRecorded($record, $request->user()->id, number_format((int) round((float) $data['amount'] * 100) / 100, 2, '.', ''));
 
         return response()->json(['data' => $this->feeData($record)]);
     }

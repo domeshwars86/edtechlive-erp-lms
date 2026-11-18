@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\FamilyController;
 use App\Http\Controllers\Api\V1\FeeRecordController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\MeetingController;
+use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\OrganizationInvitationController;
 use App\Http\Controllers\Api\V1\PeopleController;
@@ -103,6 +104,8 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/meetings', [MeetingController::class, 'index']);
                 Route::post('/meetings', [MeetingController::class, 'store'])->middleware('throttle:30,1');
                 Route::patch('/meetings/{meeting}', [MeetingController::class, 'update'])->whereNumber('meeting');
+                Route::get('/notifications', [NotificationController::class, 'index']);
+                Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
                 Route::get('/courses', [CourseController::class, 'index']);
                 Route::post('/courses', [CourseController::class, 'store']);
                 Route::patch('/courses/{record}', [CourseController::class, 'update'])->whereNumber('record');

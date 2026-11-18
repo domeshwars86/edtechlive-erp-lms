@@ -12,6 +12,7 @@ use App\Models\StudentGuardian;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;
 use App\Services\OrganizationAccess;
+use App\Services\OrganizationNotifier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,7 @@ use Illuminate\Validation\ValidationException;
 
 class MeetingController
 {
-    public function __construct(private readonly OrganizationAccess $access) {}
+    public function __construct(private readonly OrganizationAccess $access, private readonly OrganizationNotifier $notifier) {}
 
     public function index(Request $request, int $organization): JsonResponse
     {
@@ -150,6 +151,7 @@ class MeetingController
                 'status' => 'scheduled',
             ]);
         });
+        $this->notifier->meetingScheduled($meeting, $request->user()->id);
 
         return response()->json(['data' => $this->meetingData($meeting->load(['section.academicClass:id,name', 'course:id,title', 'creator:id,name']))], 201);
     }

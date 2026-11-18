@@ -4,7 +4,7 @@
 
 ## Current milestone
 
-Phase 7 — free-first integrations. The public website and seven role dashboard layouts are in place. Registration, login, verification, recovery, organization membership/invitations, academic masters, rosters, assignments, attendance, timetable, student/guardian access, attendance reports, LMS course/material/assessment/progress, manual meetings, contact intake, and manual fee records use Laravel APIs. Teacher attendance/courses/meetings and student/parent data are profile/link scoped. Provider room creation, broader exams and overview metrics remain unfinished; the fee ledger is not a payment gateway. PostgreSQL and production email delivery remain unverified.
+Phase 7 — free-first integrations. The public website and seven role dashboard layouts are in place. Registration, login, verification, recovery, organization membership/invitations, academic masters, rosters, assignments, attendance, timetable, student/guardian access, attendance reports, LMS course/material/assessment/progress, manual meetings, contact intake, manual fee records, and scoped in-app notifications use Laravel APIs. Teacher attendance/courses/meetings and student/parent data are profile/link scoped. Provider room creation, broader exams, academic reports and overview metrics remain unfinished; the fee ledger is not a payment gateway. PostgreSQL and production email delivery remain unverified.
 
 ## Implemented
 
@@ -27,6 +27,7 @@ Phase 7 — free-first integrations. The public website and seven role dashboard
 - Public contact enquiries are rate-limited, consent-checked, honeypot-filtered, persisted, and optionally sent to a configured inbox; the form reports whether email notification was actually sent.
 - Admins, management, and independent educators can create tenant-scoped INR fee receivables and record partial/final receipts already received. Students and linked parents can read their own fees; balances cannot be overpaid. No external payment is initiated.
 - Admins/management can schedule class and management meetings using manual HTTPS links; teachers can schedule assigned class meetings, while students and linked parents see only their enrolled/linked classes. Overlap checks and cancellation are persistent; provider room creation is not connected.
+- The dashboard notification bell lists and marks recipient-owned notifications within the active organization. Fee issuance/receipt and meeting scheduling create notices for relevant students, linked guardians, assigned teachers or managers. Email/push delivery, announcements, notification preferences and retention policies remain open.
 - API and web setup/auth configuration is documented in `.env.example` files and `apps/api/README.md`.
 
 ## Current limitations
@@ -35,7 +36,8 @@ Phase 7 — free-first integrations. The public website and seven role dashboard
 - Email delivery must be configured for verification, reset, and organization invitation links; local development logs messages.
 - Contact enquiries are stored through a public throttled API after explicit consent and can notify a configured recipient. Staff review UI and retention cleanup remain open.
 - Fee records are manual ledger entries only. Payment gateway integration, refund handling, idempotency, reconciliation reporting, and a dedicated finance role remain open.
-- Live/management meetings use links created with an external provider. Automated Meet room provisioning, attendance sync, notifications, participant invites and recording workflow remain open.
+- Live/management meetings use links created with an external provider. Automated Meet room provisioning, attendance sync, participant invites and recording workflow remain open.
+- In-app notifications cover fee and meeting events only; email/push delivery, broader event coverage, announcements, preferences and retention cleanup are not implemented.
 - Dashboard overview counts/activity and broader exam/result workflows remain sample data. LMS covers course/lesson authoring and publication, manual enrollment, text assignments, student submissions, grading, feedback, timed MCQ quizzes, per-quiz result history, private downloads, and course-scoped learner progress. Modules, organization-wide learning reports, malware scanning, durable production file storage and broader examinations are not implemented.
 - Student account and guardian links are currently established through invitations only; direct guardian management, changing or removing links, student roster reconciliation, and consent/retention workflows remain future work. Organization switching API, granular policies, audit trail, MFA, and remaining academic entities also remain future work.
 - Sitemap host must be replaced with the eventual production domain; legal drafts need review.
@@ -61,4 +63,4 @@ Phase 7 — free-first integrations. The public website and seven role dashboard
 4. Build the staff enquiry review/response workflow and define enquiry retention; configure real email delivery before promising a response.
 5. Reassess npm audit advisories when compatible upstream dependency releases are available.
 6. Add payment sandbox/gateway only after provider selection and finance workflow requirements are approved.
-7. Connect a supported meeting provider and notifications after service credentials and consent requirements are configured.
+7. Connect a supported meeting provider, and configure email/push channels after provider credentials and consent requirements are established.
