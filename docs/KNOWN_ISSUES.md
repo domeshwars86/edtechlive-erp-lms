@@ -10,6 +10,8 @@
 - [ ] Privacy/terms/cookie/acceptable-use/refund copy is draft material pending legal review.
 - [ ] Organization invitations/switching endpoints and detailed role/resource policies are not implemented.
 - [ ] PostgreSQL migrations are written but unexecuted; database service status was not accessible through the local service inventory.
-- [ ] Academic ERP, LMS, mobile apps, integrations and deployment are not implemented.
+- [ ] Academic ERP is partial: sessions, classes, sections, and subjects are implemented, while people, attendance, schedules, and reports are not.
+- [ ] LMS, mobile apps, integrations and deployment are not implemented.
+- [ ] The local development mailer logs messages instead of delivering them; configure SMTP or another approved transport for verification and reset links.
 - [ ] npm audit still reports nine high severity findings through `picomatch@4.0.7`, used by Vite and TypeScript-ESLint. Registry metadata reports 4.0.7 as the latest picomatch release and suggests a Vite 6.2.7 downgrade; that incompatible downgrade was not applied. Recheck when upstream publishes a patched dependency or compatible fix.
 - [ ] External Google Fonts import can fail offline; local font hosting is a possible production improvement.

@@ -2,7 +2,7 @@
 
 **Learn. Teach. Manage. Grow.**
 
-An education ERP and learning platform for institutions, independent educators, students and families. This repository contains the public website, role-based dashboard previews and an initial Laravel API/tenancy foundation with connected account flows.
+An education ERP and learning platform for institutions, independent educators, students and families. This repository contains the public website, role-based dashboards, a Laravel API foundation, connected account flows, and the first persistent academic setup workflows.
 
 ## Current status
 
@@ -14,7 +14,8 @@ An education ERP and learning platform for institutions, independent educators, 
 - Example course listings and prices are not real offers. Paid plans are disabled.
 - Public routes are statically pre-rendered with route-specific title and description metadata at build time.
 - Dashboard pages show the connected account and selected organization when signed in, while all activity, schedule and record data remains clearly labelled illustrative content. Unauthenticated role previews remain available for demonstration.
-- Laravel 13 API foundation lives in `apps/api`: Sanctum auth/recovery endpoints, versioned current-user and membership-scoped organization endpoints, organization and membership migrations, and feature tests. PostgreSQL migrations have not been run.
+- Admins can create and archive academic sessions, classes, sections, and subjects for their selected organization; these records are persisted through tenant-scoped API routes.
+- Laravel 13 API lives in `apps/api`: Sanctum auth/recovery endpoints, organization/membership APIs, and the first tenant-scoped academic master APIs. Local development uses an ignored SQLite database; PostgreSQL migrations have not been validated.
 
 ## Run locally
 
@@ -25,9 +26,9 @@ npm install
 npm run dev
 ```
 
-Backend setup is documented in [apps/api/README.md](apps/api/README.md). Configure a local PostgreSQL database before running its migrations.
+Backend setup is documented in [apps/api/README.md](apps/api/README.md). For local development, point `VITE_API_PROXY_TARGET` at the Laravel port; production must use PostgreSQL and a configured mail provider.
 
-The root `.env.example` sets `VITE_API_URL` for the local Laravel service. The API's `.env.example` documents the corresponding `FRONTEND_URL`, CORS origins and Sanctum stateful domains.
+The root `.env.example` configures Vite to proxy `/api` and `/sanctum` to Laravel. The API's `.env.example` documents `FRONTEND_URL`, CORS origins and Sanctum stateful domains.
 
 ## Checks
 

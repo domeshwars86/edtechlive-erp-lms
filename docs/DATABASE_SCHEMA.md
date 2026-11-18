@@ -1,6 +1,6 @@
 # Database Schema Direction
 
-**Status:** Initial organization and membership tables/models/migrations implemented. No database migrations have been applied; remaining academic/LMS entities are conceptual.
+**Status:** Identity, organization, membership, academic session, class, section, and subject tables/models/migrations are implemented. Local development migrations are applied to SQLite; PostgreSQL deployment validation remains pending.
 
 ## Core entities
 
@@ -18,7 +18,7 @@
 - `fee_categories`, `invoices`, `payments`, `payment_webhook_events`: finance records and idempotent provider events.
 - `ai_usage_records`, provider configuration references: usage/cost tracking; secrets live outside database/application source.
 
-The first schema uses `organizations` and `organization_memberships`, indexed by organization/user/status with a unique organization/user membership. Role, organization type and membership status use PHP backed enums. The PostgreSQL migrations remain unexecuted pending a confirmed local database.
+The implemented schema uses `organizations` and `organization_memberships`, indexed by organization/user/status with a unique organization/user membership. `academic_sessions`, `academic_classes`, `academic_sections`, and `subjects` carry organization ownership and per-organization uniqueness constraints. Local SQLite migrations pass; PostgreSQL-specific migration and constraint behavior still needs validation. Role, organization type and membership status use PHP backed enums.
 
 ## Modeling rules
 

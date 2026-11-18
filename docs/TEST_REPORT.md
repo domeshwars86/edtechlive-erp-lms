@@ -12,11 +12,20 @@
 
 ## Backend/API checks
 
-- `php artisan test` — **11 passed, 51 assertions**, using PHPUnit's in-memory SQLite configuration.
+- Baseline API test suite before the academic master milestone — **11 passed, 51 assertions**, using PHPUnit's in-memory SQLite configuration.
 - Coverage includes registration and duplicate handling, signed verification, unverified login denial, bearer token issuance/logout, first-party session login/logout, password reset, membership-scoped organization access and current-user data.
-- `vendor/bin/pint --test` — passed.
+- `vendor/bin/pint --test` — passed on the baseline API milestone.
 - `php artisan route:list --path=api/v1` — 11 versioned routes registered.
 - PostgreSQL migrations have not been run; no safe local PostgreSQL target has been confirmed.
+
+## Academic master milestone (18 November 2026)
+
+- Full PHPUnit regression suite — **15 passed / 71 assertions** using in-memory SQLite. Coverage includes academic session/class/section/subject access, current-session switching, cross-tenant denial, and write-role denial along with the existing authentication and organization tests.
+- PHP syntax checks passed for application, migration, route, and test files.
+- `php artisan migrate --force` applied the academic master migration to the ignored local SQLite development database; `php artisan route:list --path=api/v1/organizations` shows 14 routes.
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed after connecting the admin master-entry screen; the build prerendered 14 routes.
+- In this sandbox `is_readable('vendor/autoload.php')` returns false despite successful direct PHP inclusion, so PHPUnit was run with Composer autoload preloaded, without XML bootstrap, and with explicit in-memory SQLite settings. No local development account data was used in tests.
+- `vendor/bin/pint --test` — passed after correcting import order; write mode was unnecessary.
 
 ## Existing QA and known dependency issue
 

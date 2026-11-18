@@ -1,6 +1,6 @@
 # API Specification (Proposed)
 
-**Status:** Health, authentication, password recovery, email verification, current-user, and organization-read routes are implemented. The other routes below remain proposals.
+**Status:** Health, authentication, password recovery, email verification, current-user, organization reads, and the first academic-master routes are implemented. Other routes below remain proposals.
 
 Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return consistent validation and authorization errors; lists are paginated. Organization context is explicit in authorized routes and verified against the authenticated user's active membership. Never trust a client-provided organization ID without policy enforcement.
 
@@ -35,6 +35,14 @@ Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return co
 | `GET /api/v1/me` | Sanctum authenticated | Returns current user's ID, name, email and verification timestamp; omits credentials. |
 | `GET /api/v1/organizations` | Sanctum authenticated and verified | Returns paginated active organization memberships for the current user only, including role and basic organization details. `per_page` is bounded to 1–100. |
 | `GET /api/v1/organizations/{organization}` | Sanctum authenticated and verified | Returns organization details only to an active member; other users receive 404. |
+| `GET/POST /api/v1/organizations/{organization}/academic-sessions` | Verified active organization member; writes by admin, management, or independent educator | Lists or creates tenant-scoped sessions. Dates must be ordered; session names are unique per organization; current-session switching is transactional. |
+| `PATCH /api/v1/organizations/{organization}/academic-sessions/{record}` | Same as above | Updates a tenant-scoped session; inactive sessions cannot be current. |
+| `GET/POST /api/v1/organizations/{organization}/classes` | Verified active organization member; writes by admin, management, or independent educator | Lists or creates organization classes with optional unique code and sort order. |
+| `PATCH /api/v1/organizations/{organization}/classes/{record}` | Same as above | Updates name, code, sort order, or active state. |
+| `GET/POST /api/v1/organizations/{organization}/classes/{class}/sections` | Verified active organization member; writes by admin, management, or independent educator | Lists or creates class sections; an academic session reference must belong to the same organization. |
+| `PATCH /api/v1/organizations/{organization}/sections/{record}` | Same as above | Updates section name, session, capacity, or active state. |
+| `GET/POST /api/v1/organizations/{organization}/subjects` | Verified active organization member; writes by admin, management, or independent educator | Lists or creates subjects with optional unique code and description. |
+| `PATCH /api/v1/organizations/{organization}/subjects/{record}` | Same as above | Updates subject details or active state. |
 
 Browser clients use Sanctum's stateful session flow with `/sanctum/csrf-cookie`; configure `SANCTUM_STATEFUL_DOMAINS`, `CORS_ALLOWED_ORIGINS`, and `FRONTEND_URL` for each environment. Native clients request a token by including `device_name` on login. Email delivery must be configured for verification and reset links to reach users.
 

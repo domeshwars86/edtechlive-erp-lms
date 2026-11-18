@@ -1,4 +1,4 @@
-const apiBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
+const apiBaseUrl = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 
 type ApiErrorBody = {
   message?: string
@@ -67,6 +67,10 @@ export const api = {
   post: <T>(path: string, data?: unknown) => request<T>(path, {
     method: 'POST',
     body: data === undefined ? undefined : JSON.stringify(data),
+  }),
+  patch: <T>(path: string, data: unknown) => request<T>(path, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
   }),
 }
 

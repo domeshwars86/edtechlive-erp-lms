@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AcademicMasterController;
 use App\Http\Controllers\Api\V1\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Api\V1\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Api\V1\Auth\NewPasswordController;
@@ -40,6 +41,21 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/organizations', [OrganizationController::class, 'index'])->name('api.v1.organizations.index');
             Route::get('/organizations/{organization}', [OrganizationController::class, 'show'])
                 ->whereNumber('organization')->name('api.v1.organizations.show');
+
+            Route::prefix('/organizations/{organization}')->whereNumber('organization')->group(function (): void {
+                Route::get('/academic-sessions', [AcademicMasterController::class, 'sessions']);
+                Route::post('/academic-sessions', [AcademicMasterController::class, 'storeSession']);
+                Route::patch('/academic-sessions/{record}', [AcademicMasterController::class, 'updateSession'])->whereNumber('record');
+                Route::get('/classes', [AcademicMasterController::class, 'classes']);
+                Route::post('/classes', [AcademicMasterController::class, 'storeClass']);
+                Route::patch('/classes/{record}', [AcademicMasterController::class, 'updateClass'])->whereNumber('record');
+                Route::get('/classes/{class}/sections', [AcademicMasterController::class, 'sections'])->whereNumber('class');
+                Route::post('/classes/{class}/sections', [AcademicMasterController::class, 'storeSection'])->whereNumber('class');
+                Route::patch('/sections/{record}', [AcademicMasterController::class, 'updateSection'])->whereNumber('record');
+                Route::get('/subjects', [AcademicMasterController::class, 'subjects']);
+                Route::post('/subjects', [AcademicMasterController::class, 'storeSubject']);
+                Route::patch('/subjects/{record}', [AcademicMasterController::class, 'updateSubject'])->whereNumber('record');
+            });
         });
     });
 });

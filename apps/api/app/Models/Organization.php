@@ -37,4 +37,24 @@ class Organization extends Model
             ->withPivot(['role', 'status', 'invited_by', 'accepted_at', 'expires_at'])
             ->withTimestamps();
     }
+
+    public function academicSessions(): HasMany
+    {
+        return $this->hasMany(AcademicSession::class);
+    }
+
+    public function academicClasses(): HasMany
+    {
+        return $this->hasMany(AcademicClass::class);
+    }
+
+    public function academicSections(): HasMany
+    {
+        return $this->hasMany(AcademicSection::class);
+    }
+
+    public function subjects(): HasMany
+    {
+        return $this->hasMany(Subject::class);
+    }
 }
