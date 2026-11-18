@@ -40,4 +40,32 @@ class OrganizationController
             ],
         ]);
     }
+
+    public function show(Request $request, int $organization): JsonResponse
+    {
+        $membership = $request->user()->memberships()
+            ->with('organization:id,name,slug,type,status,timezone')
+            ->where('status', MembershipStatus::Active->value)
+            ->whereHas('organization', fn ($query) => $query
+                ->whereKey($organization)
+                ->where('status', 'active'))
+            ->first();
+
+        abort_unless($membership !== null, 404);
+
+        return response()->json([
+            'data' => [
+                'membership_id' => $membership->id,
+                'role' => $membership->role->value,
+                'organization' => [
+                    'id' => $membership->organization->id,
+                    'name' => $membership->organization->name,
+                    'slug' => $membership->organization->slug,
+                    'type' => $membership->organization->type->value,
+                    'status' => $membership->organization->status,
+                    'timezone' => $membership->organization->timezone,
+                ],
+            ],
+        ]);
+    }
 }
