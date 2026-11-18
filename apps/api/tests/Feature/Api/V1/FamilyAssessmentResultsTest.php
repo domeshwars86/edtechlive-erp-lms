@@ -53,6 +53,7 @@ class FamilyAssessmentResultsTest extends TestCase
         Sanctum::actingAs($child->user);
         $this->getJson("/api/v1/organizations/{$organization->id}/my/student/results")->assertOk()->assertJsonPath('data.quizzes', [])->assertJsonPath('data.assignments', []);
         $this->getJson("/api/v1/organizations/{$organization->id}/my/student/progress")->assertOk()->assertJsonPath('data', []);
+        $this->getJson("/api/v1/organizations/{$organization->id}/my/student/homework")->assertOk()->assertJsonPath('data', []);
         $this->getJson("/api/v1/organizations/{$organization->id}/my/children/{$child->id}/results")->assertForbidden();
     }
 
@@ -76,6 +77,25 @@ class FamilyAssessmentResultsTest extends TestCase
             ->assertJsonPath('data.0.completed_lessons', 1)->assertJsonPath('data.0.completion_percent', 50)
             ->assertJsonPath('summary.completion_percent', 50);
         $this->getJson("/api/v1/organizations/{$organization->id}/my/children/{$unlinked->id}/progress")->assertNotFound();
+    }
+
+    public function test_parent_sees_linked_child_assignment_status_without_submission_text(): void
+    {
+        [$parent, $organization, $child, $unlinked] = $this->family();
+        $course = Course::query()->create(['organization_id' => $organization->id, 'created_by' => $parent->id, 'title' => 'Biology', 'status' => 'published']);
+        CourseEnrollment::query()->create(['organization_id' => $organization->id, 'course_id' => $course->id, 'student_id' => $child->id, 'enrolled_by' => $parent->id, 'status' => 'active']);
+        $pending = CourseAssignment::query()->create(['organization_id' => $organization->id, 'course_id' => $course->id, 'created_by' => $parent->id, 'title' => 'Upcoming report', 'max_points' => 10, 'due_at' => now()->addDays(2), 'status' => 'published']);
+        $graded = CourseAssignment::query()->create(['organization_id' => $organization->id, 'course_id' => $course->id, 'created_by' => $parent->id, 'title' => 'Cell diagram', 'max_points' => 20, 'due_at' => now()->subDay(), 'status' => 'published']);
+        AssignmentSubmission::query()->create(['organization_id' => $organization->id, 'assignment_id' => $graded->id, 'student_id' => $child->id, 'answer' => 'Private answer text', 'submitted_at' => now()->subDay(), 'awarded_points' => 18, 'feedback' => 'Well labelled', 'graded_by' => $parent->id, 'graded_at' => now()]);
+
+        Sanctum::actingAs($parent);
+        $this->getJson("/api/v1/organizations/{$organization->id}/my/children/{$child->id}/homework")
+            ->assertOk()->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $graded->id)->assertJsonPath('data.0.status', 'graded')
+            ->assertJsonPath('data.0.feedback', 'Well labelled')
+            ->assertJsonPath('data.1.id', $pending->id)->assertJsonPath('data.1.status', 'pending')
+            ->assertJsonMissing(['Private answer text']);
+        $this->getJson("/api/v1/organizations/{$organization->id}/my/children/{$unlinked->id}/homework")->assertNotFound();
     }
 
     private function family(): array

@@ -7,6 +7,7 @@ type AttendanceEntry = { id: number; date: string; status: 'present' | 'absent' 
 type ListResult<T> = { data: T[]; meta?: { current_page: number; last_page: number; total: number } }
 type Results = { quizzes: { id: number; title: string; course: string; score: string | null; max_score: string | null; attempt_number: number; completed_at: string | null }[]; assignments: { id: number; title: string; course: string; score: string | null; max_score: string | null; feedback: string | null; completed_at: string | null }[] }
 type Progress = { data: { course_id: number; title: string; lessons: number; completed_lessons: number; completion_percent: number }[]; summary: { courses: number; lessons: number; completed_lessons: number; completion_percent: number } }
+type HomeworkEntry = { id: number; title: string; course: string; due_at: string | null; max_points: string; submitted_at: string | null; score: string | null; feedback: string | null; status: 'pending' | 'overdue' | 'submitted' | 'graded' }
 
 export default function FamilyWorkspace({ organizationId, role, active }: { organizationId: number; role: 'student' | 'parent'; active: string }) {
   const base = `/api/v1/organizations/${organizationId}/my`
@@ -15,6 +16,7 @@ export default function FamilyWorkspace({ organizationId, role, active }: { orga
   const [entries, setEntries] = useState<AttendanceEntry[]>([])
   const [results, setResults] = useState<Results>({ quizzes: [], assignments: [] })
   const [progress, setProgress] = useState<Progress | null>(null)
+  const [homework, setHomework] = useState<HomeworkEntry[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -48,6 +50,7 @@ export default function FamilyWorkspace({ organizationId, role, active }: { orga
 
   const showResults = active === 'Results' || active === 'Examination results'
   const showProgress = active === 'My progress' || active === 'Academic progress'
+  const showHomework = active === 'Homework'
   useEffect(() => {
     if (!showResults || !selected) { setResults({ quizzes: [], assignments: [] }); return }
     let cancelled = false
@@ -68,11 +71,21 @@ export default function FamilyWorkspace({ organizationId, role, active }: { orga
     return () => { cancelled = true }
   }, [base, role, selected, showProgress])
 
+  useEffect(() => {
+    if (!showHomework || !selected) { setHomework([]); return }
+    let cancelled = false
+    setError('')
+    const path = role === 'student' ? `${base}/student/homework` : `${base}/children/${selected.id}/homework`
+    api.get<ListResult<HomeworkEntry>>(path).then(response => { if (!cancelled) setHomework(response.data) })
+      .catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : 'Could not load homework.') })
+    return () => { cancelled = true }
+  }, [base, role, selected, showHomework])
+
   const counts = useMemo(() => entries.reduce((totals, entry) => { totals[entry.status] += 1; return totals }, { present: 0, absent: 0, late: 0, excused: 0 }), [entries])
   const showAttendance = active === 'Attendance'
 
   return <div className="family-workspace">
-    <section className="dash-panel dash-masters-panel"><div className="dash-panel-heading"><div><span className="dash-panel-kicker">{role === 'student' ? 'MY LEARNING RECORD' : 'FAMILY WORKSPACE'}</span><h2>{showAttendance ? 'Attendance history' : showResults ? 'Assessment results' : showProgress ? 'Academic progress' : role === 'student' ? 'My student profile' : 'My children'}</h2><p className="dash-record-subtitle">{role === 'student' ? 'This profile is linked to your signed-in student account.' : 'Only student profiles connected through a parent invitation appear here.'}</p></div></div>
+    <section className="dash-panel dash-masters-panel"><div className="dash-panel-heading"><div><span className="dash-panel-kicker">{role === 'student' ? 'MY LEARNING RECORD' : 'FAMILY WORKSPACE'}</span><h2>{showAttendance ? 'Attendance history' : showResults ? 'Assessment results' : showProgress ? 'Academic progress' : showHomework ? 'Homework' : role === 'student' ? 'My student profile' : 'My children'}</h2><p className="dash-record-subtitle">{role === 'student' ? 'This profile is linked to your signed-in student account.' : 'Only student profiles connected through a parent invitation appear here.'}</p></div></div>
       {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
       {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading linked records…</p> : students.length === 0 ? <p className="master-empty"><UsersRound size={18} />No linked student profile is available for this account yet.</p> : <div className="family-student-list">{students.map(student => <button key={student.id} className={`family-student-card ${student.id === selectedId ? 'family-student-selected' : ''}`} onClick={() => setSelectedId(student.id)}><span><UsersRound size={17} /></span><b>{student.name}</b><small>{student.academic_class?.name ? `${student.academic_class.name} · Section ${student.academic_section?.name ?? '—'}` : `Admission ${student.admission_number}`}</small>{student.academic_session?.name && <small>{student.academic_session.name}</small>}{student.relationship && <small>{student.relationship}{student.is_primary ? ' · Primary contact' : ''}</small>}</button>)}</div>}
     </section>
@@ -88,6 +101,9 @@ export default function FamilyWorkspace({ organizationId, role, active }: { orga
     </section>}
     {showProgress && selected && <section className="dash-panel dash-masters-panel"><div className="dash-panel-heading"><div><span className="dash-panel-kicker">{selected.name.toUpperCase()}</span><h2>Published course progress</h2><p className="dash-record-subtitle">Completion is based on published lessons in courses actively assigned to this learner.</p></div></div>
       {progress ? <><div className="attendance-summary"><span><b>{progress.summary.courses}</b> courses</span><span><b>{progress.summary.completed_lessons}</b> / {progress.summary.lessons} lessons complete</span><span><b>{progress.summary.completion_percent}%</b> overall</span></div>{progress.data.length ? <div className="dash-table-scroll attendance-table"><table><thead><tr><th>COURSE</th><th>COMPLETED</th><th>PROGRESS</th></tr></thead><tbody>{progress.data.map(course => <tr key={course.course_id}><td>{course.title}</td><td>{course.completed_lessons} / {course.lessons}</td><td><div className="family-progress-track" role="progressbar" aria-label={`${course.title} completion`} aria-valuenow={course.completion_percent} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${course.completion_percent}%` }} /></div><small>{course.completion_percent}%</small></td></tr>)}</tbody></table></div> : <p className="master-empty"><ClipboardCheck size={18} />No published courses are actively assigned to this learner yet.</p>}</> : !error && <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading course progress…</p>}
+    </section>}
+    {showHomework && selected && <section className="dash-panel dash-masters-panel"><div className="dash-panel-heading"><div><span className="dash-panel-kicker">{selected.name.toUpperCase()}</span><h2>Published assignments</h2><p className="dash-record-subtitle">Due dates, submission status, and teacher feedback for this linked student.</p></div></div>
+      {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading homework…</p> : homework.length ? <div className="dash-table-scroll attendance-table"><table><thead><tr><th>ASSIGNMENT</th><th>COURSE</th><th>DUE</th><th>STATUS</th><th>SCORE</th><th>FEEDBACK</th></tr></thead><tbody>{homework.map(item => <tr key={item.id}><td>{item.title}</td><td>{item.course}</td><td>{item.due_at ? new Date(item.due_at).toLocaleDateString() : '—'}</td><td><span className={`family-attendance-status ${item.status === 'graded' ? 'present' : item.status === 'overdue' ? 'absent' : item.status === 'submitted' ? 'late' : 'excused'}`}>{item.status}</span></td><td>{item.score ?? '—'} / {item.max_points}</td><td>{item.feedback || '—'}</td></tr>)}</tbody></table></div> : !error && <p className="master-empty"><ClipboardCheck size={18} />No published assignments are currently linked to this learner.</p>}
     </section>}
   </div>
 }

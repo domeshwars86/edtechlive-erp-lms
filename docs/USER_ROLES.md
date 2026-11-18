@@ -11,7 +11,7 @@
 - **Management:** read-oriented institution overview, meetings and aggregate reports; sensitive learner details only when explicitly granted.
 - **Teacher:** assigned classes/courses, lesson materials, attendance, assignments, submissions and assessments.
 - **Student:** own enrollment, authorized courses, class links, assignments, submissions, attendance and results.
-- **Parent/Guardian:** only linked child summaries explicitly permitted by the institution.
+- **Parent/Guardian:** only linked child summaries, attendance, published-course progress, assignment due/submission/grade status, assessment results and fees explicitly permitted by the institution.
 - **Independent Educator:** own educator workspace, courses, enrolled learners and teaching analytics; future sales tools are disabled until implemented.
 
 ## Rules

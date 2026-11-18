@@ -11,6 +11,7 @@ use App\Models\QuizAttempt;
 use App\Models\Student;
 use App\Models\StudentGuardian;
 use App\Services\OrganizationAccess;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -112,6 +113,79 @@ class FamilyController
             ->where('student_id', $studentRecord->id)->where('guardian_user_id', $request->user()->id)->exists(), 404);
 
         return $this->progress($organization, $studentRecord);
+    }
+
+    public function studentHomework(Request $request, int $organization): JsonResponse
+    {
+        $membership = $this->access->membership($request, $organization);
+        abort_unless($membership->role === OrganizationRole::Student, 403);
+        $student = Student::query()->where('organization_id', $organization)
+            ->where('user_id', $request->user()->id)->where('status', 'active')->firstOrFail();
+
+        return $this->homework($request, $organization, $student);
+    }
+
+    public function childHomework(Request $request, int $organization, int $student): JsonResponse
+    {
+        $membership = $this->access->membership($request, $organization);
+        abort_unless($membership->role === OrganizationRole::Parent, 403);
+        $studentRecord = Student::query()->where('organization_id', $organization)->where('status', 'active')->findOrFail($student);
+        abort_unless(StudentGuardian::query()->where('organization_id', $organization)
+            ->where('student_id', $studentRecord->id)->where('guardian_user_id', $request->user()->id)->exists(), 404);
+
+        return $this->homework($request, $organization, $studentRecord);
+    }
+
+    private function homework(Request $request, int $organization, Student $student): JsonResponse
+    {
+        $enrollment = CourseEnrollment::query()->where('course_enrollments.organization_id', $organization)
+            ->where('course_enrollments.student_id', $student->id)->where('course_enrollments.status', 'active')
+            ->where('course_enrollments.organization_id', $organization);
+        $query = $enrollment->join('course_assignments', function ($join): void {
+            $join->on('course_assignments.course_id', '=', 'course_enrollments.course_id')
+                ->on('course_assignments.organization_id', '=', 'course_enrollments.organization_id')
+                ->where('course_assignments.status', '=', 'published');
+        })->join('courses', function ($join) use ($organization): void {
+            $join->on('courses.id', '=', 'course_assignments.course_id')
+                ->on('courses.organization_id', '=', 'course_assignments.organization_id')
+                ->where('courses.organization_id', '=', $organization)
+                ->where('courses.status', '=', 'published');
+        })->leftJoin('assignment_submissions', function ($join): void {
+            $join->on('assignment_submissions.assignment_id', '=', 'course_assignments.id')
+                ->on('assignment_submissions.student_id', '=', 'course_enrollments.student_id')
+                ->on('assignment_submissions.organization_id', '=', 'course_enrollments.organization_id');
+        })->select([
+            'course_assignments.id', 'course_assignments.title', 'course_assignments.max_points', 'course_assignments.due_at',
+            'courses.title as course_title', 'assignment_submissions.submitted_at', 'assignment_submissions.awarded_points',
+            'assignment_submissions.graded_at', 'assignment_submissions.feedback',
+        ])->orderByRaw('CASE WHEN course_assignments.due_at IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('course_assignments.due_at')->orderByDesc('course_assignments.id');
+        $perPage = min(max($request->integer('per_page', 50), 1), 100);
+        $assignments = $query->paginate($perPage);
+        $now = CarbonImmutable::now();
+        $data = $assignments->getCollection()->map(function ($assignment) use ($now): array {
+            $dueAt = $assignment->due_at ? CarbonImmutable::parse($assignment->due_at) : null;
+            $submitted = $assignment->submitted_at !== null;
+            $graded = $assignment->graded_at !== null;
+            $status = $graded ? 'graded' : ($submitted ? 'submitted' : ($dueAt?->lt($now) ? 'overdue' : 'pending'));
+
+            return [
+                'id' => $assignment->id,
+                'title' => $assignment->title,
+                'course' => $assignment->course_title,
+                'due_at' => $dueAt?->toISOString(),
+                'max_points' => $assignment->max_points,
+                'submitted_at' => $assignment->submitted_at ? CarbonImmutable::parse($assignment->submitted_at)->toISOString() : null,
+                'score' => $assignment->awarded_points,
+                'feedback' => $assignment->feedback,
+                'status' => $status,
+            ];
+        })->values();
+
+        return response()->json([
+            'data' => $data,
+            'meta' => ['current_page' => $assignments->currentPage(), 'last_page' => $assignments->lastPage(), 'total' => $assignments->total()],
+        ]);
     }
 
     private function progress(int $organization, Student $student): JsonResponse
