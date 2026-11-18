@@ -21,14 +21,25 @@ An education ERP and learning platform for institutions, independent educators, 
 
 ## Run locally
 
-Requirements: Node.js 20+ and npm.
+Requirements: Node.js 20+, npm, PHP 8.3+, Composer 2.x, and the PHP extensions in `apps/api/composer.json`.
 
 ```sh
 npm install
-npm run dev
 ```
 
-Backend setup is documented in [apps/api/README.md](apps/api/README.md). For local development, point `VITE_API_PROXY_TARGET` at the Laravel port; production must use PostgreSQL and a configured mail provider.
+Configure `apps/api/.env` for a local SQLite database, migrate it, and run Laravel on port 8001. Start the web app on port 4173 in another terminal:
+
+```sh
+cd apps/api
+php artisan migrate
+php artisan serve --host=127.0.0.1 --port=8001
+```
+
+```sh
+npm run dev -- --host 127.0.0.1 --port 4173
+```
+
+Open [http://127.0.0.1:4173](http://127.0.0.1:4173). Vite proxies `/api` and `/sanctum` to `http://127.0.0.1:8001`; set `VITE_API_PROXY_TARGET` only when using a different API port. Verification and password reset messages use Laravel's configured mail transport; the default local log transport records links in `apps/api/storage/logs/laravel.log`.
 
 The root `.env.example` configures Vite to proxy `/api` and `/sanctum` to Laravel. The API's `.env.example` documents `FRONTEND_URL`, CORS origins and Sanctum stateful domains.
 

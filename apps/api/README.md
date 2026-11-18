@@ -18,6 +18,8 @@ php artisan key:generate
 
 Create a local PostgreSQL database named `edtechlive`, then set `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME` and `DB_PASSWORD` in the untracked `.env`. `.env.example` uses PostgreSQL by default. Do not point this project at production records during development. To use a local SQLite file, set `DB_CONNECTION=sqlite` and `DB_DATABASE=database/local-dev.sqlite` in the untracked `.env`; SQLite support must be enabled in PHP.
 
+For a local browser session, set `APP_URL=http://127.0.0.1:8001`, `FRONTEND_URL=http://127.0.0.1:4173`, and run `php artisan serve --host=127.0.0.1 --port=8001`. The root Vite app runs on port 4173 and proxies the API to port 8001 by default.
+
 Set `FRONTEND_URL` to the SPA origin used in reset links, `CORS_ALLOWED_ORIGINS` to the allowed browser origins, and `SANCTUM_STATEFUL_DOMAINS` to the hostnames (including ports) of your first-party SPA. The example allows arbitrary local development ports only on `localhost` and `127.0.0.1`; use exact origins and hostnames for deployed environments. For cookie-based SPA auth, call `/sanctum/csrf-cookie`, then submit login with credentials and use the session cookie. For native clients, include a `device_name` during login and send the returned token as a Bearer token. Tokens expire after 30 days and can be revoked with logout.
 
 ## Migrations and tests

@@ -8,6 +8,12 @@
 - Full PHPUnit Feature suite — **74 passed / 491 assertions** using in-memory SQLite; `vendor/bin/pint --test` passed.
 - `npm run typecheck`, `npm run lint`, and `npm run build` passed; production build prerendered 14 public routes.
 
+## Workspace chooser and local run alignment (18 November 2026)
+
+- Dashboard workspace control now reopens the authenticated membership chooser and navigates to the selected membership's role workspace.
+- Vite's default API proxy is aligned with the local Laravel port (8001); local frontend preview uses port 4173 to avoid occupied/reserved ports. Browser reachability from the Windows Chrome process could not be verified in this environment.
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed; the production build prerendered 14 public routes.
+
 ## Dashboard schedule integration milestone (18 November 2026)
 
 - Dashboard schedule integration: role-scoped upcoming meetings now load from the organization meetings API, with loading/error/empty states and join links enabled only during the scheduled meeting window. `npm run typecheck`, `npm run lint`, and `npm run build` passed; build prerendered 14 public routes.

@@ -42,7 +42,7 @@ const sampleRows = [
   ['Grade 8 · Section C', 'Computer science', 'Dev Mehta', 'Today · 2:00 pm', 'Upcoming'],
 ]
 function normalizeRole(value: string): RoleKey { return value in roleInfo ? value as RoleKey : 'student' }
-function Dashboard({ role: inputRole, account, organization, organizationId, onSignOut }: { role: string; account: ApiUser | null; organization?: string; organizationId?: number; onSignOut?: () => void }) {
+function Dashboard({ role: inputRole, account, organization, organizationId, onSignOut, onSwitchOrganization }: { role: string; account: ApiUser | null; organization?: string; organizationId?: number; onSignOut?: () => void; onSwitchOrganization?: () => void }) {
   const roleKey = normalizeRole(inputRole)
   const data = roleInfo[roleKey]
   const displayName = account?.name ?? data.name
@@ -60,7 +60,7 @@ function Dashboard({ role: inputRole, account, organization, organizationId, onS
   return <div className="dash-shell">
     <aside className={`dash-sidebar ${mobileOpen ? 'dash-sidebar-open' : ''}`}>
       <div className="dash-brand-row"><Link className="dash-brand" to="/"><span className="dash-brand-mark">e<span>✳</span></span><span>edTech<span>Live</span></span></Link><button className="dash-close" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={18} /></button></div>
-      <div className="dash-org-switch"><span className="org-initial">{organizationName.slice(0, 1)}</span><span><b>{organizationName}</b><small>{data.title}</small></span><ChevronDown size={15} /></div>
+      <button type="button" className="dash-org-switch" onClick={onSwitchOrganization} disabled={!account || !onSwitchOrganization} aria-label="Switch organization" title={account ? 'Choose another organization' : 'Organization switching is available after signing in'}><span className="org-initial">{organizationName.slice(0, 1)}</span><span><b>{organizationName}</b><small>{data.title}</small></span><ChevronDown size={15} /></button>
       <div className="dash-side-caption">WORKSPACE</div>
       <nav className="dash-nav" aria-label={`${data.title} navigation`}>{data.nav.map(item => { const Icon = item.icon; return <button key={item.label} className={active === item.label ? 'dash-nav-active' : ''} onClick={() => selectNav(item.label)}><Icon size={17} strokeWidth={1.75} /><span>{item.label}</span>{item.label === 'Submissions' && roleKey === 'teacher' && <i>4</i>}</button> })}</nav>
       <div className="dash-side-caption dash-tools-caption">PREFERENCES</div><button className="dash-preference" onClick={() => setNotice('Preferences are preview-only until account services are connected.')}><Settings size={17} /> Preferences</button><button className="dash-preference" onClick={() => setNotice('Help resources will appear here when support is connected.')}><LifeBuoy size={17} /> Help &amp; support</button>
