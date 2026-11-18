@@ -33,7 +33,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     if (mode !== 'organization') return
     if (!loading && !user) navigate('/login', { replace: true })
     if (user) {
-      api.get<OrganizationListResponse>('/api/v1/organizations')
+      api.get<OrganizationListResponse>('/api/v1/organizations?per_page=100')
         .then((response) => setOrganizations(response.data))
         .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Could not load your organizations.'))
     }

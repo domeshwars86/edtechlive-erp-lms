@@ -11,7 +11,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.get<{ data: ApiUser }>('/api/v1/me')
       setUser(response.data)
-      const memberships = await api.get<OrganizationListResponse>('/api/v1/organizations')
+      const memberships = await api.get<OrganizationListResponse>('/api/v1/organizations?per_page=100')
       const preferred = memberships.preferred_organization_id
         ? memberships.data.find((membership) => membership.organization.id === memberships.preferred_organization_id)
         : undefined
