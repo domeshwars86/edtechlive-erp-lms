@@ -17,6 +17,8 @@ export type TeachingAssignment = { id: number; academic_session_id: number; acad
 export type AttendanceStudent = { id: number; name: string; admission_number: string | null; status: 'present' | 'absent' | 'late' | 'excused' | null; note: string | null }
 export type FamilyStudent = { id: number; name: string; admission_number: string | null; academic_class: { id: number; name: string } | null; academic_section: { id: number; name: string } | null; academic_session: { id: number; name: string } | null; relationship?: string; is_primary?: boolean }
 export type StudentAttendance = { id: number; date: string; status: 'present' | 'absent' | 'late' | 'excused'; note: string | null; section: { id: number; name: string; class: string }; session: { id: number; name: string } }
+export type AssessmentResult = { id: number; title: string; course: string; score: string | null; max_score: string | null; attempt_number?: number; feedback?: string | null; completed_at: string | null }
+export type AssessmentResults = { quizzes: AssessmentResult[]; assignments: AssessmentResult[] }
 export type FamilyFee = { id: number; title: string; amount: string; paid_amount: string; balance: string; due_on: string | null; status: 'unpaid' | 'partial' | 'paid'; student: { id: number; name: string; admission_number: string | null } | null }
 export type DashboardSummary = Record<string, unknown> & { kind?: string }
 

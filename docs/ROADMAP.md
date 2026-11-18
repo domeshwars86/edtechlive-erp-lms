@@ -9,7 +9,7 @@
 7. **Free-first integrations:** manual class/management meeting scheduling with HTTPS links is implemented. Google Meet room provisioning, recordings, email notifications, WhatsApp links and push remain.
 8. **Reports, payments, AI:** attendance, enrollment, teacher workload, course progress, published-quiz outcomes, assignment review, and aggregate finance summaries with date-filtered receipts, expenses and net cash flow are implemented; add statement-based bank reconciliation, sandbox payment gateway after provider selection, and optional AI provider adapter.
 9. **Web QA and staging:** CI checks web build/lint, Laravel API suite on SQLite and PostgreSQL, and mobile bundle. The PostgreSQL job awaits its first run; full authenticated browser/E2E, accessibility regression, and authorized staging deployment remain.
-10. **Mobile apps:** Expo client foundation and learner/teacher essentials now include secure login, courses, lessons, assignments, quizzes, grading, attendance, notifications, and scoped meeting links. Native device verification plus more limited admin/management workflows remain.
+10. **Mobile apps:** Expo client foundation and learner/teacher essentials now include secure login, courses, lessons, assignments, quizzes, grading, attendance, student/parent assessment results, notifications, and scoped meeting links. Native device verification plus more limited admin/management workflows remain.
 11. **Commercial readiness:** reviewed privacy/legal terms, operations, support, backups, monitoring and launch readiness.
 12. **Future expansion:** entitlements, subscriptions and advanced features.
 
