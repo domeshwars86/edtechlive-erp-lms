@@ -9,6 +9,7 @@ const roleNames: Record<OrganizationMembership['role'], string> = {
   admin: 'Administrator', management: 'Management', teacher: 'Teacher', student: 'Student', parent: 'Parent / guardian', independent_educator: 'Independent educator',
 }
 type MobileNotice = { id: string; type: string; title: string; body: string; read_at: string | null; created_at: string | null }
+type MobileMeeting = { id: number; kind: 'class' | 'management'; title: string; description: string | null; starts_at: string; ends_at: string; meeting_url: string; status: 'scheduled' | 'cancelled'; section: { id: number; name: string; class: string | null } | null; course: { id: number; title: string } | null }
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused'
 const attendanceStatuses: AttendanceStatus[] = ['present', 'absent', 'late', 'excused']
 function localDate() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}` }
@@ -20,6 +21,7 @@ export default function App() {
   const [active, setActive] = useState<OrganizationMembership | null>(null)
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [notices, setNotices] = useState<MobileNotice[]>([])
+  const [meetings, setMeetings] = useState<MobileMeeting[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [lessons, setLessons] = useState<Lesson[]>([])
@@ -67,12 +69,14 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setNotices([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
+    setSummary(null); setNotices([]); setMeetings([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
     mobileApi.get<{ data: MobileNotice[] }>(`${base}/notifications?per_page=10`, token)
-      .then(result => { if (!cancelled) setNotices(result.data) })]
+      .then(result => { if (!cancelled) setNotices(result.data) }),
+    mobileApi.get<{ data: MobileMeeting[] }>(`${base}/meetings?per_page=100`, token)
+      .then(result => { if (!cancelled) setMeetings(result.data) })]
     if (active.role !== 'parent') {
       tasks.push(mobileApi.get<{ data: Course[] }>(`${base}/courses?per_page=100`, token)
         .then(result => { if (!cancelled) setCourses(result.data) }))
@@ -230,6 +234,13 @@ export default function App() {
       </> : <>
         <Text style={styles.eyebrow}>YOUR LEARNING SPACE</Text><Text style={styles.pageTitle}>Welcome, {user.name.split(' ')[0]}</Text><Text style={styles.subtitle}>{roleNames[active.role]} · {active.organization.type.replaceAll('_', ' ')}</Text>
         {summary ? <View style={styles.statGrid}>{summaryCards(summary, active.role).map(item => <View style={styles.statCard} key={item.label}><Text style={styles.statValue}>{item.value}</Text><Text style={styles.statLabel}>{item.label}</Text></View>)}</View> : null}
+        <Text style={styles.sectionTitle}>Upcoming classes and meetings</Text>
+        {meetings.filter(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() > Date.now()).slice(0, 5).map(item => {
+          const startsAt = new Date(item.starts_at).getTime()
+          const isLive = startsAt <= Date.now()
+          return <View key={item.id} style={styles.noticeCard}><Text style={styles.courseTitle}>{item.title}</Text><Text style={styles.courseMeta}>{new Date(item.starts_at).toLocaleString()} · {item.course?.title ?? ([item.section?.class, item.section?.name].filter(Boolean).join(' · ') || 'Meeting')}</Text>{isLive ? <Pressable onPress={() => void Linking.openURL(item.meeting_url)}><Text style={styles.link}>Join meeting</Text></Pressable> : null}</View>
+        })}
+        {!meetings.some(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() > Date.now()) ? <Empty text="No upcoming meetings are scheduled." /> : null}
         <Text style={styles.sectionTitle}>Recent updates</Text>
         {notices.length ? notices.map(notice => <Pressable key={notice.id} onPress={() => void markNoticeRead(notice)} style={[styles.noticeCard, !notice.read_at && styles.noticeUnread]}><Text style={styles.courseTitle}>{notice.title}</Text><Text style={styles.courseMeta}>{notice.body}</Text>{notice.created_at ? <Text style={styles.noticeDate}>{new Date(notice.created_at).toLocaleString()}</Text> : null}</Pressable>) : <Empty text="No recent updates." />}
         {active.role === 'parent' ? <View style={styles.infoCard}><Text style={styles.courseTitle}>Family updates</Text><Text style={styles.courseMeta}>Updates above are restricted to your linked family workspace.</Text></View> : <>

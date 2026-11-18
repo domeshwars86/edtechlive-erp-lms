@@ -10,6 +10,7 @@
 - Native Android/iOS builds and device flows are not verified because Android SDK/emulator and Xcode toolchains are unavailable here. npm audit could not contact the registry (DNS unavailable).
 - Follow-up mobile LMS milestone: mobile TypeScript check and Android JavaScript export passed after wiring student written submissions, server-scored timed quiz attempts/result history, and scoped in-app notification read receipts. Native/device verification remains open.
 - Teacher mobile attendance milestone: mobile TypeScript check and Android JavaScript export passed with assignment-scoped class registers, required status selection for each learner, and API upsert saves. No native device or live API session is available here; backend authorization and attendance validations are covered by the existing API feature suite.
+- Mobile meeting access milestone: mobile TypeScript, Android bundle export and root ESLint passed. The app loads the membership-scoped meeting list, displays upcoming times, and only offers the manual HTTPS join link while the scheduled meeting is live. Provider room creation and native device verification remain untested.
 
 ## Contact enquiry inbox milestone (18 November 2026)
 
