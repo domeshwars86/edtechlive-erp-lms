@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, BarChart3, LoaderCircle } from 'lucide-react'
+import { AlertCircle, BarChart3, Download, LoaderCircle } from 'lucide-react'
 import { api } from '../lib/api'
+import { downloadCsv } from '../lib/csv'
 
 type QuizResult = { quiz_id: number; course: string; quiz: string; submitted_attempts: number; in_progress_attempts: number; learners: number; average_score_percent: number | null }
 type AssignmentResult = { assignment_id: number; course: string; assignment: string; learners: number; submissions: number; graded_submissions: number; awaiting_review: number; average_score_percent: number | null }
@@ -22,7 +23,7 @@ export default function AssessmentReport({ organizationId }: { organizationId: n
   }, [organizationId])
 
   return <section className="dash-panel dash-masters-panel">
-    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ASSESSMENT REPORTS</span><h2>Quiz results overview</h2><p className="dash-record-subtitle">Submitted score averages across published course quizzes. Student identities are not included.</p></div></div>
+    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ASSESSMENT REPORTS</span><h2>Quiz results overview</h2><p className="dash-record-subtitle">Submitted score averages across published course quizzes. Student identities are not included.</p></div><button className="dash-secondary-button" type="button" disabled={loading || !report} onClick={() => report && downloadCsv('assessment-outcomes.csv', ['Record type', 'Course', 'Assessment', 'Learners', 'Submissions', 'In progress', 'Awaiting review', 'Average score (%)'], [...report.quizzes.map(quiz => ['Quiz', quiz.course, quiz.quiz, quiz.learners, quiz.submitted_attempts, quiz.in_progress_attempts, '', quiz.average_score_percent]), ...report.assignments.map(assignment => ['Assignment', assignment.course, assignment.assignment, assignment.learners, assignment.submissions, '', assignment.awaiting_review, assignment.average_score_percent])])}><Download size={14} />Export CSV</button></div>
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
     {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading assessment results…</p> : report && <>
       <div className="report-stat-grid"><article><small>PUBLISHED QUIZZES</small><b>{report.summary.published_quizzes}</b></article><article><small>SUBMITTED ATTEMPTS</small><b>{report.summary.submitted_attempts}</b></article><article><small>IN PROGRESS</small><b>{report.summary.in_progress_attempts}</b></article><article><small>LEARNER PARTICIPATIONS</small><b>{report.summary.learner_quiz_participations}</b></article><article><small>AVERAGE SCORE</small><b>{report.summary.average_score_percent === null ? '—' : `${report.summary.average_score_percent}%`}</b></article></div>

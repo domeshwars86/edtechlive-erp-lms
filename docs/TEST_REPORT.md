@@ -320,6 +320,6 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 
 ## Academic report CSV export (19 November 2026)
 
-- Added browser CSV export for attendance by class/section and date range, course progress, enrollment by session/section, and teacher workload. CSV values are quoted and spreadsheet formula prefixes are neutralized; rows reflect the data already scoped for the report view.
-- `npm run typecheck`, `npm run lint`, and `npm run build` passed. Production build prerendered 14 public routes and produced a 485.19 kB main JavaScript bundle. Lint initially identified a disallowed control-character regex; the implementation was adjusted and the final lint run passed.
+- Added browser CSV export for attendance by class/section and date range, course progress, enrollment by session/section, teacher workload, quiz/assignment outcomes, published school exam performance, and all-time plus selected-period finance summaries. CSV values are quoted and spreadsheet formula prefixes are neutralized; rows reflect the data already scoped for the report view.
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed. Production build prerendered 14 public routes and produced a 487.00 kB main JavaScript bundle. Lint initially identified a disallowed control-character regex; the implementation was adjusted and the final lint run passed.
 - Browser download behavior has not been visually exercised in an authenticated browser in this environment.

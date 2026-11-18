@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, BarChart3, LoaderCircle } from 'lucide-react'
+import { AlertCircle, BarChart3, Download, LoaderCircle } from 'lucide-react'
 import { api } from '../lib/api'
+import { downloadCsv } from '../lib/csv'
 
 type Row = { paper_id: number; exam: string; session: string; class_section: string; subject: string; exam_on: string; max_marks: string; result_count: number; graded_count: number; absent_count: number; excused_count: number; average_score: string | null; average_percent: number | null }
 type Session = { id: number; name: string }
@@ -36,7 +37,7 @@ export default function ExamReport({ organizationId }: { organizationId: number 
   const excused = rows.reduce((total, row) => total + row.excused_count, 0)
 
   return <section className="dash-panel dash-masters-panel">
-    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">SCHOOL EXAMINATIONS</span><h2>Published exam performance</h2><p className="dash-record-subtitle">Aggregate outcomes by exam, class section and subject. No student names appear in this report.</p></div></div>
+    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">SCHOOL EXAMINATIONS</span><h2>Published exam performance</h2><p className="dash-record-subtitle">Aggregate outcomes by exam, class section and subject. No student names appear in this report.</p></div><button className="dash-secondary-button" type="button" disabled={loading || !rows.length} onClick={() => downloadCsv(`exam-results${sessionId ? `-session-${sessionId}` : ''}.csv`, ['Examination', 'Session', 'Class / section', 'Subject', 'Exam date', 'Maximum marks', 'Graded average', 'Average (%)', 'Graded results', 'Absent', 'Excused', 'Total results'], rows.map(row => [row.exam, row.session, row.class_section, row.subject, row.exam_on, row.max_marks, row.average_score, row.average_percent, row.graded_count, row.absent_count, row.excused_count, row.result_count]))}><Download size={14} />Export CSV</button></div>
     <div className="report-filters"><label>Academic session<select value={sessionId} onChange={event => setSessionId(event.target.value)}><option value="">All sessions</option>{sessions.map(session => <option key={session.id} value={session.id}>{session.name}</option>)}</select></label><span>{rows.length} published papers</span></div>
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
     {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading examination report…</p> : rows.length ? <>
