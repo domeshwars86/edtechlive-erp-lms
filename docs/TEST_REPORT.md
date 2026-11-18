@@ -2,6 +2,12 @@
 
 **Updated:** 18 November 2026
 
+## Live admin and management overview milestone (18 November 2026)
+
+- Full PHPUnit Feature suite — **67 passed / 452 assertions** using in-memory SQLite. Dashboard summary checks cover active roster counts, tenant isolation, organization-local day/session timetable counts, attendance aggregation, empty attendance, and role denial.
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed; the production build prerendered 14 public routes.
+- `vendor/bin/pint --test` passed. No database migration was needed; PostgreSQL and browser visual/accessibility checks remain open.
+
 ## Meetings, fees, and notification center milestone (18 November 2026)
 
 - Full PHPUnit Feature suite — **63 passed / 421 assertions** using in-memory SQLite, including notification list/read isolation across users and organizations.
