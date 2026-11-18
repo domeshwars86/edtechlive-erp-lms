@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AcademicMasterController;
+use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\AssessmentReportController;
 use App\Http\Controllers\Api\V1\AttendanceController;
 use App\Http\Controllers\Api\V1\AttendanceReportController;
@@ -136,6 +137,8 @@ Route::prefix('v1')->group(function (): void {
                 Route::patch('/meetings/{meeting}', [MeetingController::class, 'update'])->whereNumber('meeting');
                 Route::get('/notifications', [NotificationController::class, 'index']);
                 Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
+                Route::get('/announcements', [AnnouncementController::class, 'index']);
+                Route::post('/announcements', [AnnouncementController::class, 'store'])->middleware('throttle:30,1');
                 Route::get('/dashboard/summary', [DashboardSummaryController::class, 'index']);
                 Route::get('/dashboard/activity', [DashboardActivityController::class, 'index']);
                 Route::get('/courses', [CourseController::class, 'index']);
