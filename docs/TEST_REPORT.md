@@ -57,6 +57,13 @@
 
 ## Existing QA and known dependency issue
 
+## Course and lesson LMS foundation (18 November 2026)
+
+- Course/lesson/enrollment API added with teacher ownership checks, manager enrollment, and student enrollment visibility rules.
+- Full PHPUnit suite — **46 passed / 263 assertions** using in-memory SQLite, including HTTPS-only resource validation, teacher course ownership, enrollment scope, and student visibility.
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed after the course workspace was added; the build prerendered 14 public routes.
+- The course/lesson migration was applied to the ignored local SQLite database. PostgreSQL deployment validation and browser visual review remain unverified.
+
 ## Student, family access and attendance reporting milestone (18 November 2026)
 
 - Full PHPUnit suite — **44 passed / 239 assertions** using in-memory SQLite. Added coverage for student-to-roster linking, parent-selected child links, student/parent attendance scope, and date-filtered attendance aggregation/rates.

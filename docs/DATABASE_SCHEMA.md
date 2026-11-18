@@ -1,6 +1,6 @@
 # Database Schema Direction
 
-**Status:** Identity, organization, membership, invitation, academic session, class, section, subject, student, teacher, student/guardian links, teaching assignment, attendance, and timetable tables/models/migrations are implemented. Local development migrations are applied to SQLite; PostgreSQL deployment validation remains pending.
+**Status:** Identity, organization, membership, invitation, academic session, class, section, subject, student, teacher, student/guardian links, course/lesson/enrollment, teaching assignment, attendance, and timetable tables/models/migrations are implemented. Local development migrations are applied to SQLite; PostgreSQL deployment validation remains pending.
 
 ## Core entities
 
@@ -14,14 +14,14 @@
 - `organization_invitation_students`: tenant-scoped selected student profiles attached to parent invitations; links are created only after successful invitation acceptance.
 - `teaching_assignments`: tenant-owned teacher/subject/section/session links; timetable entries require the matching assignment when a teacher is set.
 - `attendance_records`, `timetable_entries`: class/session/date/user-scoped academic activity. Attendance has one mark per student/section/date and records the marking user. Timetable entries contain weekday/time, room, optional assigned teacher, and optional secure meeting URL.
-- `courses`, `enrollments`, `modules`, `lessons`, `learning_assets`: LMS structure and access.
+- `courses`, `course_enrollments`, `course_lessons`: implemented course drafts/publication, active student enrollment, and ordered text/HTTPS lesson content. Modules, private learning assets, and progress records remain planned.
 - `assignments`, `submissions`, `exams`, `questions`, `exam_attempts`, `results`: assessment lifecycle and auditable scoring.
 - `meetings`, `meeting_participants`: class/management meetings and provider/manual links.
 - `notifications`, `announcements`, `audit_logs`: delivery state, communication and sensitive actions.
 - `fee_categories`, `invoices`, `payments`, `payment_webhook_events`: finance records and idempotent provider events.
 - `ai_usage_records`, provider configuration references: usage/cost tracking; secrets live outside database/application source.
 
-The implemented schema uses `organizations` and `organization_memberships`, indexed by organization/user/status with a unique organization/user membership. `organization_invitations`, `organization_invitation_students`, `student_guardians`, `academic_sessions`, `academic_classes`, `academic_sections`, `subjects`, `students`, `teachers`, `teaching_assignments`, `attendance_records`, and `timetable_entries` carry organization ownership and tenant-aware validation/index constraints. Attendance reports aggregate existing records and require no separate materialized table. Local SQLite migrations pass; PostgreSQL-specific migration and constraint behavior still needs validation. Role, organization type and membership status use PHP backed enums.
+The implemented schema uses `organizations` and `organization_memberships`, indexed by organization/user/status with a unique organization/user membership. `organization_invitations`, `organization_invitation_students`, `student_guardians`, `courses`, `course_enrollments`, `course_lessons`, `academic_sessions`, `academic_classes`, `academic_sections`, `subjects`, `students`, `teachers`, `teaching_assignments`, `attendance_records`, and `timetable_entries` carry organization ownership and tenant-aware validation/index constraints. Attendance reports aggregate existing records and require no separate materialized table. Local SQLite migrations pass; PostgreSQL-specific migration and constraint behavior still needs validation. Role, organization type and membership status use PHP backed enums.
 
 ## Modeling rules
 

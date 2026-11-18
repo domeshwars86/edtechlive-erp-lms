@@ -1,6 +1,6 @@
 # API Specification (Proposed)
 
-**Status:** Health, authentication, password recovery, email verification, organization invitations, current-user, organization reads, academic masters, basic people rosters, teaching assignments, attendance, and timetable routes are implemented. Other routes below remain proposals.
+**Status:** Health, authentication, password recovery, email verification, organization invitations, current-user, organization reads, academic masters, people rosters, teaching assignments, attendance, timetable, family access, attendance reports, and course/lesson/enrollment routes are implemented. Other routes remain proposals.
 
 Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return consistent validation and authorization errors; lists are paginated. Organization context is explicit in authorized routes and verified against the authenticated user's active membership. Never trust a client-provided organization ID without policy enforcement.
 
@@ -63,6 +63,11 @@ Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return co
 | `GET /api/v1/organizations/{organization}/my/children` | Verified active parent member | Returns only active student profiles explicitly linked to the signed-in parent. |
 | `GET /api/v1/organizations/{organization}/my/children/{student}/attendance` | Verified parent linked to the requested student | Returns paginated attendance only for the explicitly linked active child; other students return 404. |
 | `GET /api/v1/organizations/{organization}/reports/attendance?from={date}&to={date}` | Verified admin, management, or independent educator member | Returns date-filtered attendance totals and class/section breakdowns. Late marks count toward attendance rate. Optional `session_id` is tenant validated; end date must not precede start date. |
+| `GET /api/v1/organizations/{organization}/courses` | Verified manager, linked teacher, or linked student | Managers see organization courses, teachers see courses linked to their teacher profile, and students see only published courses with an active enrollment. |
+| `POST /api/v1/organizations/{organization}/courses` | Verified manager or linked teacher | Creates a draft course. Optional subject/teacher references must belong to the organization; teacher-created courses are linked to their own roster profile. |
+| `PATCH /api/v1/organizations/{organization}/courses/{record}` | Verified manager or course's linked teacher | Updates course details/status. Publishing requires a published lesson. |
+| `GET/POST /api/v1/organizations/{organization}/courses/{course}/lessons` | Course manager/editor; enrolled student may read published lessons | Adds lesson content or an HTTPS resource link; publishing requires at least one content body or HTTPS resource URL. Students cannot read drafts or courses without enrollment. |
+| `POST /api/v1/organizations/{organization}/courses/{course}/enrollments` | Verified manager | Enrolls 1–200 active student roster profiles into a published course; repeated enrollment reactivates the same course/student record. |
 | `GET /api/v1/organizations/{organization}/timetable` | Admin, management, independent educator, or linked teacher | Lists paginated weekly entries with optional session, section, and weekday filters; teachers only see their own entries. |
 | `POST/PATCH /api/v1/organizations/{organization}/timetable` | Same roles | Creates or updates a section/subject slot, optional assigned teacher/room/HTTPS meeting link, and rejects active section, teacher, or room conflicts. |
 
