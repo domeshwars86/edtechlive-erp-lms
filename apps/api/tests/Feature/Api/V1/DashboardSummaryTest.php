@@ -20,6 +20,7 @@ use App\Models\OrganizationMembership;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
+use App\Models\TeachingAssignment;
 use App\Models\TimetableEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -131,6 +132,63 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('data.lessons_completed_week', 1)
             ->assertJsonPath('data.assignments_pending', 1)
             ->assertJsonPath('data.attendance_recent.rate', null);
+    }
+
+    public function test_teacher_dashboard_summary_is_limited_to_their_assignments_and_course_reviews(): void
+    {
+        $organization = $this->organization('Northstar Academy');
+        $teacherUser = User::factory()->create();
+        $this->membership($organization, $teacherUser, OrganizationRole::Teacher);
+        $teacher = Teacher::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $teacherUser->id,
+            'name' => 'Teacher', 'status' => 'active',
+        ]);
+        $year = Carbon::now('Asia/Kolkata')->year;
+        $session = AcademicSession::query()->create([
+            'organization_id' => $organization->id, 'name' => 'Current session',
+            'starts_on' => "{$year}-01-01", 'ends_on' => ($year + 1).'-12-31', 'is_current' => true, 'is_active' => true,
+        ]);
+        $class = AcademicClass::query()->create(['organization_id' => $organization->id, 'name' => 'Grade 5']);
+        $section = AcademicSection::query()->create([
+            'organization_id' => $organization->id, 'academic_class_id' => $class->id,
+            'academic_session_id' => $session->id, 'name' => 'A', 'is_active' => true,
+        ]);
+        $subject = Subject::query()->create(['organization_id' => $organization->id, 'name' => 'Science']);
+        TeachingAssignment::query()->create([
+            'organization_id' => $organization->id, 'academic_session_id' => $session->id,
+            'academic_section_id' => $section->id, 'subject_id' => $subject->id, 'teacher_id' => $teacher->id,
+        ]);
+        $learner = Student::query()->create([
+            'organization_id' => $organization->id, 'name' => 'Assigned learner', 'admission_number' => 'S-1',
+            'academic_section_id' => $section->id, 'academic_session_id' => $session->id, 'status' => 'active',
+        ]);
+        Student::query()->create(['organization_id' => $organization->id, 'name' => 'Unassigned learner', 'admission_number' => 'S-2', 'status' => 'active']);
+        $course = Course::query()->create([
+            'organization_id' => $organization->id, 'teacher_id' => $teacher->id, 'created_by' => $teacherUser->id,
+            'title' => 'Science', 'status' => 'published', 'published_at' => now(),
+        ]);
+        $assignment = CourseAssignment::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id,
+            'created_by' => $teacherUser->id, 'title' => 'Review this', 'max_points' => 10, 'status' => 'published',
+        ]);
+        AssignmentSubmission::query()->create([
+            'organization_id' => $organization->id, 'assignment_id' => $assignment->id,
+            'student_id' => $learner->id, 'answer' => 'Answer', 'submitted_at' => now(),
+        ]);
+        TimetableEntry::query()->create([
+            'organization_id' => $organization->id, 'academic_session_id' => $session->id,
+            'academic_section_id' => $section->id, 'subject_id' => $subject->id, 'teacher_id' => $teacher->id,
+            'weekday' => Carbon::now('Asia/Kolkata')->dayOfWeekIso - 1, 'starts_at' => '09:00', 'ends_at' => '10:00', 'is_active' => true,
+        ]);
+        Sanctum::actingAs($teacherUser);
+
+        $this->getJson("/api/v1/organizations/{$organization->id}/dashboard/summary")->assertOk()
+            ->assertJsonPath('data.kind', 'teacher')
+            ->assertJsonPath('data.classes', 1)
+            ->assertJsonPath('data.students', 1)
+            ->assertJsonPath('data.reviews_pending', 1)
+            ->assertJsonPath('data.classes_this_week', 1)
+            ->assertJsonPath('data.courses', 1);
     }
 
     private function membership(Organization $organization, User $user, OrganizationRole $role): void

@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\OrganizationRole;
 use App\Models\AssignmentSubmission;
 use App\Models\AttendanceRecord;
+use App\Models\Course;
 use App\Models\CourseAssignment;
 use App\Models\CourseEnrollment;
 use App\Models\CourseLessonProgress;
 use App\Models\Student;
 use App\Models\Teacher;
+use App\Models\TeachingAssignment;
 use App\Models\TimetableEntry;
 use App\Services\OrganizationAccess;
 use Illuminate\Http\JsonResponse;
@@ -25,6 +27,9 @@ class DashboardSummaryController
         $membership = $this->access->membership($request, $organization);
         if ($membership->role === OrganizationRole::Student) {
             return $this->studentSummary($request, $organization, $membership->organization->timezone ?: 'UTC');
+        }
+        if ($membership->role === OrganizationRole::Teacher) {
+            return $this->teacherSummary($request, $organization, $membership->organization->timezone ?: 'UTC');
         }
 
         abort_unless(in_array($membership->role, [
@@ -86,7 +91,7 @@ class DashboardSummaryController
             ->whereIn('course_id', $courseIds)->where('status', 'published')
             ->whereNotIn('id', $submittedIds)->count();
         $lessonsCompleted = CourseLessonProgress::query()->where('organization_id', $organization)
-            ->where('student_id', $student->id)->whereNotNull('completed_at')
+            ->where('student_id', $student->id)->whereIn('course_id', $courseIds)->whereNotNull('completed_at')
             ->whereBetween('completed_at', [$now->copy()->subDays(6)->startOfDay()->utc(), $now->copy()->endOfDay()->utc()])
             ->whereHas('lesson', fn ($query) => $query->where('status', 'published'))->count();
         $attendance = AttendanceRecord::query()->where('organization_id', $organization)->where('student_id', $student->id)
@@ -104,6 +109,42 @@ class DashboardSummaryController
                 'records' => $records,
                 'rate' => $records > 0 ? round(($attendance->get('present', 0) + $attendance->get('late', 0)) / $records * 100, 1) : null,
             ],
+        ]]);
+    }
+
+    private function teacherSummary(Request $request, int $organization, string $timezone): JsonResponse
+    {
+        $teacher = Teacher::query()->where('organization_id', $organization)
+            ->where('user_id', $request->user()->id)->where('status', 'active')->firstOrFail();
+        $now = Carbon::now($timezone);
+        $weekStart = $now->copy()->startOfWeek();
+        $weekEnd = $now->copy()->endOfWeek();
+        $weekdays = collect(range(0, 6))->map(fn (int $offset): int => ($weekStart->dayOfWeekIso - 1 + $offset) % 7);
+        $assignments = TeachingAssignment::query()->where('organization_id', $organization)
+            ->where('teacher_id', $teacher->id)
+            ->whereHas('academicSession', fn ($query) => $query->where('is_active', true)
+                ->whereDate('starts_on', '<=', $now->toDateString())->whereDate('ends_on', '>=', $now->toDateString()))
+            ->whereHas('academicSection', fn ($query) => $query->where('is_active', true))
+            ->get(['academic_section_id', 'academic_session_id']);
+        $students = Student::query()->where('organization_id', $organization)->where('status', 'active')
+            ->whereIn('academic_section_id', $assignments->pluck('academic_section_id')->unique())
+            ->whereIn('academic_session_id', $assignments->pluck('academic_session_id')->unique())->count();
+        $reviews = AssignmentSubmission::query()->where('organization_id', $organization)->whereNull('graded_at')
+            ->whereHas('assignment.course', fn ($query) => $query->where('teacher_id', $teacher->id)->where('status', 'published'))->count();
+        $classesThisWeek = TimetableEntry::query()->where('organization_id', $organization)->where('teacher_id', $teacher->id)
+            ->where('is_active', true)->whereIn('weekday', $weekdays)
+            ->whereHas('academicSession', fn ($query) => $query->where('is_active', true)
+                ->whereDate('starts_on', '<=', $weekEnd->toDateString())->whereDate('ends_on', '>=', $weekStart->toDateString()))->count();
+
+        return response()->json(['data' => [
+            'kind' => 'teacher',
+            'date' => $now->toDateString(),
+            'classes' => $assignments->pluck('academic_section_id')->unique()->count(),
+            'students' => $students,
+            'reviews_pending' => $reviews,
+            'classes_this_week' => $classesThisWeek,
+            'courses' => Course::query()->where('organization_id', $organization)
+                ->where('teacher_id', $teacher->id)->where('status', 'published')->count(),
         ]]);
     }
 }
