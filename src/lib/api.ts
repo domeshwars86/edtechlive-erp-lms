@@ -76,6 +76,7 @@ export const api = {
     method: 'PUT',
     body: JSON.stringify(data),
   }),
+  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 }
 
 export type ApiUser = {

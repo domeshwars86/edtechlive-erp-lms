@@ -42,6 +42,13 @@
 - Attendance and timetable migrations were applied to the ignored local SQLite development database; `route:list` shows 25 organization-related routes.
 - Local HTTP smoke check returned 200 for the admin workspace and the same-origin proxied Laravel health endpoint. No authenticated browser workflow was submitted.
 
+## Teaching assignment milestone (18 November 2026)
+
+- Full PHPUnit suite — **30 passed / 145 assertions** using in-memory SQLite. New coverage checks idempotent assignment creation, session/section consistency, removal, and student-role denial.
+- Timetable creation now requires a matching active teacher/subject/section/session assignment whenever a teacher is selected.
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed; Vite prerendered 14 public routes. `vendor/bin/pint --test` passed.
+- Staff account invitations/linkage and teacher-owned attendance remain future work; PostgreSQL validation remains pending.
+
 ## Existing QA and known dependency issue
 
 Browser preview checks from 18 November 2026 previously reviewed public routes, course filtering and all seven dashboard preview roles across representative viewport widths. This milestone's browser check focused on the new account forms and was not a full responsive regression pass.

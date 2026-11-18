@@ -12,6 +12,7 @@ use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\Subject;
 use App\Models\Teacher;
+use App\Models\TeachingAssignment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -121,6 +122,20 @@ class TimetableTest extends TestCase
         ]);
         $subject = Subject::query()->create(['organization_id' => $organization->id, 'name' => 'Science']);
         $teacher = Teacher::query()->create(['organization_id' => $organization->id, 'name' => 'Teacher Example', 'status' => 'active']);
+        TeachingAssignment::query()->create([
+            'organization_id' => $organization->id,
+            'academic_session_id' => $session->id,
+            'academic_section_id' => $section->id,
+            'subject_id' => $subject->id,
+            'teacher_id' => $teacher->id,
+        ]);
+        TeachingAssignment::query()->create([
+            'organization_id' => $organization->id,
+            'academic_session_id' => $session->id,
+            'academic_section_id' => $secondSection->id,
+            'subject_id' => $subject->id,
+            'teacher_id' => $teacher->id,
+        ]);
 
         return [$user, $organization, compact('session', 'class', 'section', 'secondSection', 'subject', 'teacher')];
     }

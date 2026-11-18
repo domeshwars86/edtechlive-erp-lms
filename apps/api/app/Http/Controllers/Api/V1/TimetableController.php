@@ -7,6 +7,7 @@ use App\Models\AcademicSection;
 use App\Models\AcademicSession;
 use App\Models\Subject;
 use App\Models\Teacher;
+use App\Models\TeachingAssignment;
 use App\Models\TimetableEntry;
 use App\Services\OrganizationAccess;
 use Illuminate\Database\Eloquent\Builder;
@@ -119,6 +120,15 @@ class TimetableController
             $teacher = Teacher::query()->where('organization_id', $organization)->findOrFail($data['teacher_id']);
             if ($teacher->status !== 'active') {
                 throw ValidationException::withMessages(['teacher_id' => ['Select an active teacher.']]);
+            }
+            if (! TeachingAssignment::query()
+                ->where('organization_id', $organization)
+                ->where('academic_session_id', $session->id)
+                ->where('academic_section_id', $section->id)
+                ->where('subject_id', $data['subject_id'])
+                ->where('teacher_id', $teacher->id)
+                ->exists()) {
+                throw ValidationException::withMessages(['teacher_id' => ['Assign this teacher to the section and subject before scheduling them.']]);
             }
         }
 

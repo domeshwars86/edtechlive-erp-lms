@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\Auth\VerifyEmailController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\PeopleController;
+use App\Http\Controllers\Api\V1\TeachingAssignmentController;
 use App\Http\Controllers\Api\V1\TimetableController;
 use Illuminate\Support\Facades\Route;
 
@@ -64,6 +65,9 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/teachers', [PeopleController::class, 'teachers']);
                 Route::post('/teachers', [PeopleController::class, 'storeTeacher']);
                 Route::patch('/teachers/{record}', [PeopleController::class, 'updateTeacher'])->whereNumber('record');
+                Route::get('/teaching-assignments', [TeachingAssignmentController::class, 'index']);
+                Route::post('/teaching-assignments', [TeachingAssignmentController::class, 'store']);
+                Route::delete('/teaching-assignments/{record}', [TeachingAssignmentController::class, 'destroy'])->whereNumber('record');
                 Route::get('/attendance', [AttendanceController::class, 'index']);
                 Route::put('/attendance', [AttendanceController::class, 'store']);
                 Route::get('/timetable', [TimetableController::class, 'index']);

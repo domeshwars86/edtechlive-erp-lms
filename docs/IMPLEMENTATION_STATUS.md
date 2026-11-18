@@ -4,7 +4,7 @@
 
 ## Current milestone
 
-Phase 5 — academic ERP foundations. The public website and seven role dashboard layouts are in place. Registration, login, verification, recovery, organization membership, academic masters, student/teacher rosters, attendance, and timetable use Laravel APIs. Overview metrics and non-ERP workflows remain illustrative. PostgreSQL and production email delivery remain unverified.
+Phase 5 — academic ERP foundations. The public website and seven role dashboard layouts are in place. Registration, login, verification, recovery, organization membership, academic masters, student/teacher rosters, teaching assignments, attendance, and timetable use Laravel APIs. Overview metrics and non-ERP workflows remain illustrative. PostgreSQL and production email delivery remain unverified.
 
 ## Implemented
 
@@ -18,6 +18,7 @@ Phase 5 — academic ERP foundations. The public website and seven role dashboar
 - The admin dashboard includes create/list/archive flows for sessions, classes, sections, and subjects, backed by the Laravel API.
 - Admins and management can create, search, and activate/deactivate tenant-owned student and teacher roster profiles; student placement references are checked against organization-owned classes, sections, and sessions.
 - The admin workspace can take and update paginated daily attendance registers for active students in a section/session, constrained to session dates. It can create, list, and deactivate weekly timetable entries with section/session checks, HTTPS meeting links, and overlap detection.
+- Admins can assign active teachers to subject/section/session combinations; timetable entries with a teacher require the matching assignment.
 - API and web setup/auth configuration is documented in `.env.example` files and `apps/api/README.md`.
 
 ## Current limitations
@@ -26,7 +27,7 @@ Phase 5 — academic ERP foundations. The public website and seven role dashboar
 - Email delivery must be configured for verification and reset links.
 - Contact enquiry is still browser-only and is not transmitted.
 - Dashboard overview counts/activity and LMS workflows remain sample data; dedicated admin master, roster, attendance, and timetable screens use persistent APIs.
-- Login invitations and profile-to-account linking, teacher-specific attendance permissions, guardian relationships, organization switching API, detailed role policies, audit trail, MFA, and remaining academic entities remain future work.
+- Staff invitations and profile-to-account linking, teacher-specific attendance permissions, guardian relationships, organization switching API, detailed role policies, audit trail, MFA, and remaining academic entities remain future work.
 - Sitemap host must be replaced with the eventual production domain; legal drafts need review.
 - npm audit has nine high severity findings through `picomatch@4.0.7`; do not apply its incompatible Vite 6.2.7 downgrade without an upstream-compatible fix.
 
@@ -36,15 +37,15 @@ Phase 5 — academic ERP foundations. The public website and seven role dashboar
 - `npm run lint` — passed after attendance/timetable UI integration.
 - `npm run build` — passed after attendance/timetable UI integration; prerendered 14 routes.
 - Browser accessibility inspection confirmed login and registration screens render locally; no credentials or account creation were submitted. Full session verification needs a persistent local API database and mail transport.
-- Full PHPUnit suite — 29 passed / 133 assertions using in-memory SQLite. The normal `php artisan test` runner cannot read its configured PHPUnit bootstrap in the current sandbox; PHPUnit passed with Composer autoload preloaded and safe in-memory DB environment settings.
-- PHP syntax checks passed for application, migration, routes, and test files. Academic, people, attendance, and timetable migrations are applied to the ignored local SQLite development database; 25 organization routes are registered.
+- Full PHPUnit suite — 30 passed / 145 assertions using in-memory SQLite. The normal `php artisan test` runner cannot read its configured PHPUnit bootstrap in the current sandbox; PHPUnit passed with Composer autoload preloaded and safe in-memory DB environment settings.
+- PHP syntax checks passed for application, migration, routes, and test files. Academic, people, attendance, timetable, and teaching assignment migrations are applied to the ignored local SQLite development database; organization routes are registered.
 - Local HTTP smoke check — admin workspace page and Vite-proxied Laravel health endpoint both returned 200.
 - `vendor/bin/pint --test` — passed after correcting import order. No PostgreSQL migration or deployment has been performed.
 
 ## Next
 
 1. Verify client auth flows against a persistent local development database and configure a safe local PostgreSQL service before migration validation.
-2. Add teacher/class assignments and account linkage so teachers can safely manage assigned classes and attendance.
+2. Add staff invitations/account linkage and teacher-scoped attendance so teacher accounts can manage assigned classes safely.
 3. Implement organization invitations and guardian-controlled parent relationships.
 4. Continue LMS entities and workflows: courses, lessons/materials, assignments, examinations, submissions, and results.
 5. Connect contact enquiries after its API endpoint and abuse controls are implemented; configure mail delivery and add a local mail preview.
