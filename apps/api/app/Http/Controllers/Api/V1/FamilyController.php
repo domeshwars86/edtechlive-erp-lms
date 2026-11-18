@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\OrganizationRole;
 use App\Models\AssignmentSubmission;
 use App\Models\AttendanceRecord;
+use App\Models\CourseEnrollment;
+use App\Models\CourseLessonProgress;
 use App\Models\QuizAttempt;
 use App\Models\Student;
 use App\Models\StudentGuardian;
@@ -89,6 +91,63 @@ class FamilyController
             ->where('student_id', $studentRecord->id)->where('guardian_user_id', $request->user()->id)->exists(), 404);
 
         return $this->results($organization, $studentRecord);
+    }
+
+    public function studentProgress(Request $request, int $organization): JsonResponse
+    {
+        $membership = $this->access->membership($request, $organization);
+        abort_unless($membership->role === OrganizationRole::Student, 403);
+        $student = Student::query()->where('organization_id', $organization)
+            ->where('user_id', $request->user()->id)->where('status', 'active')->firstOrFail();
+
+        return $this->progress($organization, $student);
+    }
+
+    public function childProgress(Request $request, int $organization, int $student): JsonResponse
+    {
+        $membership = $this->access->membership($request, $organization);
+        abort_unless($membership->role === OrganizationRole::Parent, 403);
+        $studentRecord = Student::query()->where('organization_id', $organization)->where('status', 'active')->findOrFail($student);
+        abort_unless(StudentGuardian::query()->where('organization_id', $organization)
+            ->where('student_id', $studentRecord->id)->where('guardian_user_id', $request->user()->id)->exists(), 404);
+
+        return $this->progress($organization, $studentRecord);
+    }
+
+    private function progress(int $organization, Student $student): JsonResponse
+    {
+        $enrollments = CourseEnrollment::query()->where('organization_id', $organization)
+            ->where('student_id', $student->id)->where('status', 'active')
+            ->whereHas('student', fn (Builder $query) => $query->where('status', 'active'))
+            ->whereHas('course', fn (Builder $query) => $query->where('organization_id', $organization)->where('status', 'published'))
+            ->with(['course' => fn ($query) => $query->withCount(['lessons as published_lessons_count' => fn ($lessons) => $lessons->where('status', 'published')])])
+            ->orderBy('course_id')->get();
+        $courseIds = $enrollments->pluck('course_id');
+        $completed = CourseLessonProgress::query()->where('organization_id', $organization)
+            ->where('student_id', $student->id)->whereIn('course_id', $courseIds)->whereNotNull('completed_at')
+            ->whereHas('lesson', fn (Builder $query) => $query->where('status', 'published'))
+            ->selectRaw('course_id, COUNT(DISTINCT lesson_id) as completed_count')->groupBy('course_id')->get()->keyBy('course_id');
+        $data = $enrollments->map(function (CourseEnrollment $enrollment) use ($completed): array {
+            $lessonCount = (int) $enrollment->course->published_lessons_count;
+            $completedCount = min((int) ($completed->get($enrollment->course_id)?->completed_count ?? 0), $lessonCount);
+
+            return [
+                'course_id' => $enrollment->course_id,
+                'title' => $enrollment->course->title,
+                'lessons' => $lessonCount,
+                'completed_lessons' => $completedCount,
+                'completion_percent' => $lessonCount > 0 ? (int) round($completedCount / $lessonCount * 100) : 0,
+            ];
+        })->values();
+        $totalLessons = $data->sum('lessons');
+        $completedLessons = $data->sum('completed_lessons');
+
+        return response()->json(['data' => $data, 'summary' => [
+            'courses' => $data->count(),
+            'lessons' => $totalLessons,
+            'completed_lessons' => $completedLessons,
+            'completion_percent' => $totalLessons > 0 ? (int) round($completedLessons / $totalLessons * 100) : 0,
+        ]]);
     }
 
     private function results(int $organization, Student $student): JsonResponse

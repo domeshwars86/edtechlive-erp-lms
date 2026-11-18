@@ -88,9 +88,11 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/my/student', [FamilyController::class, 'student']);
                 Route::get('/my/student/attendance', [FamilyController::class, 'studentAttendance']);
                 Route::get('/my/student/results', [FamilyController::class, 'studentResults']);
+                Route::get('/my/student/progress', [FamilyController::class, 'studentProgress']);
                 Route::get('/my/children', [FamilyController::class, 'children']);
                 Route::get('/my/children/{student}/attendance', [FamilyController::class, 'childAttendance'])->whereNumber('student');
                 Route::get('/my/children/{student}/results', [FamilyController::class, 'childResults'])->whereNumber('student');
+                Route::get('/my/children/{student}/progress', [FamilyController::class, 'childProgress'])->whereNumber('student');
                 Route::get('/invitations', [OrganizationInvitationController::class, 'index']);
                 Route::post('/invitations', [OrganizationInvitationController::class, 'store'])->middleware('throttle:6,1');
                 Route::delete('/invitations/{record}', [OrganizationInvitationController::class, 'destroy'])->whereNumber('record');

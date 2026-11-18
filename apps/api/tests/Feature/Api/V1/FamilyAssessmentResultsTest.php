@@ -8,6 +8,9 @@ use App\Enums\OrganizationType;
 use App\Models\AssignmentSubmission;
 use App\Models\Course;
 use App\Models\CourseAssignment;
+use App\Models\CourseEnrollment;
+use App\Models\CourseLesson;
+use App\Models\CourseLessonProgress;
 use App\Models\CourseQuiz;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
@@ -49,7 +52,30 @@ class FamilyAssessmentResultsTest extends TestCase
         OrganizationMembership::query()->create(['organization_id' => $organization->id, 'user_id' => $child->user_id, 'role' => OrganizationRole::Student, 'status' => MembershipStatus::Active, 'accepted_at' => now()]);
         Sanctum::actingAs($child->user);
         $this->getJson("/api/v1/organizations/{$organization->id}/my/student/results")->assertOk()->assertJsonPath('data.quizzes', [])->assertJsonPath('data.assignments', []);
+        $this->getJson("/api/v1/organizations/{$organization->id}/my/student/progress")->assertOk()->assertJsonPath('data', []);
         $this->getJson("/api/v1/organizations/{$organization->id}/my/children/{$child->id}/results")->assertForbidden();
+    }
+
+    public function test_parent_sees_published_course_progress_for_only_an_explicitly_linked_child(): void
+    {
+        [$parent, $organization, $child, $unlinked] = $this->family();
+        $course = Course::query()->create(['organization_id' => $organization->id, 'created_by' => $parent->id, 'title' => 'Earth Science', 'status' => 'published']);
+        CourseEnrollment::query()->create(['organization_id' => $organization->id, 'course_id' => $course->id, 'student_id' => $child->id, 'enrolled_by' => $parent->id, 'status' => 'active']);
+        $lessons = collect(['Water cycle', 'Climate'])->map(fn (string $title, int $index): CourseLesson => CourseLesson::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id,
+            'title' => $title, 'sort_order' => $index + 1, 'content' => 'Lesson notes', 'status' => 'published',
+        ]));
+        CourseLessonProgress::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id,
+            'lesson_id' => $lessons->first()->id, 'student_id' => $child->id, 'completed_at' => now(),
+        ]);
+
+        Sanctum::actingAs($parent);
+        $this->getJson("/api/v1/organizations/{$organization->id}/my/children/{$child->id}/progress")
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.title', 'Earth Science')
+            ->assertJsonPath('data.0.completed_lessons', 1)->assertJsonPath('data.0.completion_percent', 50)
+            ->assertJsonPath('summary.completion_percent', 50);
+        $this->getJson("/api/v1/organizations/{$organization->id}/my/children/{$unlinked->id}/progress")->assertNotFound();
     }
 
     private function family(): array
