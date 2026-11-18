@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
-import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type FamilyFee, type FamilyStudent, type Lesson, type OrganizationMembership, type QuizRun, type StudentAttendance, type StudentProgress, type TeachingAssignment } from './src/api'
+import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationMembership, type QuizRun, type StudentAttendance, type StudentProgress, type TeachingAssignment } from './src/api'
 
 const TOKEN_KEY = 'edtechlive.mobile.token'
 const ORGANIZATION_KEY = 'edtechlive.mobile.organization'
@@ -23,10 +23,11 @@ export default function App() {
   const [notices, setNotices] = useState<MobileNotice[]>([])
   const [meetings, setMeetings] = useState<MobileMeeting[]>([])
   const [studentProfile, setStudentProfile] = useState<FamilyStudent | null>(null)
-  const [familyChildren, setFamilyChildren] = useState<Array<FamilyStudent & { attendance: StudentAttendance[]; results: AssessmentResults; progress: StudentProgress }>>([])
+  const [familyChildren, setFamilyChildren] = useState<Array<FamilyStudent & { attendance: StudentAttendance[]; results: AssessmentResults; progress: StudentProgress; homework: FamilyHomework[] }>>([])
   const [ownAttendance, setOwnAttendance] = useState<StudentAttendance[]>([])
   const [ownResults, setOwnResults] = useState<AssessmentResults>({ quizzes: [], assignments: [] })
   const [ownProgress, setOwnProgress] = useState<StudentProgress | null>(null)
+  const [ownHomework, setOwnHomework] = useState<FamilyHomework[]>([])
   const [familyFees, setFamilyFees] = useState<FamilyFee[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
@@ -77,7 +78,7 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ quizzes: [], assignments: [] }); setOwnProgress(null); setFamilyFees([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
+    setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
@@ -99,9 +100,10 @@ export default function App() {
         mobileApi.get<{ data: StudentAttendance[] }>(`${base}/my/student/attendance?per_page=10`, token),
         mobileApi.get<{ data: AssessmentResults }>(`${base}/my/student/results`, token),
         mobileApi.get<StudentProgress>(`${base}/my/student/progress`, token),
+        mobileApi.get<{ data: FamilyHomework[] }>(`${base}/my/student/homework?per_page=50`, token),
         mobileApi.get<{ data: FamilyFee[] }>(`${base}/fees?per_page=50`, token),
-      ]).then(([profileResult, attendanceResult, resultHistory, courseProgress, feeResult]) => {
-        if (!cancelled) { setStudentProfile(profileResult.data); setOwnAttendance(attendanceResult.data); setOwnResults(resultHistory.data); setOwnProgress(courseProgress); setFamilyFees(feeResult.data) }
+      ]).then(([profileResult, attendanceResult, resultHistory, courseProgress, homeworkResult, feeResult]) => {
+        if (!cancelled) { setStudentProfile(profileResult.data); setOwnAttendance(attendanceResult.data); setOwnResults(resultHistory.data); setOwnProgress(courseProgress); setOwnHomework(homeworkResult.data); setFamilyFees(feeResult.data) }
       }))
     }
     if (active.role === 'parent') {
@@ -113,10 +115,11 @@ export default function App() {
             mobileApi.get<{ data: StudentAttendance[] }>(`${base}/my/children/${child.id}/attendance?per_page=10`, token),
             mobileApi.get<{ data: AssessmentResults }>(`${base}/my/children/${child.id}/results`, token),
             mobileApi.get<StudentProgress>(`${base}/my/children/${child.id}/progress`, token),
+            mobileApi.get<{ data: FamilyHomework[] }>(`${base}/my/children/${child.id}/homework?per_page=50`, token),
           ]),
         ])
         if (!cancelled) {
-          setFamilyChildren(childResult.data.map((child, index) => ({ ...child, attendance: (childData[index * 3] as { data: StudentAttendance[] }).data, results: (childData[index * 3 + 1] as { data: AssessmentResults }).data, progress: childData[index * 3 + 2] as StudentProgress })))
+          setFamilyChildren(childResult.data.map((child, index) => ({ ...child, attendance: (childData[index * 4] as { data: StudentAttendance[] }).data, results: (childData[index * 4 + 1] as { data: AssessmentResults }).data, progress: childData[index * 4 + 2] as StudentProgress, homework: (childData[index * 4 + 3] as { data: FamilyHomework[] }).data })))
           setFamilyFees(feeResult.data)
         }
       })())
@@ -265,7 +268,7 @@ export default function App() {
     try { if (current) await mobileApi.post('/api/v1/auth/logout', current) }
     catch { /* Local credentials must still be removed if the API is offline. */ }
     await SecureStore.deleteItemAsync(TOKEN_KEY); await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
-    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ quizzes: [], assignments: [] }); setOwnProgress(null); setFamilyFees([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
+    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
   }
 
   if (busy && !user) return <Splash />
@@ -322,10 +325,12 @@ export default function App() {
           <AssessmentHistory results={ownResults} />
           <Text style={styles.sectionTitle}>My course progress</Text>
           <CourseProgressHistory progress={ownProgress} />
+          <Text style={styles.sectionTitle}>Homework</Text>
+          <HomeworkHistory items={ownHomework} />
         </> : null}
         {active.role === 'parent' ? <>
           <Text style={styles.sectionTitle}>Linked learners</Text>
-          {familyChildren.length ? familyChildren.map(child => <View style={styles.recordCard} key={child.id}><Text style={styles.courseTitle}>{child.name}{child.is_primary ? ' · Primary contact' : ''}</Text><Text style={styles.courseMeta}>{child.relationship ?? 'Guardian link'} · {child.academic_class?.name ?? 'Class not assigned'}{child.academic_section?.name ? ` · ${child.academic_section.name}` : ''}{child.academic_session?.name ? ` · ${child.academic_session.name}` : ''}</Text><Text style={styles.recordHeading}>Recent attendance</Text>{child.attendance.length ? child.attendance.slice(0, 5).map(record => <Text style={styles.courseMeta} key={record.id}>{record.date} · {record.status} · {record.section.class} {record.section.name}</Text>) : <Text style={styles.courseMeta}>{busy ? 'Loading attendance…' : 'No attendance records available.'}</Text>}<Text style={styles.recordHeading}>Assessment results</Text><AssessmentHistory results={child.results} /><Text style={styles.recordHeading}>Course progress</Text><CourseProgressHistory progress={child.progress} /></View>) : <Empty text={busy ? 'Loading linked learners…' : 'No active linked learners are available.'} />}
+          {familyChildren.length ? familyChildren.map(child => <View style={styles.recordCard} key={child.id}><Text style={styles.courseTitle}>{child.name}{child.is_primary ? ' · Primary contact' : ''}</Text><Text style={styles.courseMeta}>{child.relationship ?? 'Guardian link'} · {child.academic_class?.name ?? 'Class not assigned'}{child.academic_section?.name ? ` · ${child.academic_section.name}` : ''}{child.academic_session?.name ? ` · ${child.academic_session.name}` : ''}</Text><Text style={styles.recordHeading}>Recent attendance</Text>{child.attendance.length ? child.attendance.slice(0, 5).map(record => <Text style={styles.courseMeta} key={record.id}>{record.date} · {record.status} · {record.section.class} {record.section.name}</Text>) : <Text style={styles.courseMeta}>{busy ? 'Loading attendance…' : 'No attendance records available.'}</Text>}<Text style={styles.recordHeading}>Assessment results</Text><AssessmentHistory results={child.results} /><Text style={styles.recordHeading}>Course progress</Text><CourseProgressHistory progress={child.progress} /><Text style={styles.recordHeading}>Homework</Text><HomeworkHistory items={child.homework} /></View>) : <Empty text={busy ? 'Loading linked learners…' : 'No active linked learners are available.'} />}
         </> : null}
         {active.role === 'student' || active.role === 'parent' ? <>
           <Text style={styles.sectionTitle}>Fee records</Text>
@@ -413,6 +418,11 @@ function AssessmentHistory({ results }: { results: AssessmentResults }) {
 function CourseProgressHistory({ progress }: { progress: StudentProgress | null }) {
   if (!progress?.data.length) return <Text style={styles.courseMeta}>No active published courses yet.</Text>
   return <View><Text style={styles.courseMeta}>{progress.summary.completed_lessons}/{progress.summary.lessons} lessons complete · {progress.summary.completion_percent}% overall</Text>{progress.data.map(course => <View key={course.course_id} style={styles.progressRow}><View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${course.completion_percent}%` }]} /></View><Text style={styles.courseMeta}>{course.title} · {course.completed_lessons}/{course.lessons} ({course.completion_percent}%)</Text></View>)}</View>
+}
+
+function HomeworkHistory({ items }: { items: FamilyHomework[] }) {
+  if (!items.length) return <Text style={styles.courseMeta}>No published assignments yet.</Text>
+  return <View>{items.slice(0, 5).map(item => <View key={item.id} style={styles.progressRow}><Text style={styles.courseTitle}>{item.title}</Text><Text style={styles.courseMeta}>{item.course}{item.due_at ? ` · Due ${new Date(item.due_at).toLocaleDateString()}` : ''} · {item.status}</Text><Text style={styles.resultText}>{item.score ? `Score ${item.score}/${item.max_points}` : `Maximum ${item.max_points} points`}{item.feedback ? ` · ${item.feedback}` : ''}</Text></View>)}</View>
 }
 
 const styles = StyleSheet.create({
