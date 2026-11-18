@@ -6,6 +6,8 @@ use App\Enums\OrganizationRole;
 use App\Models\AcademicSection;
 use App\Models\AttendanceRecord;
 use App\Models\Student;
+use App\Models\Teacher;
+use App\Models\TeachingAssignment;
 use App\Services\OrganizationAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,7 +22,7 @@ class AttendanceController
 
     public function index(Request $request, int $organization): JsonResponse
     {
-        $this->authorizeAttendance($request, $organization);
+        $teacher = $this->authorizeAttendance($request, $organization);
         $filters = $request->validate([
             'section_id' => ['required', 'integer', Rule::exists('academic_sections', 'id')->where('organization_id', $organization)],
             'date' => ['required', 'date_format:Y-m-d'],
@@ -28,6 +30,7 @@ class AttendanceController
             'page' => ['sometimes', 'integer', 'min:1'],
         ]);
         $section = $this->sectionForDate($organization, (int) $filters['section_id'], $filters['date']);
+        $this->assertAssignedTeacher($teacher, $organization, $section->id, (int) $section->academic_session_id);
         $students = Student::query()
             ->where('organization_id', $organization)
             ->where('academic_section_id', $section->id)
@@ -68,7 +71,7 @@ class AttendanceController
 
     public function store(Request $request, int $organization): JsonResponse
     {
-        $this->authorizeAttendance($request, $organization, true);
+        $teacher = $this->authorizeAttendance($request, $organization, true);
         $data = $request->validate([
             'section_id' => ['required', 'integer', Rule::exists('academic_sections', 'id')->where('organization_id', $organization)],
             'date' => ['required', 'date_format:Y-m-d'],
@@ -78,6 +81,7 @@ class AttendanceController
             'records.*.note' => ['nullable', 'string', 'max:500'],
         ]);
         $section = $this->sectionForDate($organization, (int) $data['section_id'], $data['date']);
+        $this->assertAssignedTeacher($teacher, $organization, $section->id, (int) $section->academic_session_id);
         $studentIds = collect($data['records'])->pluck('student_id')->map(fn ($id): int => (int) $id);
         $eligibleCount = Student::query()
             ->where('organization_id', $organization)
@@ -114,14 +118,38 @@ class AttendanceController
         return response()->json(['message' => 'Attendance saved.', 'saved' => count($rows)]);
     }
 
-    private function authorizeAttendance(Request $request, int $organization, bool $write = false): void
+    private function authorizeAttendance(Request $request, int $organization, bool $write = false): ?Teacher
     {
-        $membership = $this->access->membership($request, $organization, $write);
-        abort_unless(in_array($membership->role, [
+        $membership = $this->access->membership($request, $organization);
+        if (in_array($membership->role, [
             OrganizationRole::Admin,
             OrganizationRole::Management,
             OrganizationRole::IndependentEducator,
-        ], true), 403);
+        ], true)) {
+            if ($write) {
+                $this->access->membership($request, $organization, true);
+            }
+
+            return null;
+        }
+        abort_unless($membership->role === OrganizationRole::Teacher, 403);
+        $teacher = Teacher::query()->where('organization_id', $organization)
+            ->where('user_id', $request->user()->id)->where('status', 'active')->first();
+        abort_unless($teacher !== null, 403);
+
+        return $teacher;
+    }
+
+    private function assertAssignedTeacher(?Teacher $teacher, int $organization, int $sectionId, int $sessionId): void
+    {
+        if ($teacher === null) {
+            return;
+        }
+        abort_unless(TeachingAssignment::query()->where('organization_id', $organization)
+            ->where('teacher_id', $teacher->id)
+            ->where('academic_section_id', $sectionId)
+            ->where('academic_session_id', $sessionId)
+            ->exists(), 403);
     }
 
     private function sectionForDate(int $organization, int $sectionId, string $date): AcademicSection

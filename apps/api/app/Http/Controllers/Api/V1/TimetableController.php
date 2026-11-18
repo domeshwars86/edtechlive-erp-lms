@@ -22,7 +22,7 @@ class TimetableController
 
     public function index(Request $request, int $organization): JsonResponse
     {
-        $this->authorizeTimetable($request, $organization);
+        $membership = $this->access->membership($request, $organization);
         $filters = $request->validate([
             'academic_session_id' => ['sometimes', 'integer', Rule::exists('academic_sessions', 'id')->where('organization_id', $organization)],
             'section_id' => ['sometimes', 'integer', Rule::exists('academic_sections', 'id')->where('organization_id', $organization)],
@@ -32,6 +32,13 @@ class TimetableController
         ]);
         $query = TimetableEntry::query()->where('organization_id', $organization)
             ->with(['academicSession:id,name', 'academicSection:id,name,academic_class_id', 'academicSection.academicClass:id,name', 'subject:id,name', 'teacher:id,name']);
+        if ($membership->role === OrganizationRole::Teacher) {
+            $teacher = Teacher::query()->where('organization_id', $organization)->where('user_id', $request->user()->id)->where('status', 'active')->first();
+            abort_unless($teacher !== null, 403);
+            $query->where('teacher_id', $teacher->id)->where('is_active', true);
+        } else {
+            abort_unless(in_array($membership->role, [OrganizationRole::Admin, OrganizationRole::Management, OrganizationRole::IndependentEducator], true), 403);
+        }
         if (isset($filters['academic_session_id'])) {
             $query->where('academic_session_id', $filters['academic_session_id']);
         }

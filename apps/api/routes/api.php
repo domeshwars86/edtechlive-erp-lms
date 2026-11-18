@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\Auth\RegisteredOrganizationController;
 use App\Http\Controllers\Api\V1\Auth\VerifyEmailController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\OrganizationController;
+use App\Http\Controllers\Api\V1\OrganizationInvitationController;
 use App\Http\Controllers\Api\V1\PeopleController;
 use App\Http\Controllers\Api\V1\TeachingAssignmentController;
 use App\Http\Controllers\Api\V1\TimetableController;
@@ -35,6 +36,10 @@ Route::prefix('v1')->group(function (): void {
             ->middleware('throttle:api-auth-password-reset')->name('api.v1.auth.password.email');
         Route::post('/reset-password', [NewPasswordController::class, 'store'])
             ->middleware('throttle:api-auth-password-reset')->name('api.v1.auth.password.update');
+        Route::get('/invitations/{token}', [OrganizationInvitationController::class, 'show'])
+            ->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:12,1');
+        Route::post('/invitations/register', [OrganizationInvitationController::class, 'registerAndAccept'])
+            ->middleware('throttle:api-auth-register');
     });
 
     Route::middleware('auth:sanctum')->group(function (): void {
@@ -47,6 +52,10 @@ Route::prefix('v1')->group(function (): void {
                 ->whereNumber('organization')->name('api.v1.organizations.show');
 
             Route::prefix('/organizations/{organization}')->whereNumber('organization')->group(function (): void {
+                Route::get('/invitations', [OrganizationInvitationController::class, 'index']);
+                Route::post('/invitations', [OrganizationInvitationController::class, 'store'])->middleware('throttle:6,1');
+                Route::delete('/invitations/{record}', [OrganizationInvitationController::class, 'destroy'])->whereNumber('record');
+                Route::post('/invitations/{token}/accept', [OrganizationInvitationController::class, 'acceptExisting'])->where('token', '[A-Za-z0-9]{64}');
                 Route::get('/academic-sessions', [AcademicMasterController::class, 'sessions']);
                 Route::post('/academic-sessions', [AcademicMasterController::class, 'storeSession']);
                 Route::patch('/academic-sessions/{record}', [AcademicMasterController::class, 'updateSession'])->whereNumber('record');

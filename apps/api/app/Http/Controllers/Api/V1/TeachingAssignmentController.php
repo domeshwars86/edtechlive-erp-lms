@@ -8,9 +8,11 @@ use App\Models\AcademicSession;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;
+use App\Models\TimetableEntry;
 use App\Services\OrganizationAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -20,14 +22,22 @@ class TeachingAssignmentController
 
     public function index(Request $request, int $organization): JsonResponse
     {
-        $this->authorize($request, $organization);
+        $membership = $this->access->membership($request, $organization);
         $filters = $request->validate([
             'academic_session_id' => ['sometimes', 'integer', Rule::exists('academic_sessions', 'id')->where('organization_id', $organization)],
             'teacher_id' => ['sometimes', 'integer', Rule::exists('teachers', 'id')->where('organization_id', $organization)],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
         $query = TeachingAssignment::query()->where('organization_id', $organization)
-            ->with(['academicSession:id,name', 'academicSection:id,name,academic_class_id', 'academicSection.academicClass:id,name', 'subject:id,name,code', 'teacher:id,name,employee_number']);
+            ->with(['academicSession:id,name', 'academicSection:id,name,academic_class_id,academic_session_id', 'academicSection.academicClass:id,name', 'subject:id,name,code', 'teacher:id,name,employee_number']);
+        if ($membership->role === OrganizationRole::Teacher) {
+            $teacher = Teacher::query()->where('organization_id', $organization)->where('user_id', $request->user()->id)->where('status', 'active')->first();
+            abort_unless($teacher !== null, 403);
+            abort_if(isset($filters['teacher_id']) && (int) $filters['teacher_id'] !== (int) $teacher->id, 403);
+            $filters['teacher_id'] = $teacher->id;
+        } else {
+            abort_unless(in_array($membership->role, [OrganizationRole::Admin, OrganizationRole::Management, OrganizationRole::IndependentEducator], true), 403);
+        }
         if (isset($filters['academic_session_id'])) {
             $query->where('academic_session_id', $filters['academic_session_id']);
         }
@@ -63,7 +73,7 @@ class TeachingAssignmentController
             ['academic_session_id' => $session->id, 'academic_section_id' => $section->id, 'subject_id' => $subject->id, 'teacher_id' => $teacher->id],
             ['organization_id' => $organization],
         );
-        $assignment->load(['academicSession:id,name', 'academicSection:id,name,academic_class_id', 'academicSection.academicClass:id,name', 'subject:id,name,code', 'teacher:id,name,employee_number']);
+        $assignment->load(['academicSession:id,name', 'academicSection:id,name,academic_class_id,academic_session_id', 'academicSection.academicClass:id,name', 'subject:id,name,code', 'teacher:id,name,employee_number']);
 
         return response()->json(['data' => $assignment], $assignment->wasRecentlyCreated ? 201 : 200);
     }
@@ -72,7 +82,15 @@ class TeachingAssignmentController
     {
         $this->authorize($request, $organization, true);
         $assignment = TeachingAssignment::query()->where('organization_id', $organization)->findOrFail($record);
-        $assignment->delete();
+        DB::transaction(function () use ($assignment): void {
+            TimetableEntry::query()->where('organization_id', $assignment->organization_id)
+                ->where('academic_session_id', $assignment->academic_session_id)
+                ->where('academic_section_id', $assignment->academic_section_id)
+                ->where('subject_id', $assignment->subject_id)
+                ->where('teacher_id', $assignment->teacher_id)
+                ->update(['teacher_id' => null]);
+            $assignment->delete();
+        });
 
         return response()->json(['message' => 'Teaching assignment removed.']);
     }

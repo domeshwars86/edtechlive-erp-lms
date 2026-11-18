@@ -18,7 +18,7 @@ function localToday(): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-export default function AttendanceRegister({ organizationId }: { organizationId: number }) {
+export default function AttendanceRegister({ organizationId, sectionsOverride, initialSectionId }: { organizationId: number; sectionsOverride?: Section[]; initialSectionId?: number }) {
   const base = `/api/v1/organizations/${organizationId}`
   const [sections, setSections] = useState<Section[]>([])
   const [sectionId, setSectionId] = useState('')
@@ -32,6 +32,11 @@ export default function AttendanceRegister({ organizationId }: { organizationId:
   const [message, setMessage] = useState('')
 
   useEffect(() => {
+    if (sectionsOverride) {
+      setSections(sectionsOverride)
+      setSectionId(current => current || String(initialSectionId ?? sectionsOverride[0]?.id ?? ''))
+      return
+    }
     let cancelled = false
     void api.get<ListResponse<{ id: number; name: string }>>(`${base}/classes?per_page=100`)
       .then(async classes => {
@@ -47,7 +52,7 @@ export default function AttendanceRegister({ organizationId }: { organizationId:
       })
       .catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : 'Could not load class sections.') })
     return () => { cancelled = true }
-  }, [base])
+  }, [base, initialSectionId, sectionsOverride])
 
   const loadAttendance = useCallback(async () => {
     if (!sectionId || !date) {

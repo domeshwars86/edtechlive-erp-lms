@@ -1,6 +1,6 @@
 # edTechLive API
 
-Laravel 13 API backend. The repository includes Sanctum authentication, email verification and password reset, organization membership, tenant-scoped academic master and roster APIs, daily attendance, and weekly timetable management.
+Laravel 13 API backend. The repository includes Sanctum authentication, email verification and password reset, hashed organization invitations, tenant-scoped academic master and roster APIs, teacher assignments, daily attendance, and weekly timetable management.
 
 ## Requirements
 
@@ -43,8 +43,10 @@ Tests use in-memory SQLite and do not require PostgreSQL. The academic migration
 - `GET /api/v1/me` — Sanctum-authenticated current-user summary.
 - `GET /api/v1/organizations` and `GET /api/v1/organizations/{organization}` — verified users can access active organizations where they have an active membership; list is paginated.
 - Under `/api/v1/organizations/{organization}`: `GET/POST/PATCH academic-sessions`, `GET/POST/PATCH classes`, nested `GET/POST classes/{class}/sections`, `PATCH sections/{section}`, and `GET/POST/PATCH subjects`. Read access requires active organization membership; writes require admin, management, or independent educator role. All records are organization-scoped.
-- Under `/api/v1/organizations/{organization}`: `GET/POST/PATCH students` and `GET/POST/PATCH teachers` provide paginated, searchable rosters. Access is limited to admin, management, and independent educator roles. Student class/section/session references are organization-validated. These roster profiles do not create login accounts; invitations are a separate future workflow.
-- `GET/PUT /api/v1/organizations/{organization}/attendance` — paginated attendance register for active students in a section/session; dates are constrained to the session and batch marks upsert by student/section/date. Admin, management, and independent educator access only.
-- `GET/POST/PATCH /api/v1/organizations/{organization}/timetable` — weekly entries by session, section, subject, optional teacher/room and secure HTTPS meeting URL. Active section, teacher, and room overlaps are rejected. Google Meet API provisioning is not connected; links are entered manually.
+- Under `/api/v1/organizations/{organization}`: `GET/POST/PATCH students` and `GET/POST/PATCH teachers` provide paginated, searchable rosters. Access is limited to admin, management, and independent educator roles. Student class/section/session references are organization-validated.
+- `GET/POST/DELETE /api/v1/organizations/{organization}/invitations` and `GET /api/v1/auth/invitations/{token}`, `POST /api/v1/auth/invitations/register`, and `POST /api/v1/organizations/{organization}/invitations/{token}/accept` provide role-limited, seven-day, one-time invitations. Teacher acceptance creates or links a teacher profile. Raw tokens are stored only as hashes.
+- `GET/POST /api/v1/organizations/{organization}/teaching-assignments` with `DELETE` by ID manages tenant-scoped subject, section, session, and teacher assignments. Teachers can list only their own assignments.
+- `GET/PUT /api/v1/organizations/{organization}/attendance` — paginated attendance register for active students in a section/session; dates are constrained to the session and batch marks upsert by student/section/date. Teachers can access only assigned sections; admin, management, and independent educator can access the organization register.
+- `GET/POST/PATCH /api/v1/organizations/{organization}/timetable` — weekly entries by session, section, subject, optional assigned teacher/room and secure HTTPS meeting URL. Active section, teacher, and room overlaps are rejected. Teachers see only their own active entries. Google Meet API provisioning is not connected; links are entered manually.
 
-Invitations, account linkage, teacher-scoped attendance, guardian relationships, reports, and LMS APIs remain future work. Local `.env` uses the log mailer, so messages are recorded locally rather than delivered. Production email delivery, PostgreSQL migration, and deployment are not configured here.
+Student account linkage, guardian relationships, reports, and LMS APIs remain future work. Local `.env` uses the log mailer, so messages are recorded locally rather than delivered. Production email delivery, PostgreSQL migration, and deployment are not configured here.

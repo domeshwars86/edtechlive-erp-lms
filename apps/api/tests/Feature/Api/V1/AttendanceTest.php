@@ -11,6 +11,9 @@ use App\Models\AcademicSession;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\Student;
+use App\Models\Subject;
+use App\Models\Teacher;
+use App\Models\TeachingAssignment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -57,7 +60,7 @@ class AttendanceTest extends TestCase
         $this->getJson("/api/v1/organizations/{$otherOrganization->id}/attendance?section_id=1&date=2026-11-18")->assertNotFound();
     }
 
-    public function test_teacher_membership_cannot_edit_attendance_until_class_assignments_are_supported(): void
+    public function test_unlinked_teacher_membership_cannot_edit_attendance(): void
     {
         [$user, $organization, $section, $student] = $this->classroom(OrganizationRole::Teacher);
         Sanctum::actingAs($user);
@@ -67,6 +70,37 @@ class AttendanceTest extends TestCase
             'date' => '2026-11-18',
             'records' => [['student_id' => $student->id, 'status' => 'present']],
         ])->assertForbidden();
+    }
+
+    public function test_linked_teacher_can_mark_attendance_only_in_an_assigned_section(): void
+    {
+        [$user, $organization, $section, $student] = $this->classroom(OrganizationRole::Teacher);
+        $teacher = Teacher::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $user->id,
+            'name' => 'Teacher Example', 'email' => $user->email, 'status' => 'active',
+        ]);
+        $subject = Subject::query()->create(['organization_id' => $organization->id, 'name' => 'Science']);
+        TeachingAssignment::query()->create([
+            'organization_id' => $organization->id, 'academic_session_id' => $section->academic_session_id,
+            'academic_section_id' => $section->id, 'subject_id' => $subject->id, 'teacher_id' => $teacher->id,
+        ]);
+        Sanctum::actingAs($user);
+        $endpoint = "/api/v1/organizations/{$organization->id}/attendance";
+
+        $this->getJson("{$endpoint}?section_id={$section->id}&date=2026-11-18")->assertOk();
+        $this->putJson($endpoint, [
+            'section_id' => $section->id,
+            'date' => '2026-11-18',
+            'records' => [['student_id' => $student->id, 'status' => 'present']],
+        ])->assertOk();
+
+        $unassignedSection = AcademicSection::query()->create([
+            'organization_id' => $organization->id,
+            'academic_class_id' => $section->academic_class_id,
+            'academic_session_id' => $section->academic_session_id,
+            'name' => 'B',
+        ]);
+        $this->getJson("{$endpoint}?section_id={$unassignedSection->id}&date=2026-11-18")->assertForbidden();
     }
 
     public function test_attendance_requires_students_enrolled_in_the_selected_section_and_session(): void

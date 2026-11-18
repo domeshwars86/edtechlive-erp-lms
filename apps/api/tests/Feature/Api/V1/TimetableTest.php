@@ -89,6 +89,38 @@ class TimetableTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('academic_section_id');
     }
 
+    public function test_teacher_sees_only_timetable_entries_assigned_to_their_linked_profile(): void
+    {
+        [$user, $organization, $context] = $this->scheduleContext(OrganizationRole::Teacher);
+        $context['teacher']->update(['user_id' => $user->id]);
+        $otherTeacher = Teacher::query()->create(['organization_id' => $organization->id, 'name' => 'Other Teacher', 'status' => 'active']);
+        TeachingAssignment::query()->create([
+            'organization_id' => $organization->id,
+            'academic_session_id' => $context['session']->id,
+            'academic_section_id' => $context['secondSection']->id,
+            'subject_id' => $context['subject']->id,
+            'teacher_id' => $otherTeacher->id,
+        ]);
+        $admin = User::factory()->create();
+        OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $admin->id,
+            'role' => OrganizationRole::Admin, 'status' => MembershipStatus::Active, 'accepted_at' => now(),
+        ]);
+        Sanctum::actingAs($admin);
+        $endpoint = "/api/v1/organizations/{$organization->id}/timetable";
+        $this->postJson($endpoint, $this->entryPayload($context))->assertCreated();
+        $otherEntry = $this->entryPayload($context);
+        $otherEntry['academic_section_id'] = $context['secondSection']->id;
+        $otherEntry['teacher_id'] = $otherTeacher->id;
+        $otherEntry['starts_at'] = '11:00';
+        $otherEntry['ends_at'] = '12:00';
+        $this->postJson($endpoint, $otherEntry)->assertCreated();
+
+        Sanctum::actingAs($user);
+        $this->getJson("{$endpoint}?academic_session_id={$context['session']->id}")
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.teacher.id', $context['teacher']->id);
+    }
+
     private function scheduleContext(OrganizationRole $role = OrganizationRole::Admin): array
     {
         $user = User::factory()->create();

@@ -12,6 +12,8 @@ use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\Subject;
 use App\Models\Teacher;
+use App\Models\TeachingAssignment;
+use App\Models\TimetableEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -37,8 +39,19 @@ class TeachingAssignmentTest extends TestCase
         $id = $response->json('data.id');
         $this->postJson($endpoint, $payload)->assertOk()->assertJsonPath('data.id', $id);
         $this->getJson("{$endpoint}?academic_session_id={$context['session']->id}")->assertOk()->assertJsonPath('meta.total', 1);
+        $schedule = TimetableEntry::query()->create([
+            'organization_id' => $organization->id,
+            'academic_session_id' => $context['session']->id,
+            'academic_section_id' => $context['section']->id,
+            'subject_id' => $context['subject']->id,
+            'teacher_id' => $context['teacher']->id,
+            'weekday' => 1,
+            'starts_at' => '09:00:00',
+            'ends_at' => '10:00:00',
+        ]);
         $this->deleteJson("{$endpoint}/{$id}")->assertOk();
         $this->getJson("{$endpoint}?academic_session_id={$context['session']->id}")->assertOk()->assertJsonPath('meta.total', 0);
+        $this->assertDatabaseHas('timetable_entries', ['id' => $schedule->id, 'teacher_id' => null]);
     }
 
     public function test_assignment_section_must_belong_to_the_selected_session(): void
@@ -73,6 +86,35 @@ class TeachingAssignmentTest extends TestCase
             'subject_id' => $context['subject']->id,
             'teacher_id' => $context['teacher']->id,
         ])->assertForbidden();
+    }
+
+    public function test_teacher_can_read_only_their_own_assignments(): void
+    {
+        [$user, $organization, $context] = $this->assignmentContext(OrganizationRole::Teacher);
+        $context['teacher']->update(['user_id' => $user->id]);
+        TeachingAssignment::query()->create([
+            'organization_id' => $organization->id,
+            'academic_session_id' => $context['session']->id,
+            'academic_section_id' => $context['section']->id,
+            'subject_id' => $context['subject']->id,
+            'teacher_id' => $context['teacher']->id,
+        ]);
+        $otherTeacher = Teacher::query()->create([
+            'organization_id' => $organization->id, 'name' => 'Other Teacher', 'status' => 'active',
+        ]);
+        TeachingAssignment::query()->create([
+            'organization_id' => $organization->id,
+            'academic_session_id' => $context['session']->id,
+            'academic_section_id' => $context['section']->id,
+            'subject_id' => $context['subject']->id,
+            'teacher_id' => $otherTeacher->id,
+        ]);
+        Sanctum::actingAs($user);
+        $endpoint = "/api/v1/organizations/{$organization->id}/teaching-assignments";
+
+        $this->getJson($endpoint)->assertOk()->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.teacher.id', $context['teacher']->id);
+        $this->getJson("{$endpoint}?teacher_id={$otherTeacher->id}")->assertForbidden();
     }
 
     private function assignmentContext(OrganizationRole $role = OrganizationRole::Admin): array

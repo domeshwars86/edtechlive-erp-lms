@@ -8,9 +8,9 @@
 - [ ] Authentication APIs are connected, but verification/reset delivery depends on configuring an email transport.
 - [ ] Sample courses and provisional plan scope/pricing are not commercial offers.
 - [ ] Privacy/terms/cookie/acceptable-use/refund copy is draft material pending legal review.
-- [ ] Organization invitations/switching endpoints and detailed role/resource policies are not implemented.
+- [ ] Organization invitation email uses the configured mail transport; local development logs messages, so SMTP or another delivery service must be configured for real inbox delivery. Organization switching endpoints and detailed role/resource policies are not implemented.
 - [ ] PostgreSQL migrations are written but unexecuted; database service status was not accessible through the local service inventory.
-- [ ] Academic ERP is partial: sessions, classes, sections, subjects, basic rosters, teacher/subject/section/session assignments, attendance, and timetable are implemented; staff account invitations/linkage, teacher-scoped attendance, guardians, and reports remain.
+- [ ] Academic ERP is partial: sessions, classes, sections, subjects, basic rosters, teacher/subject/section/session assignments, staff invitations/linkage, teacher-scoped attendance, and timetable are implemented; student account linkage, guardians, and reports remain.
 - [ ] LMS, mobile apps, integrations and deployment are not implemented.
 - [ ] The local development mailer logs messages instead of delivering them; configure SMTP or another approved transport for verification and reset links.
 - [ ] npm audit still reports nine high severity findings through `picomatch@4.0.7`, used by Vite and TypeScript-ESLint. Registry metadata reports 4.0.7 as the latest picomatch release and suggests a Vite 6.2.7 downgrade; that incompatible downgrade was not applied. Recheck when upstream publishes a patched dependency or compatible fix.

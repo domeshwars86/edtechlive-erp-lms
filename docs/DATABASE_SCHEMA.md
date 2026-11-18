@@ -1,15 +1,16 @@
 # Database Schema Direction
 
-**Status:** Identity, organization, membership, academic session, class, section, subject, student, teacher, teaching assignment, attendance, and timetable tables/models/migrations are implemented. Local development migrations are applied to SQLite; PostgreSQL deployment validation remains pending.
+**Status:** Identity, organization, membership, invitation, academic session, class, section, subject, student, teacher, teaching assignment, attendance, and timetable tables/models/migrations are implemented. Local development migrations are applied to SQLite; PostgreSQL deployment validation remains pending.
 
 ## Core entities
 
 - `users`: identity and verified contact fields; never duplicate authentication secrets in domain records.
 - `organizations`: tenant, type, status, locale/timezone and settings.
 - `memberships`: user, organization, role/status, invitation/activation timestamps; unique active user/organization/role policy.
+- `organization_invitations`: organization, normalized email, limited role, hashed one-time token, inviter, expiry, and acceptance audit fields. Raw invitation tokens exist only in the mail link.
 - `roles`, `permissions`, membership-role assignments: scoped authorization primitives.
 - `academic_sessions`, `classes`, `sections`, `batches`, `subjects`: organization-owned academic structure.
-- `students`, `teachers`: organization-owned roster profiles with optional class placement and organization-scoped admission/employee identifiers. Login accounts, guardians, and verified family links are separate future work.
+- `students`, `teachers`: organization-owned roster profiles with optional class placement and organization-scoped admission/employee identifiers. Teacher profiles can link to one user account per organization; student accounts and guardians/family links remain future work.
 - `teaching_assignments`: tenant-owned teacher/subject/section/session links; timetable entries require the matching assignment when a teacher is set.
 - `attendance_records`, `timetable_entries`: class/session/date/user-scoped academic activity. Attendance has one mark per student/section/date and records the marking user. Timetable entries contain weekday/time, room, optional assigned teacher, and optional secure meeting URL.
 - `courses`, `enrollments`, `modules`, `lessons`, `learning_assets`: LMS structure and access.
@@ -19,7 +20,7 @@
 - `fee_categories`, `invoices`, `payments`, `payment_webhook_events`: finance records and idempotent provider events.
 - `ai_usage_records`, provider configuration references: usage/cost tracking; secrets live outside database/application source.
 
-The implemented schema uses `organizations` and `organization_memberships`, indexed by organization/user/status with a unique organization/user membership. `academic_sessions`, `academic_classes`, `academic_sections`, `subjects`, `students`, `teachers`, `teaching_assignments`, `attendance_records`, and `timetable_entries` carry organization ownership and tenant-aware validation/index constraints. Local SQLite migrations pass; PostgreSQL-specific migration and constraint behavior still needs validation. Role, organization type and membership status use PHP backed enums.
+The implemented schema uses `organizations` and `organization_memberships`, indexed by organization/user/status with a unique organization/user membership. `organization_invitations`, `academic_sessions`, `academic_classes`, `academic_sections`, `subjects`, `students`, `teachers`, `teaching_assignments`, `attendance_records`, and `timetable_entries` carry organization ownership and tenant-aware validation/index constraints. Local SQLite migrations pass; PostgreSQL-specific migration and constraint behavior still needs validation. Role, organization type and membership status use PHP backed enums.
 
 ## Modeling rules
 
