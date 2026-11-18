@@ -1,6 +1,6 @@
 # API Specification (Proposed)
 
-**Status:** Health, authentication, password recovery, email verification, organization invitations, current-user, organization reads, academic masters, people rosters, teaching assignments, attendance, timetable, family access, attendance reports, and course/lesson/enrollment routes are implemented. Other routes remain proposals.
+**Status:** Health, authentication, password recovery, email verification, organization invitations, current-user, organization reads, academic masters, people rosters, teaching assignments, attendance, timetable, family access, attendance reports, courses, lessons, enrollments, assignments, submissions, and grading routes are implemented. Other routes remain proposals.
 
 Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return consistent validation and authorization errors; lists are paginated. Organization context is explicit in authorized routes and verified against the authenticated user's active membership. Never trust a client-provided organization ID without policy enforcement.
 
@@ -68,6 +68,11 @@ Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return co
 | `PATCH /api/v1/organizations/{organization}/courses/{record}` | Verified manager or course's linked teacher | Updates course details/status. Publishing requires a published lesson. |
 | `GET/POST /api/v1/organizations/{organization}/courses/{course}/lessons` | Course manager/editor; enrolled student may read published lessons | Adds lesson content or an HTTPS resource link; publishing requires at least one content body or HTTPS resource URL. Students cannot read drafts or courses without enrollment. |
 | `POST /api/v1/organizations/{organization}/courses/{course}/enrollments` | Verified manager | Enrolls 1–200 active student roster profiles into a published course; repeated enrollment reactivates the same course/student record. |
+| `GET/POST /api/v1/organizations/{organization}/courses/{course}/assignments` | Course manager/editor; enrolled student may list published assignments | Creates draft/published assignments or lists available work. Students see only published assignments for an active course enrollment; each item includes only their own submission/grade. |
+| `PATCH /api/v1/organizations/{organization}/assignments/{record}` | Course manager or linked teacher | Updates assignment prompt, due date, maximum score, or publication status. |
+| `POST /api/v1/organizations/{organization}/assignments/{assignment}/submissions` | Linked student actively enrolled in the published course | Creates or updates the student's text response until it has been graded. Each assignment/student pair has one submission record. Late work is accepted and retains its submission timestamp. |
+| `GET /api/v1/organizations/{organization}/assignments/{assignment}/submissions` | Course manager or linked teacher | Lists submissions for one tenant-owned assignment, including student roster name and admission number. |
+| `PATCH /api/v1/organizations/{organization}/submissions/{submission}/grade` | Course manager or linked teacher | Stores a numeric score no higher than the assignment maximum and optional feedback; records grader and grading time. |
 | `GET /api/v1/organizations/{organization}/timetable` | Admin, management, independent educator, or linked teacher | Lists paginated weekly entries with optional session, section, and weekday filters; teachers only see their own entries. |
 | `POST/PATCH /api/v1/organizations/{organization}/timetable` | Same roles | Creates or updates a section/subject slot, optional assigned teacher/room/HTTPS meeting link, and rejects active section, teacher, or room conflicts. |
 

@@ -1,6 +1,6 @@
 # edTechLive API
 
-Laravel 13 API backend. The repository includes Sanctum authentication, email verification and password reset, hashed organization invitations, tenant-scoped academic master and roster APIs, teacher assignments, daily attendance, weekly timetable, student/guardian views, attendance summaries, and course/lesson workflows.
+Laravel 13 API backend. The repository includes Sanctum authentication, email verification and password reset, hashed organization invitations, tenant-scoped academic master and roster APIs, teacher assignments, daily attendance, weekly timetable, student/guardian views, attendance summaries, and course, lesson, assignment, submission, and grading workflows.
 
 ## Requirements
 
@@ -52,5 +52,6 @@ Tests use in-memory SQLite and do not require PostgreSQL. The academic migration
 - `GET /api/v1/organizations/{organization}/my/children` and `/my/children/{student}/attendance` — a parent sees only active students explicitly linked through an accepted invitation, and only their attendance.
 - `GET /api/v1/organizations/{organization}/reports/attendance?from={date}&to={date}` — admin, management, and independent educator receive date-filtered totals and class/section breakdowns; late marks count as attended.
 - Under `/api/v1/organizations/{organization}`: `GET/POST /courses`, `PATCH /courses/{course}`, `GET/POST /courses/{course}/lessons`, and `POST /courses/{course}/enrollments` provide course drafts, teacher-owned authoring, lesson publication, and manager-controlled student enrollment. Students can read only published courses with active enrollment and published lessons. Lesson resource links require HTTPS.
+- Under the same organization prefix: `GET/POST /courses/{course}/assignments`, `PATCH /assignments/{assignment}`, `POST /assignments/{assignment}/submissions`, `GET /assignments/{assignment}/submissions`, and `PATCH /submissions/{submission}/grade` provide text assignments, one submission per student/assignment, and instructor grading/feedback. A graded submission cannot be changed; scores cannot exceed the assignment maximum.
 
-Direct guardian-link management, wider academic reports, assignments, examinations, submissions, grading, progress, and private file storage remain future work. Local `.env` uses the log mailer, so messages are recorded locally rather than delivered. Production email delivery, PostgreSQL migration, and deployment are not configured here.
+Direct guardian-link management, wider academic reports, examinations, quizzes, progress, and private file storage remain future work. Local `.env` uses the log mailer, so messages are recorded locally rather than delivered. Production email delivery, PostgreSQL migration, and deployment are not configured here.

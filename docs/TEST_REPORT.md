@@ -57,6 +57,12 @@
 
 ## Existing QA and known dependency issue
 
+## Assignment submission and grading milestone (18 November 2026)
+
+- Full PHPUnit suite — **49 passed / 286 assertions** using in-memory SQLite. Coverage includes enrollment-gated assignment reads/submissions, teacher course ownership, score caps, feedback, locked graded submissions, and publication gating on the course state.
+- `npm run typecheck`, `npm run lint`, `npm run build` (14 prerendered public routes), and `vendor/bin/pint --test` passed after connecting teacher/admin authoring and student submission workspaces.
+- The assignment/submission migration was applied to the ignored local SQLite development database. PostgreSQL and browser visual verification remain unverified.
+
 ## Course and lesson LMS foundation (18 November 2026)
 
 - Course/lesson/enrollment API added with teacher ownership checks, manager enrollment, and student enrollment visibility rules.
