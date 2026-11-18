@@ -6,6 +6,7 @@
 
 - Added a GitHub Actions quality workflow for root web typecheck/lint/build, Laravel PHPUnit/Pint with in-memory SQLite, and mobile typecheck/Android bundle export. It is push/PR triggered, read-only for repository contents, and has no deployment step.
 - Workflow YAML parsed locally and its web/mobile commands passed in this environment. A hosted GitHub Actions run cannot be triggered from this workspace because no remote CI session/credentials are connected.
+- Local browser reachability follow-up: Vite and Laravel report ready on ports 4173 and 8001 when launched from this shell, but both direct HTTP probes and Windows Chrome time out. This shell/browser network boundary prevents confirming browser access; stopgap local URL remains `http://127.0.0.1:4173` when both processes run on the user's machine.
 
 ## Expo mobile foundation milestone (18 November 2026)
 
@@ -16,6 +17,7 @@
 - Follow-up mobile LMS milestone: mobile TypeScript check and Android JavaScript export passed after wiring student written submissions, server-scored timed quiz attempts/result history, and scoped in-app notification read receipts. Native/device verification remains open.
 - Teacher mobile attendance milestone: mobile TypeScript check and Android JavaScript export passed with assignment-scoped class registers, required status selection for each learner, and API upsert saves. No native device or live API session is available here; backend authorization and attendance validations are covered by the existing API feature suite.
 - Mobile meeting access milestone: mobile TypeScript, Android bundle export and root ESLint passed. The app loads the membership-scoped meeting list, displays upcoming times, and only offers the manual HTTPS join link while the scheduled meeting is live. Provider room creation and native device verification remain untested.
+- Mobile teacher grading milestone: mobile TypeScript, Android JS bundle export and root ESLint passed after connecting course-scoped submission review and score/feedback writes to the existing teacher-authorized APIs. Server-side maximum-score and ownership validation remains authoritative; no live learner records were accessed.
 
 ## Contact enquiry inbox milestone (18 November 2026)
 

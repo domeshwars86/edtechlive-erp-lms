@@ -30,6 +30,7 @@ export default function App() {
   const [quizRun, setQuizRun] = useState<QuizRun | null>(null)
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({})
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<number, string>>({})
+  const [gradingDrafts, setGradingDrafts] = useState<Record<number, { score: string; feedback: string }>>({})
   const [teachingAssignments, setTeachingAssignments] = useState<TeachingAssignment[]>([])
   const [attendanceSection, setAttendanceSection] = useState<TeachingAssignment | null>(null)
   const [attendanceDate, setAttendanceDate] = useState(localDate())
@@ -123,8 +124,14 @@ export default function App() {
         mobileApi.get<{ data: CourseAssignment[] }>(`${base}/assignments`, token),
         mobileApi.get<{ data: CourseQuiz[] }>(`${base}/quizzes`, token),
       ])
-      setSelectedCourse(course); setLessons(lessonResult.data); setAssignments(assignmentResult.data); setQuizzes(quizResult.data); setQuizRun(null)
+      const instructor = active.role !== 'student'
+      const withSubmissions = instructor ? await Promise.all(assignmentResult.data.map(async assignment => {
+        const result = await mobileApi.get<{ data: NonNullable<CourseAssignment['submissions']> }>(`/api/v1/organizations/${active.organization.id}/assignments/${assignment.id}/submissions`, token)
+        return { ...assignment, submissions: result.data }
+      })) : assignmentResult.data
+      setSelectedCourse(course); setLessons(lessonResult.data); setAssignments(withSubmissions); setQuizzes(quizResult.data); setQuizRun(null)
       setAssignmentDrafts(Object.fromEntries(assignmentResult.data.map(item => [item.id, item.submission?.answer ?? ''])))
+      setGradingDrafts(Object.fromEntries(withSubmissions.flatMap(item => (item.submissions ?? []).map(submission => [submission.id, { score: submission.awarded_points == null ? '' : String(submission.awarded_points), feedback: submission.feedback ?? '' }]))))
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not open this course.') }
     finally { setBusy(false) }
   }
@@ -136,6 +143,18 @@ export default function App() {
       const result = await mobileApi.post<{ data: CourseAssignment['submission'] }>(`/api/v1/organizations/${active.organization.id}/assignments/${assignment.id}/submissions`, token, { answer: assignmentDrafts[assignment.id] ?? '' })
       setAssignments(items => items.map(item => item.id === assignment.id ? { ...item, submission: result.data } : item))
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not submit this assignment.') }
+    finally { setBusy(false) }
+  }
+
+  async function gradeSubmission(submissionId: number) {
+    if (!active || !token) return
+    const draft = gradingDrafts[submissionId]
+    if (!draft || draft.score.trim() === '' || !Number.isFinite(Number(draft.score))) { setError('Enter a valid score before grading.'); return }
+    setBusy(true); setError('')
+    try {
+      const result = await mobileApi.patch<{ data: NonNullable<CourseAssignment['submissions']>[number] }>(`/api/v1/organizations/${active.organization.id}/submissions/${submissionId}/grade`, token, { awarded_points: Number(draft.score), feedback: draft.feedback })
+      setAssignments(items => items.map(item => ({ ...item, submissions: item.submissions?.map(submission => submission.id === submissionId ? { ...submission, ...result.data } : submission) })))
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not grade this submission.') }
     finally { setBusy(false) }
   }
 
@@ -227,7 +246,13 @@ export default function App() {
         <Text style={styles.sectionTitle}>Lessons</Text>
         {lessons.length ? lessons.filter(lesson => lesson.status === 'published').map((lesson, index) => <View style={styles.lessonCard} key={lesson.id}><Text style={styles.lessonNumber}>{String(index + 1).padStart(2, '0')}</Text><View style={{ flex: 1 }}><Text style={styles.courseTitle}>{lesson.title}</Text>{lesson.content ? <Text style={styles.courseMeta} numberOfLines={3}>{lesson.content}</Text> : null}{lesson.external_url ? <Pressable onPress={() => void Linking.openURL(lesson.external_url!)}><Text style={styles.link}>Open lesson resource</Text></Pressable> : null}</View></View>) : <Empty text="No published lessons are available in this course yet." />}
         <Text style={styles.sectionTitle}>Assignments</Text>
-        {assignments.length ? assignments.map(item => <View style={styles.activityCard} key={item.id}><Text style={styles.courseTitle}>{item.title}</Text><Text style={styles.courseMeta}>{item.instructions || 'Written response'} · Up to {item.max_points} points{item.due_at ? ` · Due ${new Date(item.due_at).toLocaleDateString()}` : ''}</Text>{item.submission?.graded_at ? <Text style={styles.resultText}>Graded: {item.submission.awarded_points}/{item.max_points}{item.submission.feedback ? ` · ${item.submission.feedback}` : ''}</Text> : null}{active.role === 'student' ? <><TextInput multiline value={assignmentDrafts[item.id] ?? ''} onChangeText={value => setAssignmentDrafts(current => ({ ...current, [item.id]: value }))} placeholder="Write your response" style={styles.answerInput} editable={!busy && !item.submission?.graded_at} /><Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void submitAssignment(item)} disabled={busy || !assignmentDrafts[item.id]?.trim() || Boolean(item.submission?.graded_at)}><Text style={styles.primaryButtonText}>{item.submission ? 'Update submission' : 'Submit assignment'}</Text></Pressable></> : null}</View>) : <Empty text="No published assignments in this course." />}
+        {assignments.length ? assignments.map(item => <View style={styles.activityCard} key={item.id}>
+          <Text style={styles.courseTitle}>{item.title}</Text>
+          <Text style={styles.courseMeta}>{item.instructions || 'Written response'} · Up to {item.max_points} points{item.due_at ? ` · Due ${new Date(item.due_at).toLocaleDateString()}` : ''}</Text>
+          {item.submission?.graded_at ? <Text style={styles.resultText}>Graded: {item.submission.awarded_points}/{item.max_points}{item.submission.feedback ? ` · ${item.submission.feedback}` : ''}</Text> : null}
+          {active.role === 'student' ? <><TextInput multiline value={assignmentDrafts[item.id] ?? ''} onChangeText={value => setAssignmentDrafts(current => ({ ...current, [item.id]: value }))} placeholder="Write your response" style={styles.answerInput} editable={!busy && !item.submission?.graded_at} /><Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void submitAssignment(item)} disabled={busy || !assignmentDrafts[item.id]?.trim() || Boolean(item.submission?.graded_at)}><Text style={styles.primaryButtonText}>{item.submission ? 'Update submission' : 'Submit assignment'}</Text></Pressable></> : null}
+          {active.role !== 'student' ? (item.submissions?.length ? item.submissions.map(submission => <View style={styles.submissionCard} key={submission.id}><Text style={styles.courseTitle}>{submission.student.name}</Text><Text style={styles.courseMeta}>{submission.student.admission_number ?? 'Learner'} · Submitted {submission.submitted_at ? new Date(submission.submitted_at).toLocaleDateString() : 'recently'}</Text><Text style={styles.answerText}>{submission.answer}</Text>{submission.graded_at ? <Text style={styles.resultText}>Current score: {submission.awarded_points}/{item.max_points}</Text> : null}<TextInput keyboardType="decimal-pad" value={gradingDrafts[submission.id]?.score ?? ''} onChangeText={value => setGradingDrafts(current => ({ ...current, [submission.id]: { score: value, feedback: current[submission.id]?.feedback ?? '' } }))} placeholder={`Score out of ${item.max_points}`} style={styles.input} editable={!busy} /><TextInput value={gradingDrafts[submission.id]?.feedback ?? ''} onChangeText={value => setGradingDrafts(current => ({ ...current, [submission.id]: { score: current[submission.id]?.score ?? '', feedback: value } }))} placeholder="Feedback for the learner" style={styles.input} editable={!busy} /><Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void gradeSubmission(submission.id)} disabled={busy}><Text style={styles.primaryButtonText}>{submission.graded_at ? 'Update grade' : 'Save grade'}</Text></Pressable></View>) : <Text style={styles.courseMeta}>No learner submissions yet.</Text>) : null}
+        </View>) : <Empty text="No published assignments in this course." />}
         <Text style={styles.sectionTitle}>Quizzes</Text>
         {quizzes.length ? quizzes.map(quiz => <View style={styles.activityCard} key={quiz.id}><Text style={styles.courseTitle}>{quiz.title}</Text><Text style={styles.courseMeta}>{quiz.questions.length} questions · {quiz.time_limit_minutes ? `${quiz.time_limit_minutes} minutes` : 'No time limit'} · {quiz.attempts_used ?? 0}/{quiz.max_attempts} attempts</Text>{quiz.latest_result?.submitted_at ? <Text style={styles.resultText}>Latest result: {quiz.latest_result.score}/{quiz.latest_result.max_score}</Text> : null}{active.role === 'student' && (quiz.attempts_used ?? 0) < quiz.max_attempts ? <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void startQuiz(quiz)} disabled={busy}><Text style={styles.primaryButtonText}>Start quiz</Text></Pressable> : null}</View>) : <Empty text="No published quizzes in this course." />}
         </>}
@@ -345,6 +370,8 @@ const styles = StyleSheet.create({
   chevron: { color: '#99a7b4', fontSize: 23 },
   lessonCard: { padding: 12, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3', flexDirection: 'row', gap: 10, marginBottom: 8 },
   activityCard: { gap: 9, padding: 13, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3', marginBottom: 9 },
+  submissionCard: { gap: 8, padding: 11, marginTop: 7, borderRadius: 9, backgroundColor: '#f8faff' },
+  answerText: { color: '#536a82', fontSize: 10, lineHeight: 16 },
   questionBlock: { gap: 7, marginTop: 9 },
   option: { padding: 11, borderRadius: 9, borderWidth: 1, borderColor: '#e2eaf2', backgroundColor: '#fff' },
   optionSelected: { borderColor: '#3869c8', backgroundColor: '#edf3ff' },

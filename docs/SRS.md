@@ -4,13 +4,13 @@
 
 ## System context
 
-The planned system is a public React web experience, role-based web application, versioned Laravel REST API, PostgreSQL database, queue/cache infrastructure as justified, private object storage, and later React Native clients. This repository currently implements only the public frontend.
+The planned system is a public React web experience, role-based web application, versioned Laravel REST API, PostgreSQL database, queue/cache infrastructure as justified, private object storage, and React Native clients. The repository currently implements the public frontend, seven dashboard roles, connected Laravel auth and tenant-scoped ERP/LMS workflows, plus an Expo mobile vertical slice. PostgreSQL production validation, full deployment, and several advanced modules remain open; see `IMPLEMENTATION_STATUS.md` for verified scope.
 
 ## Functional requirements
 
 1. Visitors can navigate all public product pages and use course search and level filters.
-2. Visitors can enter a contact enquiry; the current frontend validates locally and must be connected to a protected API before it is described as sent.
-3. Users can select login, registration, password recovery, role and organization entry flows; account behavior requires the identity milestone.
+2. Visitors can submit a consented contact enquiry to the throttled API; staff review is restricted to an allowlisted verified platform operator, and email delivery requires configuration.
+3. Users can register, verify email, sign in, recover passwords, and select active organization memberships; real email delivery and broader identity controls remain deployment requirements.
 4. Authenticated users see only the workspaces and records allowed by their organization membership and permissions.
 5. Administrators maintain organization, academic session, class, section, batch, subject, teacher and student records.
 6. Teachers manage courses, lessons, resources, class schedules, assignments, submissions, assessments and results.
@@ -31,7 +31,7 @@ The planned system is a public React web experience, role-based web application,
 
 ## Current website acceptance
 
-All defined public routes render; nav adapts to small screens; course search and level filtering work; enquiry fields validate and communicate preview-only behavior; sample course/pricing content is labelled; legal pages show draft status; unavailable routes show a useful 404; TypeScript, lint and production build are checked before declaring this milestone complete.
+All defined public routes render; nav adapts to small screens; course search and level filtering work; enquiry submission persists consented requests and reports notification status; sample course/pricing content is labelled; legal pages show draft status; unavailable routes show a useful 404; TypeScript, lint and production build pass. Authenticated backend workflows have API coverage, while a full browser end-to-end suite and persistent production-shaped database verification remain open.
 
 ## Open questions
 
