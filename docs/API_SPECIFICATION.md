@@ -43,6 +43,10 @@ Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return co
 | `PATCH /api/v1/organizations/{organization}/sections/{record}` | Same as above | Updates section name, session, capacity, or active state. |
 | `GET/POST /api/v1/organizations/{organization}/subjects` | Verified active organization member; writes by admin, management, or independent educator | Lists or creates subjects with optional unique code and description. |
 | `PATCH /api/v1/organizations/{organization}/subjects/{record}` | Same as above | Updates subject details or active state. |
+| `GET/POST /api/v1/organizations/{organization}/students` | Admin, management, or independent educator in an active verified membership | Lists a paginated roster with search/status filters or creates a student profile. Enrollment class, section, and session references must be organization-owned. |
+| `PATCH /api/v1/organizations/{organization}/students/{record}` | Same roles | Updates profile, placement, enrollment date, or lifecycle status. Student records are not login accounts. |
+| `GET/POST /api/v1/organizations/{organization}/teachers` | Same roles | Lists a paginated staff roster with search/status filters or creates a teacher profile. |
+| `PATCH /api/v1/organizations/{organization}/teachers/{record}` | Same roles | Updates teacher contact/specialization details or status. Staff login invitations are not included yet. |
 
 Browser clients use Sanctum's stateful session flow with `/sanctum/csrf-cookie`; configure `SANCTUM_STATEFUL_DOMAINS`, `CORS_ALLOWED_ORIGINS`, and `FRONTEND_URL` for each environment. Native clients request a token by including `device_name` on login. Email delivery must be configured for verification and reset links to reach users.
 

@@ -27,6 +27,13 @@
 - In this sandbox `is_readable('vendor/autoload.php')` returns false despite successful direct PHP inclusion, so PHPUnit was run with Composer autoload preloaded, without XML bootstrap, and with explicit in-memory SQLite settings. No local development account data was used in tests.
 - `vendor/bin/pint --test` — passed after correcting import order; write mode was unnecessary.
 
+## People roster milestone (18 November 2026)
+
+- Full PHPUnit suite — **19 passed / 95 assertions** using in-memory SQLite. Added coverage for student and teacher creation/search, duplicate identifiers, cross-tenant access/placement, and student-role denial.
+- `npm run typecheck`, `npm run lint`, PHP syntax checks, and `vendor/bin/pint --test` passed after adding the roster APIs and admin forms.
+- `php artisan migrate --force` applied the ignored local SQLite people-profile migration; 20 organization routes are registered.
+- Production email, invitation/account linking, and PostgreSQL migration validation remain unconfigured.
+
 ## Existing QA and known dependency issue
 
 Browser preview checks from 18 November 2026 previously reviewed public routes, course filtering and all seven dashboard preview roles across representative viewport widths. This milestone's browser check focused on the new account forms and was not a full responsive regression pass.

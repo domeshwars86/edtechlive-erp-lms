@@ -43,5 +43,6 @@ Tests use in-memory SQLite and do not require PostgreSQL. The academic migration
 - `GET /api/v1/me` — Sanctum-authenticated current-user summary.
 - `GET /api/v1/organizations` and `GET /api/v1/organizations/{organization}` — verified users can access active organizations where they have an active membership; list is paginated.
 - Under `/api/v1/organizations/{organization}`: `GET/POST/PATCH academic-sessions`, `GET/POST/PATCH classes`, nested `GET/POST classes/{class}/sections`, `PATCH sections/{section}`, and `GET/POST/PATCH subjects`. Read access requires active organization membership; writes require admin, management, or independent educator role. All records are organization-scoped.
+- Under `/api/v1/organizations/{organization}`: `GET/POST/PATCH students` and `GET/POST/PATCH teachers` provide paginated, searchable rosters. Access is limited to admin, management, and independent educator roles. Student class/section/session references are organization-validated. These roster profiles do not create login accounts; invitations are a separate future workflow.
 
 Invitations, organization switching, people/rosters, attendance/schedules, and LMS APIs remain future work. Local `.env` uses the log mailer, so messages are recorded locally rather than delivered. Production email delivery, PostgreSQL migration, and deployment are not configured here.

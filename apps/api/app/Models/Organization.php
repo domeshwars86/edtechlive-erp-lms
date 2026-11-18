@@ -57,4 +57,14 @@ class Organization extends Model
     {
         return $this->hasMany(Subject::class);
     }
+
+    public function students(): HasMany
+    {
+        return $this->hasMany(Student::class);
+    }
+
+    public function teachers(): HasMany
+    {
+        return $this->hasMany(Teacher::class);
+    }
 }
