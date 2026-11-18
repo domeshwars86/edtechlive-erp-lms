@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Models\ContactEnquiry;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Message;
@@ -13,6 +14,43 @@ use Throwable;
 
 class ContactEnquiryController
 {
+    public function index(Request $request): JsonResponse
+    {
+        $this->authorizeInbox($request);
+        $filters = $request->validate([
+            'status' => ['sometimes', Rule::in(['new', 'in_progress', 'resolved', 'archived'])],
+            'q' => ['sometimes', 'string', 'max:120'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $query = ContactEnquiry::query()->with('reviewer:id,name')->orderByRaw("CASE WHEN status = 'new' THEN 0 WHEN status = 'in_progress' THEN 1 ELSE 2 END")
+            ->orderByDesc('created_at');
+        if (isset($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+        if (filled($filters['q'] ?? null)) {
+            $term = '%'.str_replace(['%', '_'], ['\\%', '\\_'], trim($filters['q'])).'%';
+            $query->where(fn (Builder $matches) => $matches->where('name', 'like', $term)
+                ->orWhere('email', 'like', $term)->orWhere('organization_name', 'like', $term)
+                ->orWhere('message', 'like', $term));
+        }
+
+        return response()->json($query->paginate($filters['per_page'] ?? 25));
+    }
+
+    public function update(Request $request, ContactEnquiry $enquiry): JsonResponse
+    {
+        $this->authorizeInbox($request);
+        $data = $request->validate(['status' => ['required', Rule::in(['new', 'in_progress', 'resolved', 'archived'])]]);
+        $enquiry->forceFill([
+            'status' => $data['status'],
+            'reviewed_by' => $request->user()->id,
+            'reviewed_at' => now(),
+        ])->save();
+
+        return response()->json(['data' => $enquiry->refresh()->load('reviewer:id,name')]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -68,5 +106,11 @@ class ContactEnquiryController
                 : 'Your enquiry has been saved. Email follow-up is not configured yet.',
             'data' => ['id' => $enquiry->id, 'notification_sent' => $notificationSent],
         ], 202);
+    }
+
+    private function authorizeInbox(Request $request): void
+    {
+        $allowedEmails = array_map('mb_strtolower', config('services.enquiries.admin_emails', []));
+        abort_unless(in_array(mb_strtolower($request->user()->email), $allowedEmails, true), 403);
     }
 }

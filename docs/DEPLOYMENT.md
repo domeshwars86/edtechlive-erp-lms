@@ -21,3 +21,5 @@ The frontend builds to Vite's `dist/` directory and can be served as static asse
 ## Release requirements
 
 Provide `.env.example` without secrets, Dockerfile, `.dockerignore`, Render blueprint if appropriate, GitHub Actions, migration/rollback instructions, health endpoint, staging configuration and tested backup/recovery. Do not use ephemeral app filesystem for permanent records. Do not deploy real student information to an insecure environment or incur paid infrastructure without authorization.
+
+Configure `ENQUIRY_ADMIN_EMAILS` as a comma-separated allowlist of verified platform operator emails before using the contact enquiry inbox. Keep it separate from organization-level roles.

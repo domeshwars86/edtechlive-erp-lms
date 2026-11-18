@@ -2,6 +2,12 @@
 
 **Updated:** 18 November 2026
 
+## Contact enquiry inbox milestone (18 November 2026)
+
+- Focused contact enquiry inbox suite — **4 passed / 14 assertions**. Covers allowlisted access, search/status filters, denied non-operators, valid status changes with reviewer audit, and invalid filters/status values.
+- Full PHPUnit Feature suite — **74 passed / 491 assertions** using in-memory SQLite; `vendor/bin/pint --test` passed.
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed; production build prerendered 14 public routes.
+
 ## Dashboard schedule integration milestone (18 November 2026)
 
 - Dashboard schedule integration: role-scoped upcoming meetings now load from the organization meetings API, with loading/error/empty states and join links enabled only during the scheduled meeting window. `npm run typecheck`, `npm run lint`, and `npm run build` passed; build prerendered 14 public routes.

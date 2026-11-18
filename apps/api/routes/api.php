@@ -40,6 +40,12 @@ Route::prefix('v1')->group(function (): void {
     Route::post('/enquiries', [ContactEnquiryController::class, 'store'])
         ->middleware('throttle:6,1')->name('api.v1.enquiries.store');
 
+    Route::middleware(['auth:sanctum', 'verified'])->group(function (): void {
+        Route::get('/enquiries', [ContactEnquiryController::class, 'index'])->name('api.v1.enquiries.index');
+        Route::patch('/enquiries/{enquiry}', [ContactEnquiryController::class, 'update'])
+            ->whereNumber('enquiry')->name('api.v1.enquiries.update');
+    });
+
     Route::prefix('auth')->group(function (): void {
         Route::post('/register', [RegisteredOrganizationController::class, 'store'])
             ->middleware('throttle:api-auth-register')->name('api.v1.auth.register');
