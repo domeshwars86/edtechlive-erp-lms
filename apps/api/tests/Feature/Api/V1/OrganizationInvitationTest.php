@@ -9,6 +9,7 @@ use App\Mail\OrganizationInvitationMail;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
 use App\Models\OrganizationMembership;
+use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -134,7 +135,7 @@ class OrganizationInvitationTest extends TestCase
         Sanctum::actingAs($admin);
         Mail::fake();
         $created = $this->postJson("/api/v1/organizations/{$organization->id}/invitations", [
-            'email' => 'revoke@example.com', 'role' => 'student',
+            'email' => 'revoke@example.com', 'role' => 'teacher',
         ])->assertCreated()->json('data.id');
         $token = null;
         Mail::assertSent(OrganizationInvitationMail::class, function (OrganizationInvitationMail $mail) use (&$token): bool {
@@ -146,6 +147,74 @@ class OrganizationInvitationTest extends TestCase
 
         $this->deleteJson("/api/v1/organizations/{$organization->id}/invitations/{$created}")->assertOk();
         $this->getJson("/api/v1/auth/invitations/{$token}")->assertNotFound();
+    }
+
+    public function test_parent_invitation_links_only_the_selected_active_student_profiles(): void
+    {
+        [$admin, $organization] = $this->workspace();
+        $first = Student::query()->create([
+            'organization_id' => $organization->id, 'name' => 'Learner One', 'admission_number' => 'S-401',
+            'email' => 'learner-one@example.com', 'status' => 'active',
+        ]);
+        $second = Student::query()->create([
+            'organization_id' => $organization->id, 'name' => 'Learner Two', 'admission_number' => 'S-402',
+            'email' => 'learner-two@example.com', 'status' => 'active',
+        ]);
+        $unselected = Student::query()->create([
+            'organization_id' => $organization->id, 'name' => 'Unselected Learner', 'admission_number' => 'S-403',
+            'email' => 'learner-three@example.com', 'status' => 'active',
+        ]);
+        Sanctum::actingAs($admin);
+        Mail::fake();
+        $endpoint = "/api/v1/organizations/{$organization->id}/invitations";
+        $this->postJson($endpoint, ['email' => 'family@example.com', 'role' => 'parent', 'student_ids' => [$first->id, $second->id]])
+            ->assertCreated();
+        $token = null;
+        Mail::assertSent(OrganizationInvitationMail::class, function (OrganizationInvitationMail $mail) use (&$token): bool {
+            parse_str((string) parse_url($mail->invitationUrl, PHP_URL_QUERY), $query);
+            $token = $query['token'] ?? null;
+
+            return true;
+        });
+        $this->getJson("/api/v1/auth/invitations/{$token}")->assertOk()
+            ->assertJsonPath('data.students.0.name', 'Learner One')->assertJsonPath('data.students.1.name', 'Learner Two');
+        $this->postJson('/api/v1/auth/invitations/register', [
+            'token' => $token, 'name' => 'Family Account', 'password' => 'FamilyPass12345', 'password_confirmation' => 'FamilyPass12345',
+        ])->assertCreated();
+
+        $parent = User::query()->where('email', 'family@example.com')->firstOrFail();
+        $this->assertDatabaseHas('student_guardians', ['organization_id' => $organization->id, 'student_id' => $first->id, 'guardian_user_id' => $parent->id]);
+        $this->assertDatabaseHas('student_guardians', ['organization_id' => $organization->id, 'student_id' => $second->id, 'guardian_user_id' => $parent->id]);
+        $this->assertDatabaseMissing('student_guardians', ['organization_id' => $organization->id, 'student_id' => $unselected->id, 'guardian_user_id' => $parent->id]);
+        Sanctum::actingAs($parent);
+        $this->getJson("/api/v1/organizations/{$organization->id}/my/children")->assertOk()->assertJsonPath('meta.total', 2);
+    }
+
+    public function test_student_invitation_links_to_the_matching_active_roster_profile(): void
+    {
+        [$admin, $organization] = $this->workspace();
+        $student = Student::query()->create([
+            'organization_id' => $organization->id, 'name' => 'Student Invite', 'admission_number' => 'S-501',
+            'email' => 'student-invite@example.com', 'status' => 'active',
+        ]);
+        Sanctum::actingAs($admin);
+        Mail::fake();
+        $this->postJson("/api/v1/organizations/{$organization->id}/invitations", [
+            'email' => $student->email, 'role' => 'student',
+        ])->assertCreated();
+        $token = null;
+        Mail::assertSent(OrganizationInvitationMail::class, function (OrganizationInvitationMail $mail) use (&$token): bool {
+            parse_str((string) parse_url($mail->invitationUrl, PHP_URL_QUERY), $query);
+            $token = $query['token'] ?? null;
+
+            return true;
+        });
+        $this->postJson('/api/v1/auth/invitations/register', [
+            'token' => $token, 'name' => 'Student Login', 'password' => 'StudentPass12345', 'password_confirmation' => 'StudentPass12345',
+        ])->assertCreated();
+
+        $studentUser = User::query()->where('email', $student->email)->firstOrFail();
+        $this->assertDatabaseHas('students', ['id' => $student->id, 'user_id' => $studentUser->id]);
     }
 
     public function test_non_admin_cannot_invite_management_and_suspended_members_cannot_be_reinvited(): void

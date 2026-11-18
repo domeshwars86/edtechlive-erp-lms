@@ -4,7 +4,7 @@ import { ArrowUpRight, LoaderCircle, ShieldCheck } from 'lucide-react'
 import { useAuth } from './useAuth'
 import { api } from '../lib/api'
 
-type Invitation = { email: string; role: string; organization_id: number; organization: string; expires_at: string }
+type Invitation = { email: string; role: string; organization_id: number; organization: string; expires_at: string; students?: { id: number; name: string; admission_number: string }[] }
 
 export default function InvitationAccept() {
   const location = useLocation()
@@ -50,6 +50,7 @@ export default function InvitationAccept() {
   return <section className="auth-page"><div className="auth-art"><Link className="brand brand-light" to="/" aria-label="edTechLive home"><span className="brand-mark"><span /><span /><span /></span><span className="brand-name">edTech<span>Live</span></span></Link><div className="auth-art-content"><div className="auth-sun">✳</div><h2>Learning is a journey<br />we take <em>together.</em></h2><p>Your community, your courses, your next step—all in one thoughtful space.</p></div><small>LEARN. TEACH. MANAGE. GROW.</small></div><div className="auth-panel"><div className="auth-mobile-brand"><Link className="brand" to="/"><span className="brand-mark"><span /><span /><span /></span><span className="brand-name">edTech<span>Live</span></span></Link></div>
     <form className="auth-form" onSubmit={accept}><div className="eyebrow"><span />ORGANIZATION INVITATION</div><h1>{success ? 'Invitation accepted' : invitation ? `Join ${invitation.organization}` : 'Review your invitation'}</h1>
       {invitation && <p>You’ve been invited as <b>{invitation.role.replaceAll('_', ' ')}</b> at <b>{invitation.email}</b>.</p>}
+      {invitation?.students?.length ? <div className="invitation-students"><b>Student profiles linked to this family account</b>{invitation.students.map(student => <span key={student.id}>{student.name} · {student.admission_number}</span>)}</div> : null}
       {!invitation && !error && <div className="auth-feedback" role="status"><LoaderCircle className="spin" />Checking invitation…</div>}
       {error && <div className="auth-error" role="alert">{error}</div>}
       {invitation && !user && <><label>Full name<input name="name" autoComplete="name" required minLength={2} maxLength={120} placeholder="Your name" /></label><label>Password<input name="password" autoComplete="new-password" type="password" required minLength={12} placeholder="At least 12 characters, with letters and numbers" /></label><label>Confirm password<input name="password_confirmation" autoComplete="new-password" type="password" required minLength={12} placeholder="Enter the password again" /></label></>}

@@ -2,12 +2,14 @@
 
 use App\Http\Controllers\Api\V1\AcademicMasterController;
 use App\Http\Controllers\Api\V1\AttendanceController;
+use App\Http\Controllers\Api\V1\AttendanceReportController;
 use App\Http\Controllers\Api\V1\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Api\V1\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Api\V1\Auth\NewPasswordController;
 use App\Http\Controllers\Api\V1\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Api\V1\Auth\RegisteredOrganizationController;
 use App\Http\Controllers\Api\V1\Auth\VerifyEmailController;
+use App\Http\Controllers\Api\V1\FamilyController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\OrganizationInvitationController;
@@ -52,6 +54,10 @@ Route::prefix('v1')->group(function (): void {
                 ->whereNumber('organization')->name('api.v1.organizations.show');
 
             Route::prefix('/organizations/{organization}')->whereNumber('organization')->group(function (): void {
+                Route::get('/my/student', [FamilyController::class, 'student']);
+                Route::get('/my/student/attendance', [FamilyController::class, 'studentAttendance']);
+                Route::get('/my/children', [FamilyController::class, 'children']);
+                Route::get('/my/children/{student}/attendance', [FamilyController::class, 'childAttendance'])->whereNumber('student');
                 Route::get('/invitations', [OrganizationInvitationController::class, 'index']);
                 Route::post('/invitations', [OrganizationInvitationController::class, 'store'])->middleware('throttle:6,1');
                 Route::delete('/invitations/{record}', [OrganizationInvitationController::class, 'destroy'])->whereNumber('record');
@@ -79,6 +85,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::delete('/teaching-assignments/{record}', [TeachingAssignmentController::class, 'destroy'])->whereNumber('record');
                 Route::get('/attendance', [AttendanceController::class, 'index']);
                 Route::put('/attendance', [AttendanceController::class, 'store']);
+                Route::get('/reports/attendance', [AttendanceReportController::class, 'index']);
                 Route::get('/timetable', [TimetableController::class, 'index']);
                 Route::post('/timetable', [TimetableController::class, 'store']);
                 Route::patch('/timetable/{record}', [TimetableController::class, 'update'])->whereNumber('record');

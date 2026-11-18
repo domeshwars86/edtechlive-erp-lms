@@ -8,6 +8,8 @@ use App\Mail\OrganizationInvitationMail;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
 use App\Models\OrganizationMembership;
+use App\Models\Student;
+use App\Models\StudentGuardian;
 use App\Models\Teacher;
 use App\Models\User;
 use App\Services\OrganizationAccess;
@@ -50,6 +52,8 @@ class OrganizationInvitationController
         $data = $request->validate([
             'email' => ['required', 'email:rfc', 'max:254'],
             'role' => ['required', Rule::in(['management', 'teacher', 'student', 'parent'])],
+            'student_ids' => ['required_if:role,parent', 'prohibited_unless:role,parent', 'array', 'min:1', 'max:20'],
+            'student_ids.*' => ['required', 'integer', 'distinct', Rule::exists('students', 'id')->where('organization_id', $organization)->where('status', 'active')],
         ]);
         if ($data['role'] === OrganizationRole::Management->value && $membership->role !== OrganizationRole::Admin) {
             throw ValidationException::withMessages(['role' => ['Only an organization administrator can invite management members.']]);
@@ -57,6 +61,15 @@ class OrganizationInvitationController
 
         $email = Str::lower(trim($data['email']));
         $existingUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+        if ($data['role'] === OrganizationRole::Student->value) {
+            $studentProfile = Student::query()->where('organization_id', $organization)->whereRaw('LOWER(email) = ?', [$email])->first();
+            if (! $studentProfile || $studentProfile->status !== 'active') {
+                throw ValidationException::withMessages(['email' => ['An active student roster profile with this email is required before sending an account invitation.']]);
+            }
+            if ($studentProfile->user_id && $studentProfile->user_id !== $existingUser?->id) {
+                throw ValidationException::withMessages(['email' => ['This student profile is already linked to another account.']]);
+            }
+        }
         $existingMembership = $existingUser ? OrganizationMembership::query()
             ->where('organization_id', $organization)->where('user_id', $existingUser->id)->first() : null;
         if ($existingMembership?->status === MembershipStatus::Active) {
@@ -86,6 +99,9 @@ class OrganizationInvitationController
                 'accepted_by' => null,
             ],
         );
+        $invitation->students()->sync(collect($data['student_ids'] ?? [])->mapWithKeys(fn ($studentId): array => [
+            $studentId => ['organization_id' => $organization],
+        ])->all());
         $organizationRecord = Organization::query()->findOrFail($organization);
         $url = rtrim((string) config('app.frontend_url'), '/').'/invitations/accept?token='.urlencode($plainToken);
         Mail::to($email)->send(new OrganizationInvitationMail(
@@ -126,6 +142,9 @@ class OrganizationInvitationController
             'role' => $invitation->role,
             'organization_id' => $invitation->organization_id,
             'organization' => $invitation->organization()->value('name'),
+            'students' => $invitation->students()->where('students.organization_id', $invitation->organization_id)
+                ->get(['students.id', 'students.name', 'students.admission_number'])
+                ->map(fn (Student $student): array => ['id' => $student->id, 'name' => $student->name, 'admission_number' => $student->admission_number]),
             'expires_at' => $invitation->expires_at->toISOString(),
         ]]);
     }
@@ -232,6 +251,32 @@ class OrganizationInvitationController
                     'email' => $user->email,
                     'status' => 'active',
                 ]);
+            }
+        }
+        if ($invitation->role === OrganizationRole::Student->value) {
+            $profile = Student::query()->where('organization_id', $invitation->organization_id)
+                ->whereRaw('LOWER(email) = ?', [$invitation->email])->first();
+            if (! $profile || $profile->status !== 'active') {
+                abort(409, 'An active student roster profile with this email is required before accepting the invitation.');
+            }
+            if ($profile->user_id && $profile->user_id !== $user->id) {
+                abort(409, 'This student profile is already linked to another account.');
+            }
+            $profile->update(['user_id' => $user->id]);
+        }
+        if ($invitation->role === OrganizationRole::Parent->value) {
+            $students = $invitation->students()->wherePivot('organization_id', $invitation->organization_id)->get();
+            if ($students->isEmpty()) {
+                abort(409, 'At least one active student must be linked to a parent invitation.');
+            }
+            foreach ($students as $student) {
+                if ($student->status !== 'active') {
+                    abort(409, 'A linked student profile is no longer active.');
+                }
+                StudentGuardian::query()->firstOrCreate(
+                    ['organization_id' => $invitation->organization_id, 'student_id' => $student->id, 'guardian_user_id' => $user->id],
+                    ['linked_by' => $invitation->invited_by, 'relationship' => 'parent', 'is_primary' => false, 'linked_at' => now()],
+                );
             }
         }
         $invitation->update(['accepted_at' => now(), 'accepted_by' => $user->id]);

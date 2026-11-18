@@ -92,7 +92,7 @@ class PeopleController
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'employee_number' => ['nullable', 'string', 'max:40', Rule::unique('teachers')->where('organization_id', $organization)],
-            'email' => ['nullable', 'email:rfc', 'max:254'],
+            'email' => ['nullable', 'email:rfc', 'max:254', Rule::unique('teachers')->where('organization_id', $organization)],
             'phone' => ['nullable', 'string', 'max:24', 'regex:/^[+0-9() .-]{7,24}$/'],
             'specialization' => ['nullable', 'string', 'max:120'],
         ]);
@@ -108,7 +108,7 @@ class PeopleController
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:120'],
             'employee_number' => ['sometimes', 'nullable', 'string', 'max:40', Rule::unique('teachers')->where('organization_id', $organization)->ignore($teacher->id)],
-            'email' => ['sometimes', 'nullable', 'email:rfc', 'max:254'],
+            'email' => ['sometimes', 'nullable', 'email:rfc', 'max:254', Rule::unique('teachers')->where('organization_id', $organization)->ignore($teacher->id)],
             'phone' => ['sometimes', 'nullable', 'string', 'max:24', 'regex:/^[+0-9() .-]{7,24}$/'],
             'specialization' => ['sometimes', 'nullable', 'string', 'max:120'],
             'status' => ['sometimes', Rule::in(['active', 'inactive', 'on_leave'])],

@@ -133,6 +133,31 @@ class AttendanceTest extends TestCase
         ])->assertUnprocessable()->assertJsonValidationErrors('date');
     }
 
+    public function test_admin_can_read_date_filtered_attendance_summary_by_section(): void
+    {
+        [$user, $organization, $section, $student] = $this->classroom();
+        $endpoint = "/api/v1/organizations/{$organization->id}/attendance";
+        Sanctum::actingAs($user);
+        $this->putJson($endpoint, [
+            'section_id' => $section->id,
+            'date' => '2026-11-18',
+            'records' => [['student_id' => $student->id, 'status' => 'late']],
+        ])->assertOk();
+        $this->putJson($endpoint, [
+            'section_id' => $section->id,
+            'date' => '2026-11-19',
+            'records' => [['student_id' => $student->id, 'status' => 'absent']],
+        ])->assertOk();
+
+        $this->getJson("/api/v1/organizations/{$organization->id}/reports/attendance?from=2026-11-18&to=2026-11-18")
+            ->assertOk()->assertJsonPath('data.totals.records', 1)
+            ->assertJsonPath('data.totals.attendance_rate', 100)
+            ->assertJsonPath('data.sections.0.late', 1)
+            ->assertJsonPath('data.sections.0.class', 'Grade 5');
+        $this->getJson("/api/v1/organizations/{$organization->id}/reports/attendance?from=2026-11-20&to=2026-11-18")
+            ->assertUnprocessable()->assertJsonValidationErrors('to');
+    }
+
     private function classroom(OrganizationRole $role = OrganizationRole::Admin): array
     {
         $user = User::factory()->create();

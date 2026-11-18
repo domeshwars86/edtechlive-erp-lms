@@ -4,7 +4,7 @@
 
 ## Current milestone
 
-Phase 5 — academic ERP foundations. The public website and seven role dashboard layouts are in place. Registration, login, verification, recovery, organization membership/invitations, academic masters, student/teacher rosters, teaching assignments, attendance, and timetable use Laravel APIs. Teacher invitations link to profiles and teacher attendance is assignment-scoped. Overview metrics and non-ERP workflows remain illustrative. PostgreSQL and production email delivery remain unverified.
+Phase 5 — academic ERP foundations. The public website and seven role dashboard layouts are in place. Registration, login, verification, recovery, organization membership/invitations, academic masters, student/teacher rosters, teaching assignments, attendance, timetable, student and guardian profile links, and date-filtered attendance reports use Laravel APIs. Teacher attendance is assignment-scoped; student and parent views are account/link scoped. Overview metrics and non-ERP workflows remain illustrative. PostgreSQL and production email delivery remain unverified.
 
 ## Implemented
 
@@ -21,6 +21,8 @@ Phase 5 — academic ERP foundations. The public website and seven role dashboar
 - Admins can assign active teachers to subject/section/session combinations; timetable entries with a teacher require the matching assignment.
 - Admins and management can send, list, and revoke organization invitations. Seven-day, one-time tokens are hashed in storage; new invitees create verified accounts, existing invitees confirm their password or accept while signed in, and teacher profiles are linked or created.
 - Teachers can read only their linked teaching assignments and timetable entries. They can take attendance only for assigned sections and sessions through the teacher workspace.
+- Student invitations require an active matching roster profile and link the accepted account to it. Parent invitations identify active students to link; parent views expose only those explicit links.
+- Admin, management, and independent educator can view a date-filtered attendance report with organization-scoped totals and class/section breakdowns in the dashboard.
 - API and web setup/auth configuration is documented in `.env.example` files and `apps/api/README.md`.
 
 ## Current limitations
@@ -29,7 +31,7 @@ Phase 5 — academic ERP foundations. The public website and seven role dashboar
 - Email delivery must be configured for verification, reset, and organization invitation links; local development logs messages.
 - Contact enquiry is still browser-only and is not transmitted.
 - Dashboard overview counts/activity and LMS workflows remain sample data; admin masters, rosters, invitations, attendance, timetable, and teacher assignments use persistent APIs.
-- Student account/profile linkage, guardian relationships, organization switching API, detailed role policies, audit trail, MFA, and remaining academic entities remain future work.
+- Student account and guardian links are currently established through invitations only; direct guardian management, changing or removing links, student roster reconciliation, and consent/retention workflows remain future work. Organization switching API, granular policies, audit trail, MFA, and remaining academic entities also remain future work.
 - Sitemap host must be replaced with the eventual production domain; legal drafts need review.
 - npm audit has nine high severity findings through `picomatch@4.0.7`; do not apply its incompatible Vite 6.2.7 downgrade without an upstream-compatible fix.
 
@@ -47,8 +49,7 @@ Phase 5 — academic ERP foundations. The public website and seven role dashboar
 ## Next
 
 1. Verify client auth flows against a persistent local development database and configure a safe local PostgreSQL service before migration validation.
-2. Add student account/profile linkage and guardian-controlled parent relationships.
-3. Implement attendance reports and academic reports based on the persistent records.
-4. Continue LMS entities and workflows: courses, lessons/materials, assignments, examinations, submissions, and results.
+2. Expand reports to enrollment and timetable/workload metrics.
+3. Continue LMS entities and workflows: courses, lessons/materials, assignments, examinations, submissions, and results.
 5. Connect contact enquiries after its API endpoint and abuse controls are implemented; configure mail delivery and add a local mail preview.
 6. Reassess npm audit advisories when compatible upstream dependency releases are available.
