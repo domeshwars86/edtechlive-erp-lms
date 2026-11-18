@@ -1,6 +1,6 @@
 # API Specification (Proposed)
 
-**Status:** Health, authentication, password recovery, email verification, current-user, organization reads, and the first academic-master routes are implemented. Other routes below remain proposals.
+**Status:** Health, authentication, password recovery, email verification, current-user, organization reads, academic masters, basic people rosters, attendance, and timetable routes are implemented. Other routes below remain proposals.
 
 Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return consistent validation and authorization errors; lists are paginated. Organization context is explicit in authorized routes and verified against the authenticated user's active membership. Never trust a client-provided organization ID without policy enforcement.
 
@@ -47,6 +47,10 @@ Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return co
 | `PATCH /api/v1/organizations/{organization}/students/{record}` | Same roles | Updates profile, placement, enrollment date, or lifecycle status. Student records are not login accounts. |
 | `GET/POST /api/v1/organizations/{organization}/teachers` | Same roles | Lists a paginated staff roster with search/status filters or creates a teacher profile. |
 | `PATCH /api/v1/organizations/{organization}/teachers/{record}` | Same roles | Updates teacher contact/specialization details or status. Staff login invitations are not included yet. |
+| `GET /api/v1/organizations/{organization}/attendance` | Admin, management, or independent educator in an active verified membership | Returns a paginated section roster with saved marks for a date inside the section's academic session. |
+| `PUT /api/v1/organizations/{organization}/attendance` | Same roles | Batch upserts present/absent/late/excused marks and optional notes. Students must be active and enrolled in that section/session. |
+| `GET /api/v1/organizations/{organization}/timetable` | Admin, management, or independent educator in an active verified membership | Lists paginated weekly entries with optional session, section, and weekday filters. |
+| `POST/PATCH /api/v1/organizations/{organization}/timetable` | Same roles | Creates or updates a section/subject slot, optional teacher/room/HTTPS meeting link, and rejects active section, teacher, or room conflicts. |
 
 Browser clients use Sanctum's stateful session flow with `/sanctum/csrf-cookie`; configure `SANCTUM_STATEFUL_DOMAINS`, `CORS_ALLOWED_ORIGINS`, and `FRONTEND_URL` for each environment. Native clients request a token by including `device_name` on login. Email delivery must be configured for verification and reset links to reach users.
 

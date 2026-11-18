@@ -203,7 +203,8 @@ class AcademicMasterController
 
     private function collection($query): JsonResponse
     {
-        $records = $query->paginate(50);
+        $perPage = min(max(request()->integer('per_page', 50), 1), 100);
+        $records = $query->paginate($perPage);
 
         return response()->json([
             'data' => $records->items(),

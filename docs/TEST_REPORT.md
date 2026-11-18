@@ -34,6 +34,14 @@
 - `php artisan migrate --force` applied the ignored local SQLite people-profile migration; 20 organization routes are registered.
 - Production email, invitation/account linking, and PostgreSQL migration validation remain unconfigured.
 
+## Attendance and timetable milestone (18 November 2026)
+
+- Full PHPUnit suite — **29 passed / 133 assertions** using in-memory SQLite. Coverage includes date-bounded attendance, batch update/upsert, class/session enrollment checks, tenant isolation, staff-only access, schedule session alignment, HTTPS links, and overlap conflicts.
+- TypeScript, ESLint, and Pint passed for the admin attendance and timetable screens/APIs.
+- `npm run typecheck`, `npm run lint`, `npm run build` (14 prerendered routes), PHP syntax checks, and `vendor/bin/pint --test` passed after the attendance/timetable integration.
+- Attendance and timetable migrations were applied to the ignored local SQLite development database; `route:list` shows 25 organization-related routes.
+- Local HTTP smoke check returned 200 for the admin workspace and the same-origin proxied Laravel health endpoint. No authenticated browser workflow was submitted.
+
 ## Existing QA and known dependency issue
 
 Browser preview checks from 18 November 2026 previously reviewed public routes, course filtering and all seven dashboard preview roles across representative viewport widths. This milestone's browser check focused on the new account forms and was not a full responsive regression pass.

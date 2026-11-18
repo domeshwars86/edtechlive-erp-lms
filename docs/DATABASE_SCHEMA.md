@@ -1,6 +1,6 @@
 # Database Schema Direction
 
-**Status:** Identity, organization, membership, academic session, class, section, subject, student, and teacher tables/models/migrations are implemented. Local development migrations are applied to SQLite; PostgreSQL deployment validation remains pending.
+**Status:** Identity, organization, membership, academic session, class, section, subject, student, teacher, attendance, and timetable tables/models/migrations are implemented. Local development migrations are applied to SQLite; PostgreSQL deployment validation remains pending.
 
 ## Core entities
 
@@ -10,7 +10,7 @@
 - `roles`, `permissions`, membership-role assignments: scoped authorization primitives.
 - `academic_sessions`, `classes`, `sections`, `batches`, `subjects`: organization-owned academic structure.
 - `students`, `teachers`: organization-owned roster profiles with optional class placement and organization-scoped admission/employee identifiers. Login accounts, guardians, and verified family links are separate future work.
-- `attendance_records`, `timetables`: class/session/date/user-scoped academic activity.
+- `attendance_records`, `timetable_entries`: class/session/date/user-scoped academic activity. Attendance has one mark per student/section/date and records the marking user. Timetable entries contain weekday/time, room, optional teacher, and optional secure meeting URL.
 - `courses`, `enrollments`, `modules`, `lessons`, `learning_assets`: LMS structure and access.
 - `assignments`, `submissions`, `exams`, `questions`, `exam_attempts`, `results`: assessment lifecycle and auditable scoring.
 - `meetings`, `meeting_participants`: class/management meetings and provider/manual links.
@@ -18,7 +18,7 @@
 - `fee_categories`, `invoices`, `payments`, `payment_webhook_events`: finance records and idempotent provider events.
 - `ai_usage_records`, provider configuration references: usage/cost tracking; secrets live outside database/application source.
 
-The implemented schema uses `organizations` and `organization_memberships`, indexed by organization/user/status with a unique organization/user membership. `academic_sessions`, `academic_classes`, `academic_sections`, `subjects`, `students`, and `teachers` carry organization ownership and per-organization uniqueness constraints. Local SQLite migrations pass; PostgreSQL-specific migration and constraint behavior still needs validation. Role, organization type and membership status use PHP backed enums.
+The implemented schema uses `organizations` and `organization_memberships`, indexed by organization/user/status with a unique organization/user membership. `academic_sessions`, `academic_classes`, `academic_sections`, `subjects`, `students`, `teachers`, `attendance_records`, and `timetable_entries` carry organization ownership and per-organization uniqueness/index constraints. Local SQLite migrations pass; PostgreSQL-specific migration and constraint behavior still needs validation. Role, organization type and membership status use PHP backed enums.
 
 ## Modeling rules
 

@@ -14,8 +14,8 @@ An education ERP and learning platform for institutions, independent educators, 
 - Example course listings and prices are not real offers. Paid plans are disabled.
 - Public routes are statically pre-rendered with route-specific title and description metadata at build time.
 - Dashboard pages show the connected account and selected organization when signed in, while all activity, schedule and record data remains clearly labelled illustrative content. Unauthenticated role previews remain available for demonstration.
-- Admins can create and archive academic sessions, classes, sections, and subjects, and manage basic student/teacher rosters for their selected organization; these records persist through tenant-scoped API routes. Roster records do not yet create login accounts.
-- Laravel 13 API lives in `apps/api`: Sanctum auth/recovery endpoints, organization/membership APIs, and the first tenant-scoped academic master APIs. Local development uses an ignored SQLite database; PostgreSQL migrations have not been validated.
+- Admins can manage academic masters and student/teacher rosters, record paginated daily attendance, and schedule weekly class sessions for their selected organization. These records persist through tenant-scoped API routes; roster records do not yet create login accounts.
+- Laravel 13 API lives in `apps/api`: Sanctum auth/recovery endpoints, organization/membership APIs, and tenant-scoped academic master, roster, attendance, and timetable APIs. Local development uses an ignored SQLite database; PostgreSQL migrations have not been validated.
 
 ## Run locally
 

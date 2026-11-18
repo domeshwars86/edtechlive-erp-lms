@@ -72,6 +72,10 @@ export const api = {
     method: 'PATCH',
     body: JSON.stringify(data),
   }),
+  put: <T>(path: string, data: unknown) => request<T>(path, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
 }
 
 export type ApiUser = {

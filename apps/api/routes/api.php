@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AcademicMasterController;
+use App\Http\Controllers\Api\V1\AttendanceController;
 use App\Http\Controllers\Api\V1\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Api\V1\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Api\V1\Auth\NewPasswordController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Api\V1\Auth\VerifyEmailController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\PeopleController;
+use App\Http\Controllers\Api\V1\TimetableController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
@@ -62,6 +64,11 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/teachers', [PeopleController::class, 'teachers']);
                 Route::post('/teachers', [PeopleController::class, 'storeTeacher']);
                 Route::patch('/teachers/{record}', [PeopleController::class, 'updateTeacher'])->whereNumber('record');
+                Route::get('/attendance', [AttendanceController::class, 'index']);
+                Route::put('/attendance', [AttendanceController::class, 'store']);
+                Route::get('/timetable', [TimetableController::class, 'index']);
+                Route::post('/timetable', [TimetableController::class, 'store']);
+                Route::patch('/timetable/{record}', [TimetableController::class, 'update'])->whereNumber('record');
             });
         });
     });

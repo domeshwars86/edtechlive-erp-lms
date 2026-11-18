@@ -67,4 +67,14 @@ class Organization extends Model
     {
         return $this->hasMany(Teacher::class);
     }
+
+    public function attendanceRecords(): HasMany
+    {
+        return $this->hasMany(AttendanceRecord::class);
+    }
+
+    public function timetableEntries(): HasMany
+    {
+        return $this->hasMany(TimetableEntry::class);
+    }
 }
