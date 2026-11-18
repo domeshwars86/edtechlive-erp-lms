@@ -5,7 +5,9 @@ namespace Tests\Feature\Api\V1;
 use App\Enums\MembershipStatus;
 use App\Enums\OrganizationRole;
 use App\Enums\OrganizationType;
+use App\Models\AssignmentSubmission;
 use App\Models\Course;
+use App\Models\CourseAssignment;
 use App\Models\CourseQuiz;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
@@ -38,6 +40,18 @@ class AssessmentReportTest extends TestCase
             'organization_id' => $organization->id, 'quiz_id' => $quiz->id, 'student_id' => $student->id,
             'attempt_number' => 2, 'started_at' => now(),
         ]);
+        $secondStudent = Student::query()->create([
+            'organization_id' => $organization->id, 'name' => 'Learner Two', 'admission_number' => 'S-2', 'status' => 'active',
+        ]);
+        $assignment = $this->assignment($organization, $admin, $firstCourse, 'Practice set');
+        AssignmentSubmission::query()->create([
+            'organization_id' => $organization->id, 'assignment_id' => $assignment->id, 'student_id' => $student->id,
+            'answer' => 'Submitted answer', 'submitted_at' => now(), 'awarded_points' => '9.00', 'graded_by' => $admin->id, 'graded_at' => now(),
+        ]);
+        AssignmentSubmission::query()->create([
+            'organization_id' => $organization->id, 'assignment_id' => $assignment->id, 'student_id' => $secondStudent->id,
+            'answer' => 'Awaiting review', 'submitted_at' => now(),
+        ]);
         Sanctum::actingAs($admin);
 
         $this->getJson("/api/v1/organizations/{$organization->id}/reports/assessments")->assertOk()
@@ -48,6 +62,13 @@ class AssessmentReportTest extends TestCase
             ->assertJsonPath('data.summary.average_score_percent', 80)
             ->assertJsonPath('data.quizzes.0.course', 'Algebra')
             ->assertJsonPath('data.quizzes.0.average_score_percent', 80)
+            ->assertJsonPath('data.assignment_summary.published_assignments', 1)
+            ->assertJsonPath('data.assignment_summary.submissions', 2)
+            ->assertJsonPath('data.assignment_summary.graded_submissions', 1)
+            ->assertJsonPath('data.assignment_summary.awaiting_review', 1)
+            ->assertJsonPath('data.assignment_summary.learner_submissions', 2)
+            ->assertJsonPath('data.assignment_summary.average_score_percent', 90)
+            ->assertJsonPath('data.assignments.0.assignment', 'Practice set')
             ->assertJsonMissingPath('data.quizzes.0.student');
     }
 
@@ -58,10 +79,14 @@ class AssessmentReportTest extends TestCase
         $otherCourse = $this->course($organization, $admin, $otherTeacher, 'Biology');
         $this->quiz($organization, $admin, $ownedCourse, 'My results');
         $this->quiz($organization, $admin, $otherCourse, 'Other results');
+        $this->assignment($organization, $admin, $ownedCourse, 'My assignment');
+        $this->assignment($organization, $admin, $otherCourse, 'Other assignment');
         Sanctum::actingAs($teacherUser);
         $this->getJson("/api/v1/organizations/{$organization->id}/reports/assessments")->assertOk()
             ->assertJsonPath('data.summary.published_quizzes', 1)
-            ->assertJsonPath('data.quizzes.0.quiz', 'My results');
+            ->assertJsonPath('data.quizzes.0.quiz', 'My results')
+            ->assertJsonPath('data.assignment_summary.published_assignments', 1)
+            ->assertJsonPath('data.assignments.0.assignment', 'My assignment');
 
         Sanctum::actingAs($studentUser);
         $this->getJson("/api/v1/organizations/{$organization->id}/reports/assessments")->assertForbidden();
@@ -104,6 +129,14 @@ class AssessmentReportTest extends TestCase
         return CourseQuiz::query()->create([
             'organization_id' => $organization->id, 'course_id' => $course->id, 'created_by' => $creator->id,
             'title' => $title, 'status' => $status, 'max_attempts' => 2,
+        ]);
+    }
+
+    private function assignment(Organization $organization, User $creator, Course $course, string $title): CourseAssignment
+    {
+        return CourseAssignment::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id, 'created_by' => $creator->id,
+            'title' => $title, 'max_points' => '10.00', 'status' => 'published',
         ]);
     }
 

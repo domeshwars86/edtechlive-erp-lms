@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\OrganizationRole;
+use App\Models\AssignmentSubmission;
+use App\Models\CourseAssignment;
 use App\Models\CourseQuiz;
 use App\Models\QuizAttempt;
 use App\Models\Teacher;
@@ -48,6 +50,26 @@ class AssessmentReportController
             ->selectRaw('COALESCE(SUM(CASE WHEN submitted_at IS NOT NULL THEN score ELSE 0 END), 0) as earned_points')
             ->selectRaw('COALESCE(SUM(CASE WHEN submitted_at IS NOT NULL THEN max_score ELSE 0 END), 0) as possible_points')
             ->groupBy('quiz_id')->get()->keyBy('quiz_id');
+        $assignments = CourseAssignment::query()->where('organization_id', $organization)->where('status', 'published')
+            ->whereHas('course', function ($query) use ($teacherId): void {
+                $query->where('status', 'published');
+                if ($teacherId !== null) {
+                    $query->where('teacher_id', $teacherId);
+                }
+            })->with('course:id,title')->orderBy('course_id')->orderBy('title')
+            ->get(['id', 'course_id', 'title', 'max_points']);
+        $assignmentIds = $assignments->pluck('id');
+        $submissionStats = AssignmentSubmission::query()->where('assignment_submissions.organization_id', $organization)
+            ->whereIn('assignment_id', $assignmentIds)
+            ->join('course_assignments', 'course_assignments.id', '=', 'assignment_submissions.assignment_id')
+            ->select('assignment_submissions.assignment_id')
+            ->selectRaw('COUNT(*) as submission_count')
+            ->selectRaw('SUM(CASE WHEN assignment_submissions.graded_at IS NOT NULL THEN 1 ELSE 0 END) as graded_submissions')
+            ->selectRaw('SUM(CASE WHEN assignment_submissions.graded_at IS NULL THEN 1 ELSE 0 END) as awaiting_review')
+            ->selectRaw('COUNT(DISTINCT assignment_submissions.student_id) as learners')
+            ->selectRaw('COALESCE(SUM(CASE WHEN assignment_submissions.graded_at IS NOT NULL THEN assignment_submissions.awarded_points ELSE 0 END), 0) as earned_points')
+            ->selectRaw('COALESCE(SUM(CASE WHEN assignment_submissions.graded_at IS NOT NULL THEN course_assignments.max_points ELSE 0 END), 0) as possible_points')
+            ->groupBy('assignment_submissions.assignment_id')->get()->keyBy('assignment_id');
 
         $rows = $quizzes->map(function (CourseQuiz $quiz) use ($attemptStats): array {
             $stats = $attemptStats->get($quiz->id);
@@ -64,6 +86,22 @@ class AssessmentReportController
                 'average_score_percent' => $possible > 0 ? round($earned / $possible * 100, 1) : null,
             ];
         })->values();
+        $assignmentRows = $assignments->map(function (CourseAssignment $assignment) use ($submissionStats): array {
+            $stats = $submissionStats->get($assignment->id);
+            $earned = (float) ($stats?->earned_points ?? 0);
+            $possible = (float) ($stats?->possible_points ?? 0);
+
+            return [
+                'assignment_id' => $assignment->id,
+                'course' => $assignment->course->title,
+                'assignment' => $assignment->title,
+                'learners' => (int) ($stats?->learners ?? 0),
+                'submissions' => (int) ($stats?->submission_count ?? 0),
+                'graded_submissions' => (int) ($stats?->graded_submissions ?? 0),
+                'awaiting_review' => (int) ($stats?->awaiting_review ?? 0),
+                'average_score_percent' => $possible > 0 ? round($earned / $possible * 100, 1) : null,
+            ];
+        })->values();
 
         $submitted = $rows->sum('submitted_attempts');
         $inProgress = $rows->sum('in_progress_attempts');
@@ -71,6 +109,9 @@ class AssessmentReportController
         $scoredQuizRows = $rows->filter(fn (array $row): bool => $row['average_score_percent'] !== null && $row['submitted_attempts'] > 0);
         $weightedTotal = $attemptStats->sum(fn ($stats): float => (float) $stats->possible_points);
         $weightedEarned = $attemptStats->sum(fn ($stats): float => (float) $stats->earned_points);
+        $gradedAssignments = $assignmentRows->sum('graded_submissions');
+        $assignmentPossible = $submissionStats->sum(fn ($stats): float => (float) $stats->possible_points);
+        $assignmentEarned = $submissionStats->sum(fn ($stats): float => (float) $stats->earned_points);
 
         return response()->json(['data' => [
             'summary' => [
@@ -82,6 +123,15 @@ class AssessmentReportController
                 'quizzes_with_submissions' => $scoredQuizRows->count(),
             ],
             'quizzes' => $rows,
+            'assignment_summary' => [
+                'published_assignments' => $assignments->count(),
+                'submissions' => $assignmentRows->sum('submissions'),
+                'graded_submissions' => $gradedAssignments,
+                'awaiting_review' => $assignmentRows->sum('awaiting_review'),
+                'learner_submissions' => $submissionStats->sum('learners'),
+                'average_score_percent' => $assignmentPossible > 0 ? round($assignmentEarned / $assignmentPossible * 100, 1) : null,
+            ],
+            'assignments' => $assignmentRows,
         ]]);
     }
 }

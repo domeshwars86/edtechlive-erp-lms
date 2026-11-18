@@ -217,9 +217,9 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 
 ## Assessment outcome report (19 November 2026)
 
-- Added `GET /api/v1/organizations/{organization}/reports/assessments` and an Assessments tab to the academic reports dashboard. Published quizzes show submitted and in-progress attempts, learner participation counts, and weighted average score percentages; no student identity is returned.
+- Added `GET /api/v1/organizations/{organization}/reports/assessments` and an Assessments tab to the academic reports dashboard. Published quizzes show submitted and in-progress attempts, learner participation counts, and weighted average scores. Published assignments show submissions, graded/awaiting-review counts, learner participation, and weighted score averages. No student identity is returned.
 - Admin, management, and independent educator roles see tenant totals. Teacher access is limited to published courses assigned to that teacher. Student and parent accounts are denied.
-- Focused API tests pass (**2 tests / 13 assertions**) covering weighted score totals, in-progress attempt handling, teacher course scoping, and student denial. Full API suite passes (**87 tests / 574 assertions**), Pint, web typecheck/lint, and production build (14 prerendered routes).
+- Focused API tests pass (**2 tests / 22 assertions**) covering quiz and assignment weighted score totals, in-progress handling, grading backlog, teacher course scoping, and student denial. Full API suite passes (**87 tests / 583 assertions**), Pint, web typecheck/lint, and production build (14 prerendered routes).
 
 ## Student course progress milestone (18 November 2026)
 
