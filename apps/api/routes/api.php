@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\ContactEnquiryController;
 use App\Http\Controllers\Api\V1\CourseAssetController;
 use App\Http\Controllers\Api\V1\CourseAssignmentController;
 use App\Http\Controllers\Api\V1\CourseController;
+use App\Http\Controllers\Api\V1\CourseProgressController;
 use App\Http\Controllers\Api\V1\CourseQuizController;
 use App\Http\Controllers\Api\V1\FamilyController;
 use App\Http\Controllers\Api\V1\MeController;
@@ -98,6 +99,8 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('/courses', [CourseController::class, 'store']);
                 Route::patch('/courses/{record}', [CourseController::class, 'update'])->whereNumber('record');
                 Route::get('/courses/{course}/lessons', [CourseController::class, 'lessons'])->whereNumber('course');
+                Route::get('/courses/{course}/progress', [CourseProgressController::class, 'index'])->whereNumber('course');
+                Route::put('/courses/{course}/lessons/{lesson}/progress', [CourseProgressController::class, 'update'])->whereNumber('course')->whereNumber('lesson');
                 Route::post('/courses/{course}/lessons', [CourseController::class, 'storeLesson'])->whereNumber('course');
                 Route::post('/courses/{course}/enrollments', [CourseController::class, 'enroll'])->whereNumber('course');
                 Route::get('/courses/{course}/assignments', [CourseAssignmentController::class, 'index'])->whereNumber('course');

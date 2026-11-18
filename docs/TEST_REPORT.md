@@ -105,3 +105,9 @@
 Browser preview checks from 18 November 2026 previously reviewed public routes, course filtering and all seven dashboard preview roles across representative viewport widths. This milestone's browser check focused on the new account forms and was not a full responsive regression pass.
 
 `npm audit` identified nine high findings in the Vite/TypeScript-ESLint dependency tree via `picomatch@4.0.7`. The registry reported 4.0.7 as the latest picomatch release and recommended an incompatible Vite 6.2.7 downgrade; that downgrade was not applied. Recheck when compatible upstream fixes are available.
+
+## Student course progress milestone (18 November 2026)
+
+- Added tenant-aware lesson completion records and student-only progress routes. Enrolled learners can mark/reopen published lessons and see a course completion count/percentage. Draft lessons and inactive/non-enrolled courses are denied.
+- Full PHPUnit suite — **58 passed / 362 assertions** using in-memory SQLite. `npm run typecheck`, `npm run lint`, `npm run build` (14 public routes), and `vendor/bin/pint --test` passed.
+- Progress migration applied to the ignored local SQLite development database. PostgreSQL migration validation and staff-wide progress reports remain open.
