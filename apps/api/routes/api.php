@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\CourseQuizController;
 use App\Http\Controllers\Api\V1\FamilyController;
 use App\Http\Controllers\Api\V1\FeeRecordController;
 use App\Http\Controllers\Api\V1\MeController;
+use App\Http\Controllers\Api\V1\MeetingController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\OrganizationInvitationController;
 use App\Http\Controllers\Api\V1\PeopleController;
@@ -99,6 +100,9 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/fees', [FeeRecordController::class, 'index']);
                 Route::post('/fees', [FeeRecordController::class, 'store']);
                 Route::post('/fees/{fee}/payments', [FeeRecordController::class, 'payment'])->whereNumber('fee');
+                Route::get('/meetings', [MeetingController::class, 'index']);
+                Route::post('/meetings', [MeetingController::class, 'store'])->middleware('throttle:30,1');
+                Route::patch('/meetings/{meeting}', [MeetingController::class, 'update'])->whereNumber('meeting');
                 Route::get('/courses', [CourseController::class, 'index']);
                 Route::post('/courses', [CourseController::class, 'store']);
                 Route::patch('/courses/{record}', [CourseController::class, 'update'])->whereNumber('record');

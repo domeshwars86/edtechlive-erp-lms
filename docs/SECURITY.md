@@ -18,5 +18,6 @@ Laravel Sanctum session auth is connected to the web client; login, registration
 - AI provider review, data minimization, contractual processing protections, opt-in/usage limits and human review; no automated grading authority.
 - Payment provider signature verification, idempotency and sandbox testing before any production merchant activation.
 - Financial data access must remain tenant-scoped; only authorized staff may issue fees or record receipts, while students and explicitly linked guardians receive read-only views. The current ledger does not initiate payments; reconcile manual receipts and apply financial retention controls before production.
+- Meeting links are exposed only to authorized organization roles and scoped learners/guardians; require HTTPS and avoid placing credentials or access codes in URLs or logs.
 
 Legal applicability depends on users, jurisdiction and actual product operation; confirm before launch.

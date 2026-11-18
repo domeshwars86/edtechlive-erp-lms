@@ -11,6 +11,7 @@ An education ERP and learning platform for institutions, independent educators, 
 - Course search and education-level filtering work locally.
 - Contact form sends consented enquiries to a throttled API and persists them; optional inbox email requires `ENQUIRY_RECIPIENT` and a configured mail transport. Staff review UI remains to be built.
 - Fee records are persisted by organization; authorized staff can create receivables and record already-received partial/final payments, while students and linked parents have read-only access. No payment is initiated by the app.
+- Class and management meetings can be scheduled with scoped HTTPS links; provider room creation and reminders are not connected yet.
 - Login, organization registration, email verification, forgot/reset password, session persistence and organization selection use Laravel API endpoints. Browser sessions use Sanctum cookies; native clients can request API tokens.
 - Example course listings and prices are not real offers. Paid plans are disabled.
 - Public routes are statically pre-rendered with route-specific title and description metadata at build time.

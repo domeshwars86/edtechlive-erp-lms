@@ -118,3 +118,10 @@ Browser preview checks from 18 November 2026 previously reviewed public routes, 
 - Full PHPUnit suite — **60 passed / 386 assertions** using in-memory SQLite. Coverage includes partial/final balances, overpayment rejection, student/parent scope, and write-role denial.
 - `npm run typecheck`, `npm run lint`, `npm run build` (14 prerendered public routes), and `vendor/bin/pint --test` passed. Fee migrations applied to the ignored local SQLite development database.
 - Payment gateway, refunds, reconciliation, PostgreSQL validation, and browser visual review remain open.
+
+## Manual class and management meetings (18 November 2026)
+
+- Added tenant-scoped meeting schedules with HTTPS-only links, class/management types, teacher assignment checks, learner/guardian visibility, overlap detection under resource locks, and cancellation.
+- Full PHPUnit suite — **62 passed / 411 assertions** using in-memory SQLite. Coverage includes teacher/student/parent visibility, management meeting privacy, insecure URL rejection, overlap rejection, and cancellation permissions.
+- `npm run typecheck`, `npm run lint`, `npm run build` (14 prerendered public routes), and `vendor/bin/pint --test` passed. Meetings migration applied to ignored local SQLite.
+- Meet room provisioning, notices/reminders, attendance sync, recording uploads, PostgreSQL, and browser visual review remain open.

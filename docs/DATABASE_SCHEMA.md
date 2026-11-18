@@ -10,6 +10,7 @@
 - `organization_invitations`: organization, normalized email, limited role, hashed one-time token, inviter, expiry, and acceptance audit fields. Raw invitation tokens exist only in the mail link.
 - `contact_enquiries`: public prospective-user submissions with contact details, consent timestamp, workflow status, and optional notification timestamp. This table is not tenant-owned; access is not exposed through public read APIs.
 - `fee_records`, `fee_payments`: tenant-owned INR receivables for active students and staff-entered partial/final receipts. Each receipt stores the staff user, method, optional reference, and received timestamp; this is a manual ledger, not a gateway transaction.
+- `meetings`: tenant-owned one-time class or management meeting with optional section/session or published course scope, HTTPS meeting URL, start/end time, creator, and scheduled/cancelled state. No provider credentials or participant secrets are stored.
 - `roles`, `permissions`, membership-role assignments: scoped authorization primitives.
 - `academic_sessions`, `classes`, `sections`, `batches`, `subjects`: organization-owned academic structure.
 - `students`, `teachers`: organization-owned roster profiles with optional class placement and organization-scoped admission/employee identifiers. Teacher profiles link to one user account; student profiles can link to one user account. `student_guardians` links a guardian account to explicitly authorized student profiles, with relationship, primary-contact and inviter metadata.
