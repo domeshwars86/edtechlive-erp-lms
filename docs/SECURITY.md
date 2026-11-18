@@ -13,6 +13,7 @@ Laravel Sanctum session auth is connected to the web client; login, registration
 - Secret manager/environment configuration; no credentials in repository or logs.
 - HTTPS, encryption-at-rest strategy, backup encryption, tested recovery and access logging.
 - Minimized audit records, redaction of student data from telemetry and safe notification previews.
+- Contact enquiries require explicit consent, are rate-limited and validated, and use a honeypot for basic bot filtering. Limit mailbox access and define a retention/deletion schedule before launch.
 - Child/student data privacy, consent, processing agreements, retention, deletion and incident procedures reviewed by qualified counsel.
 - AI provider review, data minimization, contractual processing protections, opt-in/usage limits and human review; no automated grading authority.
 - Payment provider signature verification, idempotency and sandbox testing before any production merchant activation.

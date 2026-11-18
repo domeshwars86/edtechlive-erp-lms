@@ -1,6 +1,6 @@
 # API Specification (Proposed)
 
-**Status:** Health, authentication, password recovery, email verification, organization invitations, current-user, organization reads, academic masters, people rosters, teaching assignments, attendance, timetable, family access, attendance reports, courses, lessons, enrollments, private course assets, assignments, submissions, grading, quizzes, and attempts routes are implemented. Other routes remain proposals.
+**Status:** Health, authentication, password recovery, email verification, organization invitations, current-user, organization reads, academic masters, people rosters, teaching assignments, attendance, timetable, family access, attendance reports, courses, lessons, enrollments, private course assets, assignments, submissions, grading, quizzes, attempts, and public contact enquiries are implemented. Other routes remain proposals.
 
 Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return consistent validation and authorization errors; lists are paginated. Organization context is explicit in authorized routes and verified against the authenticated user's active membership. Never trust a client-provided organization ID without policy enforcement.
 
@@ -25,6 +25,7 @@ Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return co
 | Method and path | Access | Behavior |
 |---|---|---|
 | `GET /api/v1/health` | Public | Returns service health and API version; does not assert database connectivity. |
+| `POST /api/v1/enquiries` | Public, limited to 6 requests per minute per client | Validates contact details and explicit consent, silently drops honeypot submissions, and persists accepted enquiries. Sends a raw notification only when `ENQUIRY_RECIPIENT` and a real mail transport are configured; response reports whether notification was sent. |
 | `POST /api/v1/auth/register` | Public, throttled | Validates name, email, 12+ character letter-and-number password, organization name/type; creates user, organization, and initial active membership in one transaction; sends verification. Duplicate-email response is intentionally generic. |
 | `POST /api/v1/auth/login` | Public, throttled | Requires verified account and valid credentials. Without `device_name`, creates a first-party browser session. With `device_name`, issues a 30-day Sanctum bearer token. |
 | `POST /api/v1/auth/logout` | Sanctum authenticated | Deletes the current bearer token or invalidates the browser session. |

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\Auth\NewPasswordController;
 use App\Http\Controllers\Api\V1\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Api\V1\Auth\RegisteredOrganizationController;
 use App\Http\Controllers\Api\V1\Auth\VerifyEmailController;
+use App\Http\Controllers\Api\V1\ContactEnquiryController;
 use App\Http\Controllers\Api\V1\CourseAssetController;
 use App\Http\Controllers\Api\V1\CourseAssignmentController;
 use App\Http\Controllers\Api\V1\CourseController;
@@ -28,6 +29,9 @@ Route::prefix('v1')->group(function (): void {
         'service' => 'edtechlive-api',
         'version' => 'v1',
     ]))->name('api.v1.health');
+
+    Route::post('/enquiries', [ContactEnquiryController::class, 'store'])
+        ->middleware('throttle:6,1')->name('api.v1.enquiries.store');
 
     Route::prefix('auth')->group(function (): void {
         Route::post('/register', [RegisteredOrganizationController::class, 'store'])

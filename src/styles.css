@@ -46,3 +46,5 @@
 .organization-initial{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:#e8f1ff;color:#416ab0;font-weight:700}
 .spin{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+.contact-honeypot{position:absolute!important;left:-10000px!important;top:auto!important;width:1px!important;height:1px!important;overflow:hidden!important}

@@ -8,6 +8,7 @@
 - `organizations`: tenant, type, status, locale/timezone and settings.
 - `memberships`: user, organization, role/status, invitation/activation timestamps; unique active user/organization/role policy.
 - `organization_invitations`: organization, normalized email, limited role, hashed one-time token, inviter, expiry, and acceptance audit fields. Raw invitation tokens exist only in the mail link.
+- `contact_enquiries`: public prospective-user submissions with contact details, consent timestamp, workflow status, and optional notification timestamp. This table is not tenant-owned; access is not exposed through public read APIs.
 - `roles`, `permissions`, membership-role assignments: scoped authorization primitives.
 - `academic_sessions`, `classes`, `sections`, `batches`, `subjects`: organization-owned academic structure.
 - `students`, `teachers`: organization-owned roster profiles with optional class placement and organization-scoped admission/employee identifiers. Teacher profiles link to one user account; student profiles can link to one user account. `student_guardians` links a guardian account to explicitly authorized student profiles, with relationship, primary-contact and inviter metadata.

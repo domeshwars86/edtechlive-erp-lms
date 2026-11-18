@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'enquiries' => [
+        'recipient' => env('ENQUIRY_RECIPIENT'),
+    ],
+
 ];

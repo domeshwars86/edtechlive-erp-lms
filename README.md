@@ -6,10 +6,10 @@ An education ERP and learning platform for institutions, independent educators, 
 
 ## Current status
 
-- Responsive public website with homepage, about, feature catalog, sample course discovery, institution/teacher/student solution pages, provisional pricing, contact form demonstration, authentication screens and draft legal pages.
+- Responsive public website with homepage, about, feature catalog, sample course discovery, institution/teacher/student solution pages, provisional pricing, connected contact enquiries, authentication screens and draft legal pages.
 - Responsive role dashboards at `/workspace/:role`: `super-admin`, `admin`, `management`, `teacher`, `student`, `parent`, `educator`.
 - Course search and education-level filtering work locally.
-- Contact form performs browser-side required-field and format validation, then displays an explicit preview-only success state. It does not transmit data.
+- Contact form sends consented enquiries to a throttled API and persists them; optional inbox email requires `ENQUIRY_RECIPIENT` and a configured mail transport. Staff review UI remains to be built.
 - Login, organization registration, email verification, forgot/reset password, session persistence and organization selection use Laravel API endpoints. Browser sessions use Sanctum cookies; native clients can request API tokens.
 - Example course listings and prices are not real offers. Paid plans are disabled.
 - Public routes are statically pre-rendered with route-specific title and description metadata at build time.

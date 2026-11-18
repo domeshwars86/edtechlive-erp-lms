@@ -63,6 +63,13 @@
 - `npm run typecheck`, `npm run lint`, `npm run build` (14 prerendered public routes), and `vendor/bin/pint --test` passed after adding multipart uploads to the course workspace.
 - Files are stored in a private local disk during development. Durable production storage and malware scanning have not been configured.
 
+## Contact enquiry milestone (18 November 2026)
+
+- Full PHPUnit suite — **56 passed / 343 assertions** using in-memory SQLite. New tests cover persisted consented intake, required email/consent validation, and honeypot drops.
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed; build prerendered 14 public routes. `vendor/bin/pint --test` passed after import ordering was corrected.
+- `POST /api/v1/enquiries` is registered with a six-per-minute throttle. The contact-enquiry migration was applied to the ignored local SQLite development database.
+- Local mail uses the log transport; no real email was sent. PostgreSQL, staff review UI, retention cleanup and production delivery remain open.
+
 ## Timed quiz and auto-scored attempt milestone (18 November 2026)
 
 - Full PHPUnit suite — **51 passed / 313 assertions** using in-memory SQLite. Tests cover private answer keys, published-quiz requirements, enrollment checks, attempt limits, server-side scoring, and teacher result visibility.
