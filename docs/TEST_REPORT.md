@@ -14,6 +14,11 @@
 - API coverage confirms accurate aggregates and denies non-allowlisted accounts. Full Laravel suite passed (**111 tests / 786 assertions**) with Pint; web typecheck, ESLint, and production build passed (14 routes prerendered, 483.64 kB main bundle).
 - Added a read-only searchable/status-filtered platform organization directory with aggregate roster counts. API coverage verifies filters, roster totals, and non-allowlisted denial; full API and web checks passed.
 
+## Organization settings (19 November 2026)
+
+- Connected Admin and independent-educator Settings pages to a role-checked API for organization name and timezone updates; management users and other roles are denied, and invalid/empty settings are rejected.
+- Full Laravel suite passed (**112 tests / 794 assertions**) with Pint; web typecheck, ESLint and production build passed (14 routes prerendered, 484.24 kB main bundle).
+
 ## Scoped document library (19 November 2026)
 
 - Added a paginated organization document endpoint and role-based web views. Administrators and management see tenant files, teachers see their course files, and students see only published files for actively enrolled courses.

@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\V1\MeetingController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\OrganizationInvitationController;
+use App\Http\Controllers\Api\V1\OrganizationSettingsController;
 use App\Http\Controllers\Api\V1\PeopleController;
 use App\Http\Controllers\Api\V1\PlatformOrganizationController;
 use App\Http\Controllers\Api\V1\PlatformOverviewController;
@@ -91,6 +92,8 @@ Route::prefix('v1')->group(function (): void {
             Route::patch('/me/organization', [OrganizationController::class, 'select'])->name('api.v1.organizations.select');
             Route::get('/organizations/{organization}', [OrganizationController::class, 'show'])
                 ->whereNumber('organization')->name('api.v1.organizations.show');
+            Route::patch('/organizations/{organization}/settings', [OrganizationSettingsController::class, 'update'])
+                ->whereNumber('organization')->name('api.v1.organizations.settings.update');
 
             Route::prefix('/organizations/{organization}')->whereNumber('organization')->group(function (): void {
                 Route::get('/documents', [CourseAssetController::class, 'organizationIndex']);

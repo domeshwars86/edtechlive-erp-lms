@@ -72,6 +72,31 @@ class OrganizationAccessTest extends TestCase
         $this->assertNull($user->fresh()->preferred_organization_id);
     }
 
+    public function test_organization_settings_can_be_updated_by_an_admin_with_timezone_validation(): void
+    {
+        $admin = User::factory()->create();
+        $manager = User::factory()->create();
+        $organization = $this->organization('Northstar Academy', 'northstar-academy');
+        $this->membership($admin, $organization, MembershipStatus::Active);
+        OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $manager->id,
+            'role' => OrganizationRole::Management, 'status' => MembershipStatus::Active,
+        ]);
+        Sanctum::actingAs($admin);
+
+        $this->patchJson("/api/v1/organizations/{$organization->id}/settings", [
+            'name' => 'Northstar Academy West', 'timezone' => 'Asia/Kolkata',
+        ])->assertOk()->assertJsonPath('data.name', 'Northstar Academy West')
+            ->assertJsonPath('data.timezone', 'Asia/Kolkata');
+        $this->patchJson("/api/v1/organizations/{$organization->id}/settings", ['timezone' => 'Not/A_Timezone'])
+            ->assertUnprocessable()->assertJsonValidationErrors('timezone');
+        $this->patchJson("/api/v1/organizations/{$organization->id}/settings", [])->assertUnprocessable();
+
+        Sanctum::actingAs($manager);
+        $this->patchJson("/api/v1/organizations/{$organization->id}/settings", ['name' => 'Manager change'])
+            ->assertForbidden();
+    }
+
     public function test_me_route_requires_authentication_and_does_not_expose_password(): void
     {
         $this->getJson('/api/v1/me')->assertUnauthorized();
