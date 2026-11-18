@@ -252,3 +252,8 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Full PHPUnit suite — **62 passed / 411 assertions** using in-memory SQLite. Coverage includes teacher/student/parent visibility, management meeting privacy, insecure URL rejection, overlap rejection, and cancellation permissions.
 - `npm run typecheck`, `npm run lint`, `npm run build` (14 prerendered public routes), and `vendor/bin/pint --test` passed. Meetings migration applied to ignored local SQLite.
 - Meet room provisioning, notices/reminders, attendance sync, recording uploads, PostgreSQL, and browser visual review remain open.
+
+## Family assessment results and cash outflows (19 November 2026)
+
+- Parent and student dashboard result views return submitted quiz outcomes and graded assignment scores/feedback under explicit student or guardian scope. Responses omit answers and submitted work. Focused family coverage plus full API suite passed (**90 tests / 609 assertions**); TypeScript, ESLint, production build (14 prerendered routes), and Pint passed.
+- Finance expense verification: **92 PHPUnit tests / 629 assertions** passed using in-memory SQLite, including tenant-scoped recording/listing, teacher/parent denial, organization-local date validation, and date-filtered/all-time net cash flow. Root TypeScript, ESLint, production build (14 prerendered routes), and Pint passed. The additive migration was applied through guarded local setup.

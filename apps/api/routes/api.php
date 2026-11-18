@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\DashboardSummaryController;
 use App\Http\Controllers\Api\V1\EnrollmentReportController;
 use App\Http\Controllers\Api\V1\FamilyController;
 use App\Http\Controllers\Api\V1\FeeRecordController;
+use App\Http\Controllers\Api\V1\FinanceExpenseController;
 use App\Http\Controllers\Api\V1\FinanceReportController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\MeetingController;
@@ -128,6 +129,8 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/fees', [FeeRecordController::class, 'index']);
                 Route::post('/fees', [FeeRecordController::class, 'store']);
                 Route::post('/fees/{fee}/payments', [FeeRecordController::class, 'payment'])->whereNumber('fee');
+                Route::get('/expenses', [FinanceExpenseController::class, 'index']);
+                Route::post('/expenses', [FinanceExpenseController::class, 'store'])->middleware('throttle:30,1');
                 Route::get('/meetings', [MeetingController::class, 'index']);
                 Route::post('/meetings', [MeetingController::class, 'store'])->middleware('throttle:30,1');
                 Route::patch('/meetings/{meeting}', [MeetingController::class, 'update'])->whereNumber('meeting');

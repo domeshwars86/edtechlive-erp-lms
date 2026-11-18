@@ -7,6 +7,7 @@ use App\Enums\OrganizationRole;
 use App\Enums\OrganizationType;
 use App\Models\FeePayment;
 use App\Models\FeeRecord;
+use App\Models\FinanceExpense;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\Student;
@@ -49,6 +50,11 @@ class FinanceReportTest extends TestCase
                 'amount' => $amount, 'method' => 'cash', 'received_by' => $admin->id, 'received_at' => $receivedAt,
             ]);
         }
+        FinanceExpense::query()->create([
+            'organization_id' => $organization->id, 'recorded_by' => $admin->id,
+            'title' => 'Classroom supplies', 'category' => 'supplies', 'amount' => '25.00',
+            'incurred_on' => $today->toDateString(), 'payment_method' => 'cash',
+        ]);
 
         $foreignOrganization = $this->organization('Westfield School');
         $foreignAdmin = User::factory()->create();
@@ -69,12 +75,17 @@ class FinanceReportTest extends TestCase
             ->assertJsonPath('data.collections_period.to', $todayString)
             ->assertJsonPath('data.collections_period.receipt_count', 2)
             ->assertJsonPath('data.collections_period.received_amount', '80.00')
+            ->assertJsonPath('data.collections_period.expense_count', 1)
+            ->assertJsonPath('data.collections_period.expense_amount', '25.00')
+            ->assertJsonPath('data.collections_period.net_cash_flow', '55.00')
             ->assertJsonPath('data.summary.fee_records', 3)
             ->assertJsonPath('data.summary.unpaid_records', 1)
             ->assertJsonPath('data.summary.partial_records', 1)
             ->assertJsonPath('data.summary.paid_records', 1)
             ->assertJsonPath('data.summary.issued_amount', '175.00')
             ->assertJsonPath('data.summary.received_amount', '100.00')
+            ->assertJsonPath('data.summary.expense_amount', '25.00')
+            ->assertJsonPath('data.summary.net_cash_flow', '75.00')
             ->assertJsonPath('data.summary.outstanding_amount', '75.00')
             ->assertJsonPath('data.summary.overdue_records', 1)
             ->assertJsonPath('data.summary.overdue_balance', '50.00');

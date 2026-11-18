@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\OrganizationRole;
 use App\Models\FeePayment;
 use App\Models\FeeRecord;
+use App\Models\FinanceExpense;
 use App\Services\OrganizationAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -51,6 +52,11 @@ class FinanceReportController
         $periodReceipts = FeePayment::query()->where('organization_id', $organization)
             ->whereBetween('received_at', [$periodStart->utc(), $periodEnd->utc()])
             ->selectRaw('COUNT(*) as receipt_count')->selectRaw('COALESCE(SUM(amount), 0) as received_amount')->first();
+        $expenses = FinanceExpense::query()->where('organization_id', $organization);
+        $totalExpenses = (int) round((float) (clone $expenses)->sum('amount') * 100);
+        $periodExpenses = (clone $expenses)->whereDate('incurred_on', '>=', $periodStart->toDateString())
+            ->whereDate('incurred_on', '<=', $periodEnd->toDateString())
+            ->selectRaw('COUNT(*) as expense_count')->selectRaw('COALESCE(SUM(amount), 0) as amount')->first();
         $paymentTotals = FeePayment::query()->where('organization_id', $organization)
             ->selectRaw('fee_record_id, SUM(amount) as paid_amount')->groupBy('fee_record_id');
         $overdue = FeeRecord::query()->where('fee_records.organization_id', $organization)
@@ -65,6 +71,8 @@ class FinanceReportController
         $receivedCents = (int) round((float) $received * 100);
         $outstandingCents = max(0, $issuedCents - $receivedCents);
         $overdueCents = max(0, (int) round((float) $overdue->balance * 100));
+        $periodReceiptCents = (int) round((float) $periodReceipts->received_amount * 100);
+        $periodExpenseCents = (int) round((float) $periodExpenses->amount * 100);
 
         return response()->json(['data' => [
             'as_of' => $today,
@@ -73,7 +81,10 @@ class FinanceReportController
                 'from' => $periodStart->toDateString(),
                 'to' => $periodEnd->toDateString(),
                 'receipt_count' => (int) $periodReceipts->receipt_count,
-                'received_amount' => number_format(((int) round((float) $periodReceipts->received_amount * 100)) / 100, 2, '.', ''),
+                'received_amount' => number_format($periodReceiptCents / 100, 2, '.', ''),
+                'expense_count' => (int) $periodExpenses->expense_count,
+                'expense_amount' => number_format($periodExpenseCents / 100, 2, '.', ''),
+                'net_cash_flow' => number_format(($periodReceiptCents - $periodExpenseCents) / 100, 2, '.', ''),
             ],
             'summary' => [
                 'fee_records' => (int) $records->record_count,
@@ -82,6 +93,8 @@ class FinanceReportController
                 'paid_records' => (int) $records->paid_count,
                 'issued_amount' => number_format($issuedCents / 100, 2, '.', ''),
                 'received_amount' => number_format($receivedCents / 100, 2, '.', ''),
+                'expense_amount' => number_format($totalExpenses / 100, 2, '.', ''),
+                'net_cash_flow' => number_format(($receivedCents - $totalExpenses) / 100, 2, '.', ''),
                 'outstanding_amount' => number_format($outstandingCents / 100, 2, '.', ''),
                 'overdue_records' => (int) $overdue->record_count,
                 'overdue_balance' => number_format($overdueCents / 100, 2, '.', ''),
