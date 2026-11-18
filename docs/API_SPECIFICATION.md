@@ -25,7 +25,7 @@ Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return co
 | Method and path | Access | Behavior |
 |---|---|---|
 | `GET /api/v1/health` | Public | Returns service health and API version; does not assert database connectivity. |
-| `GET /api/v1/organizations/{organization}/courses/{course}/progress` | Verified student with active course enrollment | Returns published lesson completion timestamps and the student's completed/total/percentage summary. |
+| `GET /api/v1/organizations/{organization}/courses/{course}/progress` | Verified student with active enrollment, course teacher, admin, management, or independent educator | Students receive their own published lesson completion timestamps and summary. Course teachers/managers receive active enrolled learner completion counts and percentages; teacher access is restricted to their own course. |
 | `PUT /api/v1/organizations/{organization}/courses/{course}/lessons/{lesson}/progress` | Same as above | Sets or clears completion for a published lesson in the enrolled course; each student can only change their own progress. |
 | `POST /api/v1/enquiries` | Public, limited to 6 requests per minute per client | Validates contact details and explicit consent, silently drops honeypot submissions, and persists accepted enquiries. Sends a raw notification only when `ENQUIRY_RECIPIENT` and a real mail transport are configured; response reports whether notification was sent. |
 | `POST /api/v1/auth/register` | Public, throttled | Validates name, email, 12+ character letter-and-number password, organization name/type; creates user, organization, and initial active membership in one transaction; sends verification. Duplicate-email response is intentionally generic. |

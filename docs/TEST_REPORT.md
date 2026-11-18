@@ -108,6 +108,6 @@ Browser preview checks from 18 November 2026 previously reviewed public routes, 
 
 ## Student course progress milestone (18 November 2026)
 
-- Added tenant-aware lesson completion records and student-only progress routes. Enrolled learners can mark/reopen published lessons and see a course completion count/percentage. Draft lessons and inactive/non-enrolled courses are denied.
-- Full PHPUnit suite — **58 passed / 362 assertions** using in-memory SQLite. `npm run typecheck`, `npm run lint`, `npm run build` (14 public routes), and `vendor/bin/pint --test` passed.
+- Added tenant-aware lesson completion records. Enrolled learners can mark/reopen published lessons and see a course completion count/percentage; course teachers and managers can review learner percentages for their authorized course. Draft lessons and inactive/non-enrolled courses are denied.
+- Full PHPUnit suite — **58 passed / 366 assertions** using in-memory SQLite. `npm run typecheck`, `npm run lint`, `npm run build` (14 public routes), and `vendor/bin/pint --test` passed.
 - Progress migration applied to the ignored local SQLite development database. PostgreSQL migration validation and staff-wide progress reports remain open.

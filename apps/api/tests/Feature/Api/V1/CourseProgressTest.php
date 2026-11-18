@@ -22,7 +22,7 @@ class CourseProgressTest extends TestCase
 
     public function test_enrolled_student_can_mark_lessons_complete_and_read_course_progress(): void
     {
-        [$studentUser, $organization, $course, $lessons] = $this->workspace();
+        [$admin, $studentUser, $organization, $course, $lessons] = $this->workspace();
         $studentId = Student::query()->where('user_id', $studentUser->id)->value('id');
         Sanctum::actingAs($studentUser);
         $base = "/api/v1/organizations/{$organization->id}";
@@ -43,14 +43,20 @@ class CourseProgressTest extends TestCase
             ->assertJsonPath('summary.completed', 1)
             ->assertJsonPath('summary.percent', 50)
             ->assertJsonPath('data.0.lesson_id', $lessons[0]->id);
+        Sanctum::actingAs($admin);
+        $this->getJson("{$base}/courses/{$course->id}/progress")->assertOk()
+            ->assertJsonPath('summary.learners', 1)
+            ->assertJsonPath('summary.average_percent', 50)
+            ->assertJsonPath('data.0.student.name', 'Learner One');
 
+        Sanctum::actingAs($studentUser);
         $this->putJson("{$base}/courses/{$course->id}/lessons/{$lessons[0]->id}/progress", ['completed' => false])->assertOk();
         $this->assertDatabaseHas('course_lesson_progress', ['lesson_id' => $lessons[0]->id, 'student_id' => $studentId, 'completed_at' => null]);
     }
 
     public function test_progress_is_hidden_from_unenrolled_users_and_unpublished_lessons(): void
     {
-        [$studentUser, $organization, $course, $lessons] = $this->workspace();
+        [, $studentUser, $organization, $course, $lessons] = $this->workspace();
         $course->enrollments()->delete();
         Sanctum::actingAs($studentUser);
         $base = "/api/v1/organizations/{$organization->id}";
@@ -66,6 +72,10 @@ class CourseProgressTest extends TestCase
         $organization = Organization::query()->create([
             'name' => 'Northstar Academy', 'slug' => 'northstar-'.str()->random(6),
             'type' => OrganizationType::School, 'status' => 'active', 'timezone' => 'Asia/Kolkata',
+        ]);
+        OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $admin->id,
+            'role' => OrganizationRole::Admin, 'status' => MembershipStatus::Active, 'accepted_at' => now(),
         ]);
         OrganizationMembership::query()->create([
             'organization_id' => $organization->id, 'user_id' => $studentUser->id,
@@ -88,6 +98,6 @@ class CourseProgressTest extends TestCase
             'title' => $title, 'sort_order' => $index + 1, 'content' => 'Study notes', 'status' => 'published',
         ]))->all();
 
-        return [$studentUser, $organization, $course, $lessons];
+        return [$admin, $studentUser, $organization, $course, $lessons];
     }
 }

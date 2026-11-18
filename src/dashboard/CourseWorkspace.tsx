@@ -8,6 +8,9 @@ type Lesson = { id: number; title: string; sort_order: number; content: string |
 type Student = { id: number; name: string; admission_number: string }
 type CourseAsset = { id: number; title: string; filename: string; mime_type: string; size_bytes: number; is_published: boolean; download_url: string }
 type CourseProgressSummary = { completed: number; total: number; percent: number }
+type StudentProgress = { data: { lesson_id: number; completed_at: string | null }[]; summary: CourseProgressSummary }
+type LearnerProgress = { student: Student; completed: number; total: number; percent: number }
+type LearnerProgressReport = { data: LearnerProgress[]; summary: { learners: number; average_percent: number; lessons: number } }
 
 export default function CourseWorkspace({ organizationId, mode }: { organizationId: number; mode: 'manage' | 'student' }) {
   const base = `/api/v1/organizations/${organizationId}`
@@ -16,6 +19,7 @@ export default function CourseWorkspace({ organizationId, mode }: { organization
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [lessonProgress, setLessonProgress] = useState<Record<number, string | null>>({})
   const [progressSummary, setProgressSummary] = useState<CourseProgressSummary>({ completed: 0, total: 0, percent: 0 })
+  const [learnerProgress, setLearnerProgress] = useState<LearnerProgress[]>([])
   const [assets, setAssets] = useState<CourseAsset[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [selectedStudents, setSelectedStudents] = useState<number[]>([])
@@ -48,18 +52,27 @@ export default function CourseWorkspace({ organizationId, mode }: { organization
   const selectedCourse = courses.find(course => course.id === selectedId) ?? null
   useEffect(() => {
     let cancelled = false
-    if (!selectedCourse) { setLessons([]); setAssets([]); setLessonProgress({}); setProgressSummary({ completed: 0, total: 0, percent: 0 }); return }
+    if (!selectedCourse) { setLessons([]); setAssets([]); setLessonProgress({}); setProgressSummary({ completed: 0, total: 0, percent: 0 }); setLearnerProgress([]); return }
     Promise.all([
       api.get<{ data: Lesson[] }>(`${base}/courses/${selectedCourse.id}/lessons`),
       api.get<{ data: CourseAsset[] }>(`${base}/courses/${selectedCourse.id}/assets`),
       mode === 'student'
-        ? api.get<{ data: { lesson_id: number; completed_at: string | null }[]; summary: CourseProgressSummary }>(`${base}/courses/${selectedCourse.id}/progress`)
-        : Promise.resolve(null),
+        ? api.get<StudentProgress>(`${base}/courses/${selectedCourse.id}/progress`)
+        : selectedCourse.status === 'published'
+          ? api.get<LearnerProgressReport>(`${base}/courses/${selectedCourse.id}/progress`)
+          : Promise.resolve(null),
     ]).then(([lessonResult, assetResult, progressResult]) => {
       if (!cancelled) {
         setLessons(lessonResult.data); setAssets(assetResult.data)
-        setLessonProgress(Object.fromEntries(progressResult?.data.map(item => [item.lesson_id, item.completed_at]) ?? []))
-        setProgressSummary(progressResult?.summary ?? { completed: 0, total: 0, percent: 0 })
+        if (mode === 'student') {
+          const studentResult = progressResult as StudentProgress | null
+          setLessonProgress(Object.fromEntries(studentResult?.data.map(item => [item.lesson_id, item.completed_at]) ?? []))
+          setProgressSummary(studentResult?.summary ?? { completed: 0, total: 0, percent: 0 })
+          setLearnerProgress([])
+        } else {
+          setLearnerProgress((progressResult as LearnerProgressReport | null)?.data ?? [])
+          setLessonProgress({}); setProgressSummary({ completed: 0, total: 0, percent: 0 })
+        }
       }
     }).catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : 'Could not load course learning materials.') })
     return () => { cancelled = true }
@@ -141,6 +154,7 @@ export default function CourseWorkspace({ organizationId, mode }: { organization
     <section className="dash-panel dash-masters-panel"><div className="dash-panel-heading"><div><span className="dash-panel-kicker">{mode === 'student' ? 'MY LEARNING' : 'COURSE LIBRARY'}</span><h2>{mode === 'student' ? 'Enrolled courses' : 'Courses and lessons'}</h2><p className="dash-record-subtitle">{mode === 'student' ? 'Published courses you have been enrolled in by your institution.' : 'Manage lesson content and enrollment using saved organization records.'}</p></div>{loading && <LoaderCircle className="master-spin" size={18} />}</div>
       {loading ? <p className="master-empty">Loading courses…</p> : courses.length === 0 ? <p className="master-empty"><BookOpen size={18} />{mode === 'student' ? 'You are not enrolled in a published course yet.' : 'No courses yet. Create one above to begin.'}</p> : <div className="course-layout"><nav className="course-list" aria-label="Courses">{courses.map(course => <button key={course.id} className={course.id === selectedId ? 'course-selected' : ''} onClick={() => setSelectedId(course.id)}><b>{course.title}</b><small>{course.level ?? 'Course'} · {course.status}</small></button>)}</nav>{selectedCourse && <article className="course-detail"><div className="course-detail-heading"><div><span className={`course-status ${selectedCourse.status}`}>{selectedCourse.status}</span><h3>{selectedCourse.title}</h3><p>{selectedCourse.description || 'No course description has been added.'}</p>{mode === 'student' && <p className="course-progress-label">Progress: {progressSummary.completed} of {progressSummary.total} lessons · {progressSummary.percent}%</p>}</div>{mode === 'manage' && selectedCourse.status === 'draft' && <button className="master-submit" onClick={() => void publishCourse()} disabled={saving}>Publish course</button>}</div><div className="course-lessons"><h4>Lessons</h4>{lessons.length ? lessons.map(lesson => <section key={lesson.id} className="course-lesson"><div className="course-lesson-title"><b>{lesson.sort_order}. {lesson.title}</b>{mode === 'student' && <button type="button" className="master-action" onClick={() => void toggleLessonProgress(lesson)} disabled={saving} aria-pressed={Boolean(lessonProgress[lesson.id])}>{lessonProgress[lesson.id] ? <><CheckCircle2 size={15} /> Completed</> : 'Mark complete'}</button>}</div>{lesson.content && <p>{lesson.content}</p>}{lesson.external_url && <a href={lesson.external_url} target="_blank" rel="noreferrer">Open learning resource</a>}</section>) : <p className="master-empty">No lessons have been added to this course.</p>}</div>
         <div className="course-assets"><h4>Study materials</h4>{assets.length ? <ul>{assets.map(asset => <li key={asset.id}><div><b>{asset.title}</b><small>{asset.filename} · {Math.ceil(asset.size_bytes / 1024)} KB{mode === 'manage' && !asset.is_published ? ' · Private draft' : ''}</small></div>{mode === 'manage' && !asset.is_published ? <button className="master-action" onClick={() => void publishAsset(asset)} disabled={saving || selectedCourse.status !== 'published'}>Publish</button> : <a href={asset.download_url}>Download</a>}</li>)}</ul> : <p className="master-empty">No files have been added to this course.</p>}{mode === 'manage' && <form className="course-form course-asset-form" onSubmit={event => void uploadAsset(event)}><h4>Upload a private study file</h4><label>Display title<input value={assetTitle} onChange={event => setAssetTitle(event.target.value)} required minLength={2} maxLength={180} /></label><label>File (PDF, Office document, or image · up to 20 MB)<input ref={assetInput} type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg,.webp" onChange={event => setAssetFile(event.target.files?.[0] ?? null)} required /></label><button className="master-submit" disabled={saving || !assetFile}><Save size={15} />{saving ? 'Uploading…' : 'Upload privately'}</button></form>}</div>
+        {mode === 'manage' && selectedCourse.status === 'published' && <div className="course-progress-report"><h4>Learner progress</h4><p>{learnerProgress.length} enrolled learner{learnerProgress.length === 1 ? '' : 's'} · {learnerProgress.length ? Math.round(learnerProgress.reduce((sum, row) => sum + row.percent, 0) / learnerProgress.length) : 0}% average completion</p>{learnerProgress.length ? <div className="dash-table-scroll"><table><thead><tr><th>STUDENT</th><th>LESSONS</th><th>PROGRESS</th></tr></thead><tbody>{learnerProgress.map(row => <tr key={row.student.id}><td>{row.student.name} · {row.student.admission_number}</td><td>{row.completed} / {row.total}</td><td>{row.percent}%</td></tr>)}</tbody></table></div> : <p className="master-empty">No active learners are enrolled in this course.</p>}</div>}
         {mode === 'manage' && <><form className="course-form course-lesson-form" onSubmit={event => void createLesson(event)}><h4>Add and publish a lesson</h4><label>Lesson title<input value={lessonTitle} onChange={event => setLessonTitle(event.target.value)} required minLength={2} maxLength={160} /></label><label>Learning content<textarea value={lessonContent} onChange={event => setLessonContent(event.target.value)} maxLength={50000} rows={4} placeholder="Write lesson notes or instructions" /></label><label>External resource URL<input type="url" value={lessonUrl} onChange={event => setLessonUrl(event.target.value)} placeholder="https://…" /></label><button className="master-submit" disabled={saving || (!lessonContent.trim() && !lessonUrl.trim())}><Save size={15} />{saving ? 'Saving…' : 'Publish lesson'}</button></form>{selectedCourse.status === 'published' && <form className="course-form course-enroll-form" onSubmit={event => void enrollStudents(event)}><h4>Enroll students</h4><label>Active student profiles<select multiple value={selectedStudents.map(String)} onChange={event => setSelectedStudents(Array.from(event.target.selectedOptions, option => Number(option.value)))}>{students.map(student => <option key={student.id} value={student.id}>{student.name} · {student.admission_number}</option>)}</select></label><button className="master-submit" disabled={saving || selectedStudents.length === 0}>Enroll selected students</button></form>}</>}
       </article>}</div>}
     </section>

@@ -36,7 +36,7 @@ Tests use in-memory SQLite and do not require PostgreSQL. The academic migration
 
 - `GET /api/v1/health` — service/version health; it does not check database connectivity.
 - `POST /api/v1/enquiries` — public contact intake, limited to six requests per minute; requires consent and persists enquiries. Set `ENQUIRY_RECIPIENT` and configure a non-log mail transport to notify the team.
-- Under `/api/v1/organizations/{organization}/courses/{course}`: `GET /progress` and `PUT /lessons/{lesson}/progress` expose and update the signed-in enrolled student's own lesson completion records.
+- Under `/api/v1/organizations/{organization}/courses/{course}`: `GET /progress` returns the enrolled student's own completion or a course-scoped teacher/manager progress report; `PUT /lessons/{lesson}/progress` updates only the signed-in enrolled student's completion.
 - `POST /api/v1/auth/register` — creates a user, organization and initial admin membership, then sends a verification email. Responds with 202.
 - `POST /api/v1/auth/login` — verified accounts only. Uses a first-party session by default or issues a 30-day token when `device_name` is supplied.
 - `POST /api/v1/auth/logout` — revokes the current token or ends the browser session.

@@ -1,6 +1,6 @@
 # Database Schema Direction
 
-**Status:** Identity, organization, membership, invitation, academic session, class, section, subject, student, teacher, student/guardian links, courses/lessons/enrollment/assets, assignment/submissions, quiz questions/attempts, teaching assignment, attendance, and timetable tables/models/migrations are implemented. Local development migrations are applied to SQLite; PostgreSQL deployment validation remains pending.
+**Status:** Identity, organization, membership, invitation, academic session, class, section, subject, student, teacher, student/guardian links, courses/lessons/enrollment/progress/assets, assignment/submissions, quiz questions/attempts, teaching assignment, attendance, and timetable tables/models/migrations are implemented. Local development migrations are applied to SQLite; PostgreSQL deployment validation remains pending.
 
 ## Core entities
 

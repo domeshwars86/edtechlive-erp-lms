@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\OrganizationRole;
 use App\Models\Course;
+use App\Models\CourseEnrollment;
 use App\Models\CourseLesson;
 use App\Models\CourseLessonProgress;
 use App\Models\Student;
+use App\Models\Teacher;
 use App\Services\OrganizationAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,24 +21,63 @@ class CourseProgressController
     public function index(Request $request, int $organization, int $course): JsonResponse
     {
         $membership = $this->access->membership($request, $organization);
-        abort_unless($membership->role === OrganizationRole::Student, 403);
-        $student = $this->studentProfile($request, $organization);
-        $courseRecord = $this->enrolledCourse($organization, $course, $student);
+        if ($membership->role === OrganizationRole::Student) {
+            $student = $this->studentProfile($request, $organization);
+            $courseRecord = $this->enrolledCourse($organization, $course, $student);
+            $lessons = $courseRecord->lessons()->where('status', 'published')->get();
+            $progress = CourseLessonProgress::query()->where('organization_id', $organization)
+                ->where('course_id', $course)->where('student_id', $student->id)
+                ->whereIn('lesson_id', $lessons->modelKeys())->whereNotNull('completed_at')
+                ->get()->keyBy('lesson_id');
+
+            return response()->json([
+                'data' => $lessons->map(fn (CourseLesson $lesson): array => [
+                    'lesson_id' => $lesson->id,
+                    'completed_at' => $progress->get($lesson->id)?->completed_at?->toISOString(),
+                ])->values(),
+                'summary' => [
+                    'completed' => $progress->count(),
+                    'total' => $lessons->count(),
+                    'percent' => $lessons->isEmpty() ? 0 : (int) round($progress->count() / $lessons->count() * 100),
+                ],
+            ]);
+        }
+
+        if ($membership->role === OrganizationRole::Teacher) {
+            $teacher = Teacher::query()->where('organization_id', $organization)->where('user_id', $request->user()->id)
+                ->where('status', 'active')->firstOrFail();
+            $courseRecord = Course::query()->where('organization_id', $organization)->where('teacher_id', $teacher->id)
+                ->where('status', 'published')->findOrFail($course);
+        } else {
+            abort_unless(in_array($membership->role, [OrganizationRole::Admin, OrganizationRole::Management, OrganizationRole::IndependentEducator], true), 403);
+            $this->access->membership($request, $organization, true);
+            $courseRecord = Course::query()->where('organization_id', $organization)->where('status', 'published')->findOrFail($course);
+        }
+
         $lessons = $courseRecord->lessons()->where('status', 'published')->get();
-        $progress = CourseLessonProgress::query()->where('organization_id', $organization)
-            ->where('course_id', $course)->where('student_id', $student->id)
-            ->whereIn('lesson_id', $lessons->modelKeys())->whereNotNull('completed_at')
-            ->get()->keyBy('lesson_id');
+        $enrollments = CourseEnrollment::query()->where('organization_id', $organization)->where('course_id', $course)
+            ->where('status', 'active')->with('student:id,name,admission_number')->get();
+        $progressCounts = CourseLessonProgress::query()->where('organization_id', $organization)
+            ->where('course_id', $course)->whereIn('lesson_id', $lessons->modelKeys())->whereNotNull('completed_at')
+            ->selectRaw('student_id, COUNT(DISTINCT lesson_id) as completed_count')->groupBy('student_id')
+            ->pluck('completed_count', 'student_id');
+        $learners = $enrollments->map(function (CourseEnrollment $enrollment) use ($progressCounts, $lessons): array {
+            $completed = (int) $progressCounts->get($enrollment->student_id, 0);
+
+            return [
+                'student' => $enrollment->student->only(['id', 'name', 'admission_number']),
+                'completed' => $completed,
+                'total' => $lessons->count(),
+                'percent' => $lessons->isEmpty() ? 0 : (int) round($completed / $lessons->count() * 100),
+            ];
+        });
 
         return response()->json([
-            'data' => $lessons->map(fn (CourseLesson $lesson): array => [
-                'lesson_id' => $lesson->id,
-                'completed_at' => $progress->get($lesson->id)?->completed_at?->toISOString(),
-            ])->values(),
+            'data' => $learners->values(),
             'summary' => [
-                'completed' => $progress->count(),
-                'total' => $lessons->count(),
-                'percent' => $lessons->isEmpty() ? 0 : (int) round($progress->count() / $lessons->count() * 100),
+                'learners' => $learners->count(),
+                'average_percent' => $learners->isEmpty() ? 0 : (int) round($learners->avg('percent')),
+                'lessons' => $lessons->count(),
             ],
         ]);
     }
