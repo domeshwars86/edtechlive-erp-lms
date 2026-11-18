@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\OrganizationInvitationController;
 use App\Http\Controllers\Api\V1\PeopleController;
 use App\Http\Controllers\Api\V1\StudentGuardianController;
+use App\Http\Controllers\Api\V1\TeacherWorkloadReportController;
 use App\Http\Controllers\Api\V1\TeachingAssignmentController;
 use App\Http\Controllers\Api\V1\TimetableController;
 use Illuminate\Support\Facades\Route;
@@ -116,6 +117,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::put('/attendance', [AttendanceController::class, 'store']);
                 Route::get('/reports/attendance', [AttendanceReportController::class, 'index']);
                 Route::get('/reports/enrollment', [EnrollmentReportController::class, 'index']);
+                Route::get('/reports/workload', [TeacherWorkloadReportController::class, 'index']);
                 Route::get('/reports/course-progress', [CourseProgressReportController::class, 'index']);
                 Route::get('/fees', [FeeRecordController::class, 'index']);
                 Route::post('/fees', [FeeRecordController::class, 'store']);

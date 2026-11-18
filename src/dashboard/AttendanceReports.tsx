@@ -3,6 +3,7 @@ import { AlertCircle, BarChart3, CalendarDays, LoaderCircle } from 'lucide-react
 import { api } from '../lib/api'
 import CourseProgressReports from './CourseProgressReports'
 import EnrollmentReport from './EnrollmentReport'
+import TeacherWorkloadReport from './TeacherWorkloadReport'
 
 type SectionSummary = { section_id: number; class: string; section: string; records: number; present: number; late: number; absent: number; excused: number; attendance_rate: number }
 type Report = { from: string; to: string; totals: Omit<SectionSummary, 'section_id' | 'class' | 'section'>; sections: SectionSummary[] }
@@ -18,7 +19,7 @@ export default function AttendanceReports({ organizationId }: { organizationId: 
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeReport, setActiveReport] = useState<'attendance' | 'courses' | 'enrollment'>('attendance')
+  const [activeReport, setActiveReport] = useState<'attendance' | 'courses' | 'enrollment' | 'workload'>('attendance')
 
   useEffect(() => {
     let cancelled = false
@@ -32,8 +33,8 @@ export default function AttendanceReports({ organizationId }: { organizationId: 
   }, [organizationId, from, to])
 
   return <div className="reports-workspace">
-    <nav className="report-tabs" aria-label="Academic reports"><button aria-pressed={activeReport === 'attendance'} className={activeReport === 'attendance' ? 'report-tab-active' : ''} onClick={() => setActiveReport('attendance')}>Attendance</button><button aria-pressed={activeReport === 'courses'} className={activeReport === 'courses' ? 'report-tab-active' : ''} onClick={() => setActiveReport('courses')}>Course progress</button><button aria-pressed={activeReport === 'enrollment'} className={activeReport === 'enrollment' ? 'report-tab-active' : ''} onClick={() => setActiveReport('enrollment')}>Enrollment</button></nav>
-    {activeReport === 'courses' ? <CourseProgressReports organizationId={organizationId} /> : activeReport === 'enrollment' ? <EnrollmentReport organizationId={organizationId} /> : <section className="dash-panel dash-masters-panel">
+    <nav className="report-tabs" aria-label="Academic reports"><button aria-pressed={activeReport === 'attendance'} className={activeReport === 'attendance' ? 'report-tab-active' : ''} onClick={() => setActiveReport('attendance')}>Attendance</button><button aria-pressed={activeReport === 'courses'} className={activeReport === 'courses' ? 'report-tab-active' : ''} onClick={() => setActiveReport('courses')}>Course progress</button><button aria-pressed={activeReport === 'enrollment'} className={activeReport === 'enrollment' ? 'report-tab-active' : ''} onClick={() => setActiveReport('enrollment')}>Enrollment</button><button aria-pressed={activeReport === 'workload'} className={activeReport === 'workload' ? 'report-tab-active' : ''} onClick={() => setActiveReport('workload')}>Teacher workload</button></nav>
+    {activeReport === 'courses' ? <CourseProgressReports organizationId={organizationId} /> : activeReport === 'enrollment' ? <EnrollmentReport organizationId={organizationId} /> : activeReport === 'workload' ? <TeacherWorkloadReport organizationId={organizationId} /> : <section className="dash-panel dash-masters-panel">
       <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ACADEMIC REPORTS</span><h2>Attendance summary</h2><p className="dash-record-subtitle">Recorded attendance by class and section for the selected date range. Late marks count toward attendance.</p></div></div>
       <div className="report-filters"><label>From<input type="date" value={from} max={to} onChange={event => setFrom(event.target.value)} /></label><label>To<input type="date" value={to} min={from} onChange={event => setTo(event.target.value)} /></label><span><CalendarDays size={16} /> {from} – {to}</span></div>
       {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}

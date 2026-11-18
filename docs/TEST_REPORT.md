@@ -201,6 +201,12 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Added `GET /api/v1/organizations/{organization}/reports/enrollment` for admin, management, and independent educator roles, with active learner totals by academic session and section, unassigned student count, and active enrollment totals for published courses. The response contains aggregate counts and no student identifiers.
 - Added an Enrollment tab to the admin/management academic reports workspace. It shows placement, capacity, published-course enrollment totals, and current/inactive session markers.
 - Added tests for tenant isolation, session/section aggregation, published-course enrollment counts, and teacher denial. Full API suite: **81 tests / 538 assertions**; Pint passed. Web typecheck, lint and production build passed with 14 prerendered public routes.
+
+## Teacher workload report (19 November 2026)
+
+- Added `GET /api/v1/organizations/{organization}/reports/workload`, restricted to admin, management, and independent educator roles. It reports active teachers' distinct session/section assignments, per-teacher active roster reach, active weekly timetable slots and scheduled hours for sessions in progress on the organization's local date.
+- Excludes inactive teachers, sections, timetable slots, and sessions outside the local date window. Teacher and learner accounts are denied organization-wide totals.
+- Added the Teacher workload tab to the admin/management academic reports workspace. Focused API tests pass (**2 tests / 11 assertions**); full API suite passes (**83 tests / 549 assertions**), Pint, web typecheck/lint, and production build (14 prerendered routes).
 - No migration was required. Browser visual verification remains unavailable in this environment.
 
 ## Student course progress milestone (18 November 2026)
