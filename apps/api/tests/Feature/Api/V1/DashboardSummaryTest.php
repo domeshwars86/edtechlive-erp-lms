@@ -8,7 +8,13 @@ use App\Enums\OrganizationType;
 use App\Models\AcademicClass;
 use App\Models\AcademicSection;
 use App\Models\AcademicSession;
+use App\Models\AssignmentSubmission;
 use App\Models\AttendanceRecord;
+use App\Models\Course;
+use App\Models\CourseAssignment;
+use App\Models\CourseEnrollment;
+use App\Models\CourseLesson;
+use App\Models\CourseLessonProgress;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\Student;
@@ -80,14 +86,51 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('data.attendance_today.rate', null);
     }
 
-    public function test_student_cannot_read_staff_dashboard_summary(): void
+    public function test_student_dashboard_summary_reports_only_their_own_learning_activity(): void
     {
         $organization = $this->organization('Northstar Academy');
         $student = User::factory()->create();
         $this->membership($organization, $student, OrganizationRole::Student);
+        $profile = Student::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $student->id,
+            'name' => 'Learner', 'admission_number' => 'S-1', 'status' => 'active',
+        ]);
+        $course = Course::query()->create([
+            'organization_id' => $organization->id, 'created_by' => $student->id,
+            'title' => 'Science', 'status' => 'published', 'published_at' => now(),
+        ]);
+        CourseEnrollment::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id,
+            'student_id' => $profile->id, 'enrolled_by' => $student->id, 'status' => 'active',
+        ]);
+        $lesson = CourseLesson::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id,
+            'title' => 'First lesson', 'sort_order' => 1, 'content' => 'Notes', 'status' => 'published',
+        ]);
+        CourseLessonProgress::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id,
+            'lesson_id' => $lesson->id, 'student_id' => $profile->id, 'completed_at' => now(),
+        ]);
+        $assignment = CourseAssignment::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id,
+            'created_by' => $student->id, 'title' => 'Submitted work', 'max_points' => 10, 'status' => 'published',
+        ]);
+        AssignmentSubmission::query()->create([
+            'organization_id' => $organization->id, 'assignment_id' => $assignment->id,
+            'student_id' => $profile->id, 'answer' => 'Done', 'submitted_at' => now(),
+        ]);
+        CourseAssignment::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id,
+            'created_by' => $student->id, 'title' => 'Still to submit', 'max_points' => 10, 'status' => 'published',
+        ]);
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/organizations/{$organization->id}/dashboard/summary")->assertForbidden();
+        $this->getJson("/api/v1/organizations/{$organization->id}/dashboard/summary")->assertOk()
+            ->assertJsonPath('data.kind', 'student')
+            ->assertJsonPath('data.active_courses', 1)
+            ->assertJsonPath('data.lessons_completed_week', 1)
+            ->assertJsonPath('data.assignments_pending', 1)
+            ->assertJsonPath('data.attendance_recent.rate', null);
     }
 
     private function membership(Organization $organization, User $user, OrganizationRole $role): void
