@@ -5,6 +5,7 @@
 - [ ] Dashboard routes and role navigation need a browser/mobile visual review.
 - [ ] `public/sitemap.xml` currently uses a reserved `.example` host; replace with the approved canonical domain before launch.
 - [ ] Contact enquiries are persisted and can notify a configured mailbox; there is no staff review inbox, response tracking, or retention cleanup yet.
+- [ ] Fee records currently support staff-entered INR receivables and receipts only. There is no payment gateway, refund workflow, idempotency key, reconciliation report, or finance-specific role.
 - [ ] Authentication APIs are connected, but verification/reset delivery depends on configuring an email transport.
 - [ ] Sample courses and provisional plan scope/pricing are not commercial offers.
 - [ ] Privacy/terms/cookie/acceptable-use/refund copy is draft material pending legal review.

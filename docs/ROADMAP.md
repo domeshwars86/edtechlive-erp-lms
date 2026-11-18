@@ -7,7 +7,7 @@
 5. **Academic ERP:** sessions, classes, sections, subjects, rosters, teacher assignments, staff/student/parent invitations, teacher-scoped attendance, student/guardian workspaces, weekly timetable, and attendance summary reports have tenant-scoped APIs and web screens. Academic report coverage remains limited to attendance; additional reports and broader attendance correction workflows remain.
 6. **LMS and assessment:** course/lesson authoring, enrollment, assignments, quizzes, submissions, results and progress. **Courses, lessons, enrollment, text assignments, student submissions, instructor grading, timed MCQ quizzes, auto-scored attempts, private study material, per-quiz result history, and course-scoped learner progress are implemented; modules, organization-wide progress reports, and broader exam workflows remain.**
 7. **Free-first integrations:** supported Meet links/API, manual recording upload, email, WhatsApp click-to-chat and push.
-8. **Reports, payments, AI:** basic reports and fee records, payment sandbox, optional AI provider adapter.
+8. **Reports, payments, AI:** attendance reports and manual fee ledger are implemented; add organization-wide academic reports, sandbox payment gateway after provider selection, and optional AI provider adapter.
 9. **Web QA and staging:** tenant isolation, security, accessibility, responsive and end-to-end workflows; deploy only to authorized staging.
 10. **Mobile apps:** React Native student/teacher essentials, then limited admin/management workflows.
 11. **Commercial readiness:** reviewed privacy/legal terms, operations, support, backups, monitoring and launch readiness.

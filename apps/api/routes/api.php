@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\CourseController;
 use App\Http\Controllers\Api\V1\CourseProgressController;
 use App\Http\Controllers\Api\V1\CourseQuizController;
 use App\Http\Controllers\Api\V1\FamilyController;
+use App\Http\Controllers\Api\V1\FeeRecordController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\OrganizationInvitationController;
@@ -95,6 +96,9 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/attendance', [AttendanceController::class, 'index']);
                 Route::put('/attendance', [AttendanceController::class, 'store']);
                 Route::get('/reports/attendance', [AttendanceReportController::class, 'index']);
+                Route::get('/fees', [FeeRecordController::class, 'index']);
+                Route::post('/fees', [FeeRecordController::class, 'store']);
+                Route::post('/fees/{fee}/payments', [FeeRecordController::class, 'payment'])->whereNumber('fee');
                 Route::get('/courses', [CourseController::class, 'index']);
                 Route::post('/courses', [CourseController::class, 'store']);
                 Route::patch('/courses/{record}', [CourseController::class, 'update'])->whereNumber('record');

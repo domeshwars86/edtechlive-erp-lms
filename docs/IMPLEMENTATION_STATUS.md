@@ -4,7 +4,7 @@
 
 ## Current milestone
 
-Phase 6 — LMS foundation. The public website and seven role dashboard layouts are in place. Registration, login, verification, recovery, organization membership/invitations, academic masters, rosters, assignments, attendance, timetable, student/guardian access, attendance reports, and course/lesson/enrollment, assignment/submission/grading, timed quiz workflows, and private study asset APIs use Laravel APIs. Teacher attendance and courses are profile-scoped; student and parent views are account/link scoped. Broader exams/results and overview metrics remain illustrative. PostgreSQL and production email delivery remain unverified.
+Phase 8 — operational workflows. The public website and seven role dashboard layouts are in place. Registration, login, verification, recovery, organization membership/invitations, academic masters, rosters, assignments, attendance, timetable, student/guardian access, attendance reports, LMS course/material/assessment/progress workflows, contact intake, and manual fee records use Laravel APIs. Teacher attendance/courses and student/parent data are profile/link scoped. Broader exams and overview metrics remain illustrative; the fee ledger is not a payment gateway. PostgreSQL and production email delivery remain unverified.
 
 ## Implemented
 
@@ -25,6 +25,7 @@ Phase 6 — LMS foundation. The public website and seven role dashboard layouts 
 - Admin, management, and independent educator can view a date-filtered attendance report with organization-scoped totals and class/section breakdowns in the dashboard.
 - Managers and linked teachers can create draft courses, publish lessons with written content or an external HTTPS resource, upload private course files, publish assignments, review submissions, and author MCQ quizzes. Managers can publish a course after it has a published lesson and enroll active student roster records. Students can read published lessons, download published materials, and record completion only when their linked student profile has an active course enrollment. Students and instructors can review submitted quiz attempt history within each quiz; course teachers/managers can view progress for that course's active learners.
 - Public contact enquiries are rate-limited, consent-checked, honeypot-filtered, persisted, and optionally sent to a configured inbox; the form reports whether email notification was actually sent.
+- Admins, management, and independent educators can create tenant-scoped INR fee receivables and record partial/final receipts already received. Students and linked parents can read their own fees; balances cannot be overpaid. No external payment is initiated.
 - API and web setup/auth configuration is documented in `.env.example` files and `apps/api/README.md`.
 
 ## Current limitations
@@ -32,6 +33,7 @@ Phase 6 — LMS foundation. The public website and seven role dashboard layouts 
 - API database migrations have not been applied to PostgreSQL; local PostgreSQL service status was not confirmed.
 - Email delivery must be configured for verification, reset, and organization invitation links; local development logs messages.
 - Contact enquiries are stored through a public throttled API after explicit consent and can notify a configured recipient. Staff review UI and retention cleanup remain open.
+- Fee records are manual ledger entries only. Payment gateway integration, refund handling, idempotency, reconciliation reporting, and a dedicated finance role remain open.
 - Dashboard overview counts/activity and broader exam/result workflows remain sample data. LMS covers course/lesson authoring and publication, manual enrollment, text assignments, student submissions, grading, feedback, timed MCQ quizzes, per-quiz result history, private downloads, and course-scoped learner progress. Modules, organization-wide learning reports, malware scanning, durable production file storage and broader examinations are not implemented.
 - Student account and guardian links are currently established through invitations only; direct guardian management, changing or removing links, student roster reconciliation, and consent/retention workflows remain future work. Organization switching API, granular policies, audit trail, MFA, and remaining academic entities also remain future work.
 - Sitemap host must be replaced with the eventual production domain; legal drafts need review.
@@ -52,7 +54,8 @@ Phase 6 — LMS foundation. The public website and seven role dashboard layouts 
 ## Next
 
 1. Verify client auth flows against a persistent local development database and configure a safe local PostgreSQL service before migration validation.
-2. Continue LMS workflows with modular course organization, broader examinations, staff-wide progress reports, and assignment result history.
+2. Continue LMS workflows with modular course organization, broader examinations, and assignment result history; add organization-wide academic reporting.
 3. Expand reports to enrollment and timetable/workload metrics.
 4. Build the staff enquiry review/response workflow and define enquiry retention; configure real email delivery before promising a response.
 5. Reassess npm audit advisories when compatible upstream dependency releases are available.
+6. Add payment sandbox/gateway only after provider selection and finance workflow requirements are approved.

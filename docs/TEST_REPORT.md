@@ -111,3 +111,10 @@ Browser preview checks from 18 November 2026 previously reviewed public routes, 
 - Added tenant-aware lesson completion records. Enrolled learners can mark/reopen published lessons and see a course completion count/percentage; course teachers and managers can review learner percentages for their authorized course. Draft lessons and inactive/non-enrolled courses are denied.
 - Full PHPUnit suite — **58 passed / 366 assertions** using in-memory SQLite. `npm run typecheck`, `npm run lint`, `npm run build` (14 public routes), and `vendor/bin/pint --test` passed.
 - Progress migration applied to the ignored local SQLite development database. PostgreSQL migration validation and staff-wide progress reports remain open.
+
+## Manual fee ledger milestone (18 November 2026)
+
+- Added organization-scoped INR fee records, staff-entered partial/final receipts, student read-only views, and explicitly linked parent views. Transactions reject payments beyond the remaining balance; no gateway charge is initiated.
+- Full PHPUnit suite — **60 passed / 386 assertions** using in-memory SQLite. Coverage includes partial/final balances, overpayment rejection, student/parent scope, and write-role denial.
+- `npm run typecheck`, `npm run lint`, `npm run build` (14 prerendered public routes), and `vendor/bin/pint --test` passed. Fee migrations applied to the ignored local SQLite development database.
+- Payment gateway, refunds, reconciliation, PostgreSQL validation, and browser visual review remain open.
