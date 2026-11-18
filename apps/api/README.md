@@ -37,6 +37,7 @@ The default CI API job uses in-memory SQLite. A separate PostgreSQL 16 CI job pr
 ## Implemented API routes
 
 - `GET /api/v1/health` — service/version health; it does not check database connectivity.
+- `GET /api/v1/health/ready` — readiness probe that executes a database query and returns a safe 503 response when the database is unavailable. Suitable for hosting health checks.
 - `POST /api/v1/enquiries` — public contact intake, limited to six requests per minute; requires consent and persists enquiries. Set `ENQUIRY_RECIPIENT` and configure a non-log mail transport to notify the team.
 - Under `/api/v1/organizations/{organization}/courses/{course}`: `GET /progress` returns the enrolled student's own completion or a course-scoped teacher/manager progress report; `PUT /lessons/{lesson}/progress` updates only the signed-in enrolled student's completion.
 - Under `/api/v1/organizations/{organization}`: `GET/POST /fees` and `POST /fees/{fee}/payments` maintain manual fee records and staff-entered receipts. Students and explicitly linked parents can read only authorized fees; no payment is initiated or charged by these routes.

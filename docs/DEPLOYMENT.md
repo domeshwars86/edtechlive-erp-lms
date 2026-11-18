@@ -18,6 +18,8 @@ The frontend builds to Vite's `dist/` directory and can be served as static asse
 - Private durable external object storage for uploads and recordings.
 - Monitoring, structured logs, health checks and alerting.
 
+The API exposes `GET /api/v1/health` as a liveness endpoint and `GET /api/v1/health/ready` as a database readiness probe. A hosting health check can use the readiness route; it returns a generic 503 if the configured database cannot answer a simple query.
+
 ## Configuration preflight
 
 The Render target must use separate web/static and API origins unless a production reverse proxy is deliberately configured. Set `VITE_API_URL` to the HTTPS API origin at frontend build time, then set the API's `FRONTEND_URL`, exact `CORS_ALLOWED_ORIGINS`, and `SANCTUM_STATEFUL_DOMAINS` for the selected frontend host. Keep `APP_KEY` in the host secret store, set `APP_DEBUG=false`, use PostgreSQL, configure a real mail transport, and move private uploads from the local filesystem to durable private object storage before accepting real learner data. Run migrations only after PostgreSQL-specific validation and a backup/restore plan.

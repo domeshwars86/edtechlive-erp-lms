@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\FamilyController;
 use App\Http\Controllers\Api\V1\FeeRecordController;
 use App\Http\Controllers\Api\V1\FinanceExpenseController;
 use App\Http\Controllers\Api\V1\FinanceReportController;
+use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\MeetingController;
 use App\Http\Controllers\Api\V1\NotificationController;
@@ -44,6 +45,7 @@ Route::prefix('v1')->group(function (): void {
         'service' => 'edtechlive-api',
         'version' => 'v1',
     ]))->name('api.v1.health');
+    Route::get('/health/ready', [HealthController::class, 'ready'])->name('api.v1.health.ready');
 
     Route::post('/enquiries', [ContactEnquiryController::class, 'store'])
         ->middleware('throttle:6,1')->name('api.v1.enquiries.store');

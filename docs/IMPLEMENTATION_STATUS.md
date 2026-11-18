@@ -81,6 +81,7 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - PostgreSQL validation progress: added a dedicated PostgreSQL 16 service job to GitHub Actions to run fresh migrations and the full Laravel suite. Workflow YAML parsed successfully with `js-yaml`; execution awaits a CI run because PostgreSQL and Docker are unavailable locally.
 - Parent/student results verification: focused feature coverage and full in-memory SQLite API suite pass (**90 tests / 609 assertions**); tests cover linked-child visibility, denial for an unlinked child, role restrictions, and omission of submission/answer content. Root ESLint, TypeScript, production build (14 prerendered routes), and Pint pass.
 - Role-targeted announcements are stored with organization/sender/audience metadata and delivered to active member notification feeds in bounded database batches. Admin, management and independent educator can publish to all, staff, teachers, students or parents. Full API suite passes (**94 tests / 642 assertions**) with root lint/typecheck/build, Pint, and the announcement migration applied locally; report workspaces are split into lazy-loaded chunks to keep the main JS bundle below 500 KB.
+- API deployment health now distinguishes liveness (`/api/v1/health`) from readiness (`/api/v1/health/ready`), which checks database connectivity and returns a generic 503 without exposing connection details. Both readiness outcomes are covered by feature tests.
 
 ## Next
 
