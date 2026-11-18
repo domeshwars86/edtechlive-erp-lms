@@ -108,5 +108,6 @@ export type OrganizationMembership = {
 
 export type OrganizationListResponse = {
   data: OrganizationMembership[]
+  preferred_organization_id: number | null
   meta: { current_page: number; last_page: number; per_page: number; total: number }
 }

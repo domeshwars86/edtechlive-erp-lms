@@ -4,7 +4,7 @@
 
 ## Core entities
 
-- `users`: identity and verified contact fields; never duplicate authentication secrets in domain records.
+- `users`: identity and verified contact fields plus nullable `preferred_organization_id`; the API restores this only while the user has an active membership and the organization is active. Organization deletion clears the preference. Never duplicate authentication secrets in domain records.
 - `organizations`: tenant, type, status, locale/timezone and settings.
 - `memberships`: user, organization, role/status, invitation/activation timestamps; unique active user/organization/role policy.
 - `organization_invitations`: organization, normalized email, limited role, hashed one-time token, inviter, expiry, and acceptance audit fields. Raw invitation tokens exist only in the mail link.

@@ -84,6 +84,7 @@ Route::prefix('v1')->group(function (): void {
 
         Route::middleware('verified')->group(function (): void {
             Route::get('/organizations', [OrganizationController::class, 'index'])->name('api.v1.organizations.index');
+            Route::patch('/me/organization', [OrganizationController::class, 'select'])->name('api.v1.organizations.select');
             Route::get('/organizations/{organization}', [OrganizationController::class, 'show'])
                 ->whereNumber('organization')->name('api.v1.organizations.show');
 

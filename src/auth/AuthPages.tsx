@@ -96,9 +96,13 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     }
   }
 
-  function pickOrganization(membership: OrganizationMembership) {
-    selectOrganization(membership)
-    navigate(`/workspace/${workspaceForRole[membership.role]}`)
+  async function pickOrganization(membership: OrganizationMembership) {
+    try {
+      await selectOrganization(membership)
+      navigate(`/workspace/${workspaceForRole[membership.role]}`)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not select this workspace.')
+    }
   }
 
   if (mode === 'organization') {

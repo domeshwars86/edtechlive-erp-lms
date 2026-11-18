@@ -43,6 +43,35 @@ class OrganizationAccessTest extends TestCase
             ->assertJsonMissing(['slug' => 'suspended-academy']);
     }
 
+    public function test_user_can_save_a_preferred_active_organization_and_restore_it_from_the_list(): void
+    {
+        $user = User::factory()->create();
+        $organization = $this->organization('Northstar Academy', 'northstar-academy');
+        $this->membership($user, $organization, MembershipStatus::Active);
+        Sanctum::actingAs($user);
+
+        $this->patchJson('/api/v1/me/organization', ['organization_id' => $organization->id])
+            ->assertOk()
+            ->assertJsonPath('data.organization.id', $organization->id)
+            ->assertJsonPath('data.role', 'admin');
+
+        $this->getJson('/api/v1/organizations')
+            ->assertOk()
+            ->assertJsonPath('preferred_organization_id', $organization->id);
+    }
+
+    public function test_user_cannot_save_an_organization_without_an_active_membership(): void
+    {
+        $user = User::factory()->create();
+        $otherOrganization = $this->organization('Westfield School', 'westfield-school');
+        Sanctum::actingAs($user);
+
+        $this->patchJson('/api/v1/me/organization', ['organization_id' => $otherOrganization->id])
+            ->assertNotFound();
+
+        $this->assertNull($user->fresh()->preferred_organization_id);
+    }
+
     public function test_me_route_requires_authentication_and_does_not_expose_password(): void
     {
         $this->getJson('/api/v1/me')->assertUnauthorized();

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { api, type ApiUser, type OrganizationMembership } from '../lib/api'
+import { api, type ApiUser, type OrganizationListResponse, type OrganizationMembership } from '../lib/api'
 import { AuthContext } from './auth-state'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -11,6 +11,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.get<{ data: ApiUser }>('/api/v1/me')
       setUser(response.data)
+      const memberships = await api.get<OrganizationListResponse>('/api/v1/organizations')
+      const preferred = memberships.preferred_organization_id
+        ? memberships.data.find((membership) => membership.organization.id === memberships.preferred_organization_id)
+        : undefined
+      setActiveMembership(preferred ?? null)
       return response.data
     } catch {
       setUser(null)
@@ -39,9 +44,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const selectOrganization = useCallback(async (membership: OrganizationMembership) => {
+    const response = await api.patch<{ data: OrganizationMembership }>('/api/v1/me/organization', {
+      organization_id: membership.organization.id,
+    })
+    setActiveMembership(response.data)
+  }, [])
+
   const value = useMemo(() => ({
-    user, loading, activeMembership, refresh, signIn, signOut, selectOrganization: setActiveMembership,
-  }), [user, loading, activeMembership, refresh, signIn, signOut])
+    user, loading, activeMembership, refresh, signIn, signOut, selectOrganization,
+  }), [user, loading, activeMembership, refresh, signIn, signOut, selectOrganization])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

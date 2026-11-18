@@ -32,11 +32,47 @@ class OrganizationController
                     'timezone' => $membership->organization->timezone,
                 ],
             ])->values(),
+            'preferred_organization_id' => $request->user()->memberships()
+                ->where('organization_id', $request->user()->preferred_organization_id)
+                ->where('status', MembershipStatus::Active->value)
+                ->whereHas('organization', fn ($query) => $query->where('status', 'active'))
+                ->exists() ? $request->user()->preferred_organization_id : null,
             'meta' => [
                 'current_page' => $memberships->currentPage(),
                 'last_page' => $memberships->lastPage(),
                 'per_page' => $memberships->perPage(),
                 'total' => $memberships->total(),
+            ],
+        ]);
+    }
+
+    public function select(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'organization_id' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $membership = $request->user()->memberships()
+            ->with('organization:id,name,slug,type,status,timezone')
+            ->where('organization_id', $data['organization_id'])
+            ->where('status', MembershipStatus::Active->value)
+            ->whereHas('organization', fn ($query) => $query->where('status', 'active'))
+            ->firstOrFail();
+
+        $request->user()->forceFill(['preferred_organization_id' => $membership->organization_id])->save();
+
+        return response()->json([
+            'data' => [
+                'membership_id' => $membership->id,
+                'role' => $membership->role->value,
+                'organization' => [
+                    'id' => $membership->organization->id,
+                    'name' => $membership->organization->name,
+                    'slug' => $membership->organization->slug,
+                    'type' => $membership->organization->type->value,
+                    'status' => $membership->organization->status,
+                    'timezone' => $membership->organization->timezone,
+                ],
             ],
         ]);
     }

@@ -2,6 +2,11 @@
 
 **Updated:** 19 November 2026
 
+## Preferred organization persistence (19 November 2026)
+
+- Added a nullable user preference with a foreign key that clears on organization deletion, a membership-checked save endpoint, and restore-on-reload behavior in the web client. The API reports a saved choice only while its membership and organization remain active.
+- The full API suite passed (**107 tests / 757 assertions**) with in-memory SQLite; `vendor/bin/pint --test`, web typecheck, and ESLint passed. The migration applied to the isolated local SQLite database; production build passed with 14 prerendered routes and a 490.99 kB main JavaScript bundle.
+
 ## Continuous quality workflow milestone (18 November 2026)
 
 - Added a GitHub Actions quality workflow for root web typecheck/lint/build, Laravel PHPUnit/Pint with in-memory SQLite, and mobile typecheck/Android bundle export. It is push/PR triggered, read-only for repository contents, and has no deployment step.
