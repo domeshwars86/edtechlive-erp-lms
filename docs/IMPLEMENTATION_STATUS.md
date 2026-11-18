@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Updated:** 18 November 2026
+**Updated:** 19 November 2026
 
 ## Current milestone
 
@@ -13,7 +13,7 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - User, organization and membership models/migrations; organization registration creates an initial active membership transactionally.
 - Web client API helper uses credentialed Fetch, Laravel CSRF cookies, and same-origin Vite proxy configuration for local development.
 - Login session is restored from `/api/v1/me`; logout calls API; registration, forgot/reset password and resend verification invoke the corresponding API endpoints.
-- Organization selection is loaded from the authenticated user's active memberships. Connected dashboard headers use the account and organization from API state; role-specific summary cards and agenda panels use scoped API data, while the learning activity chart and platform super-admin overview remain illustrative.
+- Organization selection is loaded from the authenticated user's active memberships. Connected dashboard headers use the account and organization from API state; role-specific summary cards, seven-day learning activity and agenda panels use scoped API data, while the platform super-admin overview remains illustrative.
 - Tenant-scoped academic session, class, section, and subject migrations, models, and API routes are implemented. Active organization members can read; admin, management, and independent educator roles can create/update. Cross-tenant references are rejected.
 - The admin dashboard includes create/list/archive flows for sessions, classes, sections, and subjects, backed by the Laravel API.
 - Admins and management can create, search, and activate/deactivate tenant-owned student and teacher roster profiles; student placement references are checked against organization-owned classes, sections, and sessions.
@@ -34,6 +34,9 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - API and web setup/auth configuration is documented in `.env.example` files and `apps/api/README.md`.
 - Multi-organization users can reopen the verified membership chooser from the dashboard workspace control. Selection changes the active role/workspace in the current frontend session; a persistent active-organization preference is not implemented.
 - The Expo SDK 56 mobile app in `apps/mobile` uses the shared Sanctum API, Expo SecureStore token persistence, membership selection, role-scoped summaries, published lesson reading, student/parent profile and attendance reads, family-scoped fee records, student assignment submissions, scoped teacher grading, timed quizzes/results, notification read receipts, teacher attendance registers scoped to assigned sections, and role-scoped meeting details/join links. Android and iOS native toolchains/device builds are not available in this workspace.
+- Connected dashboards load seven organization-local days of published lesson completions and assignment submissions from a new aggregate-only API. Admin/management/educator views are organization scoped, teachers see their published courses, students see their own activity, and parents see only explicitly linked children. Demo dashboards label sample activity; the dashboard date now reflects the current client date.
+- Activity queries use organization/time indexes; chart state is keyed to the signed-in account, role, and selected organization to avoid showing prior workspace data during account switches.
+- The dashboard activity index migration has been applied to the configured local development SQLite database. PostgreSQL migration validation remains open.
 - The mobile dependency tree now overrides vulnerable Expo transitive copies with patched `glob@14.0.2`, `minimatch@11.0.1`, and Expo CLI-scoped `zod@4.6.6`; a registry-backed `npm audit --omit=dev` reports zero vulnerabilities. Expo Android bundle export and TypeScript verification passed with Node 20.19.4.
 - Web account connection errors now tell local developers to start the Laravel API on port 8001. Root setup documentation spells out running both servers and configuring a local SQLite database.
 
@@ -45,7 +48,7 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - Fee records are manual ledger entries only. Payment gateway integration, refund handling, idempotency, reconciliation reporting, and a dedicated finance role remain open.
 - Live/management meetings use links created with an external provider. Automated Meet room provisioning, attendance sync, participant invites and recording workflow remain open.
 - In-app notifications cover fee and meeting events only; email/push delivery, broader event coverage, announcements, preferences and retention cleanup are not implemented.
-- Super-admin overview counts/activity and several broader exam/result workflows remain sample data. Admin, management, independent educator, teacher, student, and parent top-line metrics and role-scoped upcoming meeting panels are live; the learning activity chart remains illustrative; role-scoped timetable entries and private family notifications feed the lower dashboard panel. LMS covers course/lesson authoring and publication, manual enrollment, text assignments, student submissions, grading, feedback, timed MCQ quizzes, per-quiz result history, private downloads, and course-scoped learner progress. Modules, malware scanning, durable production file storage and broader examinations are not implemented.
+- Super-admin overview counts/activity and several broader exam/result workflows remain sample data. Admin, management, independent educator, teacher, student, and parent top-line metrics, seven-day lesson-completion/assignment-submission counts, and role-scoped upcoming meeting panels are live; role-scoped timetable entries and private family notifications feed the lower dashboard panel. LMS covers course/lesson authoring and publication, manual enrollment, text assignments, student submissions, grading, feedback, timed MCQ quizzes, per-quiz result history, private downloads, and course-scoped learner progress. Modules, malware scanning, durable production file storage and broader examinations are not implemented.
 - Student and guardian links can be established through accepted invitations or managed directly by authorized organization staff; student roster reconciliation, consent/retention workflows, persistent organization switching API, granular policies, audit trail, MFA, and remaining academic entities remain future work.
 - Sitemap host must be replaced with the eventual production domain; legal drafts need review.
 - Mobile source is verified through TypeScript and Android JavaScript bundle export; device/emulator verification and release signing remain outstanding. The latest registry-backed mobile production audit reports zero vulnerabilities.
@@ -65,8 +68,8 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - Local HTTP smoke check — admin workspace page and Vite-proxied Laravel health endpoint both returned 200.
 - `vendor/bin/pint --test` — passed after correcting import order. No PostgreSQL migration or deployment has been performed.
 - Latest guardian-link milestone verification: **65 PHPUnit tests / 443 assertions**, frontend typecheck/lint/build, and Pint passed; local SQLite schema required no change.
-- Mobile dependency remediation: scoped Expo CLI Zod 4 override and patched glob/minimatch overrides; Node 20.19.4 TypeScript check and Android export passed (564 modules), `npm audit --omit=dev` passed with zero vulnerabilities. Root `npm audit` also passed with zero vulnerabilities.
-- After the local account setup and API error guidance edits, root typecheck, ESLint and production build passed (14 prerendered public routes); backend suite passed (**76 tests / 493 assertions**) and Pint passed. Expo dependency compatibility check passed using its bundled offline SDK map.
+- Mobile dependency remediation: scoped Expo CLI Zod 4 override and patched glob/minimatch overrides; a clean `npm ci`, Node 20.19.4 TypeScript check and Android export passed (564 modules), `npm audit --omit=dev` passed with zero vulnerabilities. Root `npm audit` also passed with zero vulnerabilities.
+- After dashboard activity integration, root typecheck, ESLint and production build passed (14 prerendered public routes); backend suite passed (**78 tests / 502 assertions**) and Pint passed. The activity tests cover organization-local date grouping and student-only aggregation. Expo dependency compatibility check passed using its bundled offline SDK map.
 
 ## Next
 

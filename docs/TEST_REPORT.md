@@ -1,6 +1,6 @@
 # Test Report
 
-**Updated:** 18 November 2026
+**Updated:** 19 November 2026
 
 ## Continuous quality workflow milestone (18 November 2026)
 
@@ -174,11 +174,20 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 ## Dependency security and local account setup (18 November 2026)
 
 - Patched the Expo SDK 56 transitive CLI dependencies with narrowly scoped npm overrides: `glob@14.0.2`, `minimatch@11.0.1`, and CLI-only `zod@4.6.6`.
-- With Node 20.19.4, mobile TypeScript verification passed and Expo exported the Android JavaScript bundle (564 modules). Registry-backed mobile `npm audit --omit=dev` and root `npm audit` each reported **zero vulnerabilities**.
+- A clean mobile `npm ci` completed from the checked-in lockfile. With Node 20.19.4, mobile TypeScript verification passed and Expo exported the Android JavaScript bundle (564 modules). Registry-backed mobile `npm audit --omit=dev` and root `npm audit` each reported **zero vulnerabilities**.
 - Added a Node engine range to the mobile package to match the React Native/Metro requirement and expanded fresh-checkout setup steps for both local servers and SQLite.
 - In development, web account network failures now point to the Laravel API on port 8001; production retains a general service-unavailable message.
 - Root typecheck, lint and production build passed (14 prerendered public routes); API regression suite passed (**76 tests / 493 assertions**) and Pint passed. Expo SDK dependency check passed using the bundled dependency map; online Expo version validation was unavailable.
 - Browser account creation remains unverified here: the isolated shell server was not reachable from Windows Chrome, so no live sign-up or verification mail was submitted.
+
+## Live dashboard learning activity (19 November 2026)
+
+- Added `GET /api/v1/organizations/{organization}/dashboard/activity`, returning seven organization-local daily totals for published lesson completions and assignment submissions. It returns aggregate counts only and enforces active enrollment, organization scope, teacher course ownership, student self scope, and explicit parent-child links.
+- Added timestamp indexes used by the seven-day aggregate and account/role/organization cache scoping in the dashboard chart.
+- Applied the additive index migration to the configured local SQLite database after confirming all earlier migrations were already applied; no existing records were changed.
+- Connected the web dashboard activity chart to the new API for signed-in organization members. The chart now has count-based axes, accurate series labels, loading/error/empty states, and a clearly labeled sample for preview-only workspaces. Replaced the stale hard-coded dashboard date with a client-local date rendered after hydration.
+- Added feature tests for local timezone boundaries and student record isolation. Full API suite: **78 tests / 502 assertions**; Pint passed. Web typecheck, lint, and production build passed; the build prerendered 14 public routes.
+- Browser visual/authenticated regression remains unavailable because Windows Chrome cannot reach servers launched in the isolated shell.
 
 ## Student course progress milestone (18 November 2026)
 
