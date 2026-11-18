@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\OrganizationInvitationController;
 use App\Http\Controllers\Api\V1\PeopleController;
+use App\Http\Controllers\Api\V1\StudentGuardianController;
 use App\Http\Controllers\Api\V1\TeachingAssignmentController;
 use App\Http\Controllers\Api\V1\TimetableController;
 use Illuminate\Support\Facades\Route;
@@ -90,6 +91,11 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/students', [PeopleController::class, 'students']);
                 Route::post('/students', [PeopleController::class, 'storeStudent']);
                 Route::patch('/students/{record}', [PeopleController::class, 'updateStudent'])->whereNumber('record');
+                Route::get('/parent-accounts', [StudentGuardianController::class, 'directory']);
+                Route::get('/students/{student}/guardians', [StudentGuardianController::class, 'index'])->whereNumber('student');
+                Route::post('/students/{student}/guardians', [StudentGuardianController::class, 'store'])->whereNumber('student');
+                Route::delete('/students/{student}/guardians/{guardian}', [StudentGuardianController::class, 'destroy'])
+                    ->whereNumber('student')->whereNumber('guardian');
                 Route::get('/teachers', [PeopleController::class, 'teachers']);
                 Route::post('/teachers', [PeopleController::class, 'storeTeacher']);
                 Route::patch('/teachers/{record}', [PeopleController::class, 'updateTeacher'])->whereNumber('record');

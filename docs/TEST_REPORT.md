@@ -14,6 +14,12 @@
 - `npm run typecheck`, `npm run lint`, and `npm run build` passed; Vite prerendered 14 public routes.
 - `vendor/bin/pint --test` passed. The report is read-only and has no schema migration.
 
+## Guardian relationship management milestone (18 November 2026)
+
+- Focused guardian API suite — **2 passed / 15 assertions** using in-memory SQLite; covers primary-contact replacement, unlinking, cross-organization rejection, and student-role denial.
+- Full PHPUnit Feature suite — **65 passed / 443 assertions**. `npm run typecheck`, `npm run lint`, `npm run build` (14 prerendered public routes), and `vendor/bin/pint --test` passed.
+- Guardian management has no schema migration. PostgreSQL and browser visual/accessibility validation remain open.
+
 ## Frontend checks
 
 - `npm run typecheck` — passed.

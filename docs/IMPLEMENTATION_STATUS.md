@@ -22,6 +22,7 @@ Phase 7 — free-first integrations. The public website and seven role dashboard
 - Admins and management can send, list, and revoke organization invitations. Seven-day, one-time tokens are hashed in storage; new invitees create verified accounts, existing invitees confirm their password or accept while signed in, and teacher profiles are linked or created.
 - Teachers can read only their linked teaching assignments and timetable entries. They can take attendance only for assigned sections and sessions through the teacher workspace.
 - Student invitations require an active matching roster profile and link the accepted account to it. Parent invitations identify active students to link; parent views expose only those explicit links.
+- Admins, management, and independent educators can review, create, designate a primary contact for, and remove student/guardian links. Direct links require an active, verified parent membership within the same organization.
 - Admin, management, and independent educator can view a date-filtered attendance report with organization-scoped totals and class/section breakdowns in the dashboard.
 - Admin, management, independent educator, and course-owning teachers can view published-course progress summaries; teacher reports are restricted to their own courses and omit individual learner identity.
 - Managers and linked teachers can create draft courses, publish lessons with written content or an external HTTPS resource, upload private course files, publish assignments, review submissions, and author MCQ quizzes. Managers can publish a course after it has a published lesson and enroll active student roster records. Students can read published lessons, download published materials, and record completion only when their linked student profile has an active course enrollment. Students and instructors can review submitted quiz attempt history within each quiz; course teachers/managers can view progress for that course's active learners.
@@ -40,7 +41,7 @@ Phase 7 — free-first integrations. The public website and seven role dashboard
 - Live/management meetings use links created with an external provider. Automated Meet room provisioning, attendance sync, participant invites and recording workflow remain open.
 - In-app notifications cover fee and meeting events only; email/push delivery, broader event coverage, announcements, preferences and retention cleanup are not implemented.
 - Dashboard overview counts/activity and broader exam/result workflows remain sample data. LMS covers course/lesson authoring and publication, manual enrollment, text assignments, student submissions, grading, feedback, timed MCQ quizzes, per-quiz result history, private downloads, and course-scoped learner progress. Modules, organization-wide learning reports, malware scanning, durable production file storage and broader examinations are not implemented.
-- Student account and guardian links are currently established through invitations only; direct guardian management, changing or removing links, student roster reconciliation, and consent/retention workflows remain future work. Organization switching API, granular policies, audit trail, MFA, and remaining academic entities also remain future work.
+- Student and guardian links can be established through accepted invitations or managed directly by authorized organization staff; student roster reconciliation, consent/retention workflows, organization switching API, granular policies, audit trail, MFA, and remaining academic entities remain future work.
 - Sitemap host must be replaced with the eventual production domain; legal drafts need review.
 - npm audit has nine high severity findings through `picomatch@4.0.7`; do not apply its incompatible Vite 6.2.7 downgrade without an upstream-compatible fix.
 
@@ -55,6 +56,7 @@ Phase 7 — free-first integrations. The public website and seven role dashboard
 - PHP syntax checks passed for application, migration, routes, and test files. Academic, people, attendance, timetable, teaching assignment, and invitation migrations are applied to the ignored local SQLite development database; organization routes are registered.
 - Local HTTP smoke check — admin workspace page and Vite-proxied Laravel health endpoint both returned 200.
 - `vendor/bin/pint --test` — passed after correcting import order. No PostgreSQL migration or deployment has been performed.
+- Latest guardian-link milestone verification: **65 PHPUnit tests / 443 assertions**, frontend typecheck/lint/build, and Pint passed; local SQLite schema required no change.
 
 ## Next
 
