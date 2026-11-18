@@ -46,6 +46,7 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - The mobile dependency tree now overrides vulnerable Expo transitive copies with patched `glob@14.0.2`, `minimatch@11.0.1`, and Expo CLI-scoped `zod@4.6.6`; a registry-backed `npm audit --omit=dev` reports zero vulnerabilities. Expo Android bundle export and TypeScript verification passed with Node 20.19.4.
 - Web account connection errors now direct local developers to the documented two-service setup without assuming a fixed API port. Root setup documentation explains how to run the isolated local API and website together.
 - Added guarded `npm run setup:local` and `npm run dev:stack` commands so the API and website can be prepared and launched together. The setup script only permits `APP_ENV=local`, SQLite at the project's ignored `database/local-dev.sqlite`, and an empty `DB_URL`; it creates `.env` only when absent. Local setup completed with no pending migrations, and both server processes reported ready on alternate ports. Direct HTTP access is denied by this sandbox; browser automation stopped before navigation because it could not verify the current browser URL.
+- Added a PHP 8.4/Apache API container, runtime `PORT` binding, PostgreSQL extension, private-environment Docker exclusions, and health-check/release notes. Docker image validation remains blocked because the Docker CLI is not installed.
 
 ## Current limitations
 

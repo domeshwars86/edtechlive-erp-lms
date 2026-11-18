@@ -34,6 +34,8 @@ vendor/bin/pint --test
 
 The default CI API job uses in-memory SQLite. A separate PostgreSQL 16 CI job provisions an isolated service, applies fresh migrations, and runs the API suite. That job must execute successfully before PostgreSQL compatibility is considered verified. The ignored local development SQLite schema is not production data.
 
+The production container recipe is `apps/api/Dockerfile` (build context: `apps/api`). It serves the Laravel `public/` directory with Apache and listens on the deployment platform's `PORT`; it never runs migrations during container startup. The image excludes local `.env` files, SQLite development databases and private uploads. Configure PostgreSQL, `APP_KEY`, allowed web origins, mail delivery and durable private object storage before accepting real learner data.
+
 ## Implemented API routes
 
 - `GET /api/v1/health` — service/version health; it does not check database connectivity.
