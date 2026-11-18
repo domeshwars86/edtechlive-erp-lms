@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Activity, ArrowRight, ArrowUpRight, Bell, BookOpen, CalendarDays, ChartNoAxesCombined, Check, ChevronDown, CircleHelp, ClipboardCheck, Clock3, FileText, GraduationCap, Layers3, LayoutDashboard, LifeBuoy, ListTodo, Menu, MoreHorizontal, NotebookPen, Search, Settings, ShieldCheck, Sparkles, Users, UsersRound, Wallet, X } from 'lucide-react'
+import { Activity, ArrowRight, ArrowUpRight, Bell, BookOpen, CalendarDays, ChartNoAxesCombined, Check, ChevronDown, CircleHelp, ClipboardCheck, Clock3, FileText, GraduationCap, Layers3, LayoutDashboard, LifeBuoy, ListTodo, LogOut, Menu, MoreHorizontal, NotebookPen, Search, Settings, ShieldCheck, Sparkles, Users, UsersRound, Wallet, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import type { ApiUser } from './lib/api'
 import './dashboard.css'
 
 type RoleKey = 'super-admin' | 'admin' | 'management' | 'teacher' | 'student' | 'parent' | 'educator'
@@ -23,9 +24,11 @@ const sampleRows = [
   ['Grade 8 · Section C', 'Computer science', 'Dev Mehta', 'Today · 2:00 pm', 'Upcoming'],
 ]
 function normalizeRole(value: string): RoleKey { return value in roleInfo ? value as RoleKey : 'student' }
-function Dashboard({ role: inputRole }: { role: string }) {
+function Dashboard({ role: inputRole, account, organization, onSignOut }: { role: string; account: ApiUser | null; organization?: string; onSignOut?: () => void }) {
   const roleKey = normalizeRole(inputRole)
   const data = roleInfo[roleKey]
+  const displayName = account?.name ?? data.name
+  const organizationName = organization ?? data.organization
   const navigate = useNavigate()
   const [active, setActive] = useState(data.nav[0].label)
   const [query, setQuery] = useState('')
@@ -39,17 +42,17 @@ function Dashboard({ role: inputRole }: { role: string }) {
   return <div className="dash-shell">
     <aside className={`dash-sidebar ${mobileOpen ? 'dash-sidebar-open' : ''}`}>
       <div className="dash-brand-row"><Link className="dash-brand" to="/"><span className="dash-brand-mark">e<span>✳</span></span><span>edTech<span>Live</span></span></Link><button className="dash-close" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={18} /></button></div>
-      <div className="dash-org-switch"><span className="org-initial">{data.organization.slice(0, 1)}</span><span><b>{data.organization}</b><small>{data.title}</small></span><ChevronDown size={15} /></div>
+      <div className="dash-org-switch"><span className="org-initial">{organizationName.slice(0, 1)}</span><span><b>{organizationName}</b><small>{data.title}</small></span><ChevronDown size={15} /></div>
       <div className="dash-side-caption">WORKSPACE</div>
       <nav className="dash-nav" aria-label={`${data.title} navigation`}>{data.nav.map(item => { const Icon = item.icon; return <button key={item.label} className={active === item.label ? 'dash-nav-active' : ''} onClick={() => selectNav(item.label)}><Icon size={17} strokeWidth={1.75} /><span>{item.label}</span>{item.label === 'Submissions' && roleKey === 'teacher' && <i>4</i>}</button> })}</nav>
       <div className="dash-side-caption dash-tools-caption">PREFERENCES</div><button className="dash-preference" onClick={() => setNotice('Preferences are preview-only until account services are connected.')}><Settings size={17} /> Preferences</button><button className="dash-preference" onClick={() => setNotice('Help resources will appear here when support is connected.')}><LifeBuoy size={17} /> Help &amp; support</button>
-      <div className="dash-user-card"><span className="dash-avatar">{data.name[0]}</span><span><b>{data.name} {roleKey === 'student' ? 'Patel' : 'Sharma'}</b><small>{data.title}</small></span><button aria-label="Account options" onClick={() => navigate('/login')}><MoreHorizontal size={18} /></button></div>
+      <div className="dash-user-card"><span className="dash-avatar">{displayName[0]}</span><span><b>{displayName}</b><small>{account?.email ?? data.title}</small></span><button aria-label={onSignOut ? 'Sign out' : 'Sign in'} onClick={() => onSignOut ? onSignOut() : navigate('/login')}>{onSignOut ? <LogOut size={18} /> : <MoreHorizontal size={18} />}</button></div>
     </aside>
     {mobileOpen && <button className="dash-backdrop" onClick={() => setMobileOpen(false)} aria-label="Close navigation" />}
     <div className="dash-main-wrap">
-      <header className="dash-topbar"><button className="dash-mobile-menu" aria-label="Open navigation" onClick={() => setMobileOpen(true)}><Menu size={19} /></button><div className="dash-crumb"><span>{data.title}</span><span>/</span><b>{active}</b></div><div className="dash-top-actions"><label className="dash-role-switch"><span className="sr-only">Preview dashboard role</span><select value={roleKey} onChange={e => navigate(`/workspace/${e.target.value}`)}>{roleChoices.map(choice => <option key={choice.key} value={choice.key}>Preview: {choice.label}</option>)}</select><ChevronDown size={13} /></label><button className="dash-icon-button" aria-label="Notifications" onClick={() => setNotice('There are no connected notifications in this preview.')}><Bell size={17} /><i /></button><span className="dash-top-avatar">{data.name[0]}</span></div></header>
-      <main className="dash-content"><div className="dash-demo-banner"><span><CircleHelp size={15} /> DEMO WORKSPACE</span><p>All names, counts and activity below are illustrative examples. Changes are not saved and no real records are connected.</p></div>
-        <section className="dash-page-heading"><div><div className="dash-date"><CalendarDays size={14} /> WEDNESDAY, 18 NOVEMBER 2026</div><h1>{title}</h1><p>{intro}</p></div><button className="dash-secondary-button" onClick={() => setNotice('This workspace is a visual preview. Connect the API to enable data updates.')}><ArrowUpRight size={15} /> What’s this preview?</button></section>
+      <header className="dash-topbar"><button className="dash-mobile-menu" aria-label="Open navigation" onClick={() => setMobileOpen(true)}><Menu size={19} /></button><div className="dash-crumb"><span>{data.title}</span><span>/</span><b>{active}</b></div><div className="dash-top-actions">{account ? <span className="dash-role-badge">{data.title}</span> : <label className="dash-role-switch"><span className="sr-only">Preview dashboard role</span><select value={roleKey} onChange={e => navigate(`/workspace/${e.target.value}`)}>{roleChoices.map(choice => <option key={choice.key} value={choice.key}>Preview: {choice.label}</option>)}</select><ChevronDown size={13} /></label>}<button className="dash-icon-button" aria-label="Notifications" onClick={() => setNotice('Notifications are not connected in this dashboard preview.')}><Bell size={17} /><i /></button><span className="dash-top-avatar">{displayName[0]}</span></div></header>
+      <main className="dash-content"><div className="dash-demo-banner"><span><CircleHelp size={15} />{account ? 'CONNECTED ACCOUNT · DEMO DATA' : 'DEMO WORKSPACE'}</span><p>{account ? 'Your account and organization are connected. Dashboard activity and records below remain illustrative previews.' : 'All names, counts and activity below are illustrative examples. Changes are not saved and no real records are connected.'}</p></div>
+        <section className="dash-page-heading"><div><div className="dash-date"><CalendarDays size={14} /> WEDNESDAY, 18 NOVEMBER 2026</div><h1>{isOverview && account ? `Welcome, ${displayName}` : title}</h1><p>{intro}</p></div><button className="dash-secondary-button" onClick={() => setNotice('Account identity and organization membership are live. Activity, schedules and records are still preview data.')}><ArrowUpRight size={15} /> What’s this preview?</button></section>
         {notice && <div className="dash-toast" role="status"><CircleHelp size={15} />{notice}<button onClick={() => setNotice('')} aria-label="Dismiss message"><X size={15} /></button></div>}
         {isOverview ? <>
           <section className="dash-stat-grid">{data.stats.map(({ label, value, change, icon: Icon, tone }) => <article className="dash-stat-card" key={label}><div className={`dash-stat-icon ${tone}`}><Icon size={18} /></div><span className="dash-stat-menu"><MoreHorizontal size={18} /></span><small>{label}</small><b>{value}</b><em><Check size={12} /> {change}</em></article>)}</section>

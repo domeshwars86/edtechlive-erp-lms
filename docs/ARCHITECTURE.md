@@ -2,7 +2,7 @@
 
 ## Current implementation
 
-The repository is a Vite-hosted React 19 / TypeScript frontend with React Router. Public routes, shared header/footer, sample course filtering, browser-native contact validation and responsive design systems live under `src/`. Public routes are statically pre-rendered by `src/entry-server.tsx` and `scripts/prerender.mjs`. Seven role-based dashboard frontends are interactive previews with sample data. Account pages remain presentation previews. There is no backend, database, persistence, authentication or external service integration.
+The repository is a Vite-hosted React 19 / TypeScript frontend with React Router. Public routes, shared header/footer, sample course filtering, browser-native contact validation and responsive design systems live under `src/`. Public routes are statically pre-rendered by `src/entry-server.tsx` and `scripts/prerender.mjs`. The React client connects to Laravel for session-based login, registration, password recovery, current-user lookup and membership-scoped organization selection. Dashboard business records remain previews. Laravel 13/Sanctum provides the versioned API and first organization/membership schema; PostgreSQL migrations have not been applied.
 
 ## Target architecture
 
@@ -24,7 +24,7 @@ Use shared relational tables with organization foreign keys for organization-own
 
 ## Frontend
 
-Keep public, authentication and dashboard layouts separate, then organize feature modules and generated/shared API contracts. Use React Router, TanStack Query, React Hook Form and Zod once backend integration starts. Route-specific SEO rendering/prerendering is an open decision before launch. Avoid treating client state as persisted business data.
+Keep public, authentication and dashboard layouts separate, then organize feature modules and generated/shared API contracts. The initial auth API client uses credentialed Fetch and Laravel's CSRF cookie flow; account state is held in memory and rechecked from `/api/v1/me` on page load. The selected organization is revalidated against the API membership list and is not trusted as an authorization boundary. Add TanStack Query, React Hook Form and Zod where business workflows justify them. Route-specific SEO rendering/prerendering is an open decision before launch. Avoid treating client state as persisted business data.
 
 ## Decisions and open design
 

@@ -4,43 +4,41 @@
 
 ## Current milestone
 
-Phase 3 — Laravel backend and tenancy foundation. Phases 1 (public website) and 2 (dashboard frontends) have working frontend previews and passed initial gates. API, Sanctum and tenant schema foundation is in place; database migrations are not applied.
+Phase 4 — initial web client/API connection. The website and role dashboard previews are in place. Browser account flows now use the Laravel API; dashboard activity, schedules, and records are still illustrative. PostgreSQL migrations and production email delivery remain unverified.
 
-## Implemented in this milestone
+## Implemented
 
-- Vite/React/TypeScript app scaffold and responsive shared visual system.
-- Public homepage, About, Features, Courses, Institution, Teacher, Student, Pricing and Contact pages.
-- Login, registration, forgot/reset password, role choice and organization selection previews.
-- Draft Privacy, Terms, Cookie, Acceptable Use and Refund pages; clear legal-review disclaimer.
-- Responsive mobile navigation, route fallback, FAQ disclosure, course search/level filter and client-side enquiry validation.
-- Demonstration content/pricing is labelled; no user data is transmitted by forms.
-- Basic document metadata, robots and sitemap placeholders.
-- Public-route static prerendering with per-route title and description metadata.
-- Initial responsive dashboards for all seven roles, including role switching, sidebar navigation, sample metrics/lists, search and mobile sidebar behavior.
-- Laravel 13.43.0 API app created under `apps/api`, with Sanctum 4.5.0 installed.
-- Versioned API health, authenticated current-user and membership-scoped organization-list endpoints.
-- Organization and organization-membership enums, models and migrations; tests cover health, authentication, password omission and membership isolation.
-- Local `.env` app key generated and kept ignored by git; `.env.example` defaults to PostgreSQL.
-- Product and engineering baseline documentation under `docs/`.
+- Responsive, statically pre-rendered public website and all seven role dashboard previews.
+- Laravel 13.43 API with Sanctum session/token authentication, throttled registration/login/recovery, signed email verification, password reset and membership-scoped organization reads.
+- User, organization and membership models/migrations; organization registration creates an initial active membership transactionally.
+- Web client API helper uses credentialed Fetch, Laravel CSRF cookie and `VITE_API_URL` configuration.
+- Login session is restored from `/api/v1/me`; logout calls API; registration, forgot/reset password and resend verification invoke the corresponding API endpoints.
+- Organization selection is loaded from the authenticated user's active memberships. Connected dashboard headers use the account and organization from API state; dashboard business data remains clearly labelled demonstration data.
+- API and web setup/auth configuration is documented in `.env.example` files and `apps/api/README.md`.
 
 ## Current limitations
 
-- Contact and authentication do not call an API or persist information.
-- Course data is illustrative only; detail/enrollment and educator profiles are not implemented.
-- Database migrations are written but not applied; no local PostgreSQL service was confirmed, and Laravel's default SQLite migration step was intentionally not used.
-- Registration, login, invitations, organization switching, detailed policies and domain modules are not implemented yet.
-- Integrations, payments, AI and mobile apps are not started.
-- Sitemap host must be replaced with the eventual production domain.
-- External font import requires a network connection; fallback sans-serif fonts are specified.
-- Legal content is draft language and requires qualified review.
+- API database migrations have not been applied to PostgreSQL; local PostgreSQL service status was not confirmed.
+- Email delivery must be configured for verification and reset links.
+- Contact enquiry is still browser-only and is not transmitted.
+- Dashboard counts, schedules, tables, and all academic workflows remain sample data; no academic ERP or LMS endpoints exist yet.
+- Invitations, organization switching API, detailed role policies, audit trail, MFA, and tenant-owned academic entities remain future work.
+- Sitemap host must be replaced with the eventual production domain; legal drafts need review.
+- npm audit has nine high severity findings through `picomatch@4.0.7`; do not apply its incompatible Vite 6.2.7 downgrade without an upstream-compatible fix.
 
-## Checks
+## Verification
 
-Public checks: `npm run typecheck`, `npm run lint` and static prerender production build passed on Vite 8.3.8. Browser preview validated public routes/interactions and seven dashboard roles at target widths. Static HTML smoke checks confirmed route content and metadata. API checks: Laravel route list showed the three versioned routes; `php artisan test --compact` passed 5 tests / 17 assertions after generating a local-only app key; Pint formatting check passed. npm audit reports 9 high severity findings through picomatch 4.0.7; its incompatible suggested Vite 6.2.7 downgrade was not applied. Initial work is committed as `da205d0`. No PostgreSQL migration or deployment has been performed.
+- `npm run typecheck` — passed.
+- `npm run lint` — passed without warnings.
+- `npm run build` — passed; prerendered 14 routes.
+- Browser accessibility inspection confirmed login and registration screens render locally; no credentials or account creation were submitted. Full session verification needs a persistent local API database and mail transport.
+- Laravel `php artisan test` — 11 passed / 51 assertions; Pint passed; 11 API v1 routes registered.
+- No PostgreSQL migration or deployment has been performed.
 
 ## Next
 
-1. Complete organization registration, login/session/token handling, email verification and membership authorization.
-2. Confirm a safe local PostgreSQL service/database, then apply and test migrations there.
-3. Investigate npm's nine high severity advisories when registry access is available.
-4. Keep demo records clearly marked and replace sitemap domain when known.
+1. Verify client auth flows against a persistent local development database and configure a safe local PostgreSQL service before migration validation.
+2. Implement academic session and core master-entry APIs (classes, sections, subjects), policies, resources and tenant isolation tests.
+3. Replace dashboard sample records with API-backed academic summaries once those endpoints exist.
+4. Connect contact enquiries after its API endpoint and abuse controls are implemented.
+5. Reassess npm audit advisories when compatible upstream dependency releases are available.
