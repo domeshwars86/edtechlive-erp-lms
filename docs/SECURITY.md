@@ -14,7 +14,7 @@ Laravel Sanctum session auth is connected to the web client; login, registration
 - HTTPS, encryption-at-rest strategy, backup encryption, tested recovery and access logging.
 - Minimized audit records, redaction of student data from telemetry and safe notification previews.
 - Contact enquiries require explicit consent, are rate-limited and validated, and use a honeypot for basic bot filtering. The global inbox requires a verified account whose exact email is configured in `ENQUIRY_ADMIN_EMAILS`; organization membership does not grant access. Define a retention/deletion schedule before launch.
-- The live platform overview and operations workspace require a verified account whose email is explicitly listed in the separate `PLATFORM_ADMIN_EMAILS` allowlist. Keep both operator allowlists empty or narrowly scoped by default; an organization role never grants global platform access.
+- The live platform overview and read-only organization directory require a verified account whose email is explicitly listed in the separate `PLATFORM_ADMIN_EMAILS` allowlist. Keep both operator allowlists empty or narrowly scoped by default; an organization role never grants global platform access.
 - Child/student data privacy, consent, processing agreements, retention, deletion and incident procedures reviewed by qualified counsel.
 - AI provider review, data minimization, contractual processing protections, opt-in/usage limits and human review; no automated grading authority.
 - Payment provider signature verification, idempotency and sandbox testing before any production merchant activation.

@@ -43,6 +43,11 @@ class PlatformOverviewTest extends TestCase
             ->assertJsonPath('data.educators', 1)
             ->assertJsonFragment(['name' => 'Active Academy'])
             ->assertJsonFragment(['name' => 'Suspended Academy']);
+        $this->getJson('/api/v1/platform/organizations?status=active&q=Active&per_page=1')
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.slug', 'active-academy')
+            ->assertJsonPath('data.0.active_members', 1)
+            ->assertJsonPath('meta.total', 1);
     }
 
     public function test_platform_overview_is_forbidden_for_non_allowlisted_users(): void
@@ -52,6 +57,7 @@ class PlatformOverviewTest extends TestCase
 
         $this->getJson('/api/v1/me')->assertOk()->assertJsonPath('data.is_platform_admin', false);
         $this->getJson('/api/v1/platform/overview')->assertForbidden();
+        $this->getJson('/api/v1/platform/organizations')->assertForbidden();
     }
 
     private function organization(string $name, string $slug, string $status): Organization

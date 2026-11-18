@@ -11,7 +11,8 @@
 ## Allowlisted platform overview (19 November 2026)
 
 - Added an explicit `PLATFORM_ADMIN_EMAILS` allowlist, separate from organization roles and enquiry inbox access, and a read-only platform API with organization/user/educator/open-enquiry counts and recent organization metadata. The verified operator can open the live overview directly after sign-in.
-- API coverage confirms accurate aggregates and denies non-allowlisted accounts. Full Laravel suite passed (**111 tests / 780 assertions**) with Pint; web typecheck, ESLint, and production build passed (14 routes prerendered, 483.28 kB main bundle).
+- API coverage confirms accurate aggregates and denies non-allowlisted accounts. Full Laravel suite passed (**111 tests / 786 assertions**) with Pint; web typecheck, ESLint, and production build passed (14 routes prerendered, 483.64 kB main bundle).
+- Added a read-only searchable/status-filtered platform organization directory with aggregate roster counts. API coverage verifies filters, roster totals, and non-allowlisted denial; full API and web checks passed.
 
 ## Scoped document library (19 November 2026)
 
