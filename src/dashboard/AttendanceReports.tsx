@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertCircle, BarChart3, CalendarDays, LoaderCircle } from 'lucide-react'
 import { api } from '../lib/api'
+import CourseProgressReports from './CourseProgressReports'
 
 type SectionSummary = { section_id: number; class: string; section: string; records: number; present: number; late: number; absent: number; excused: number; attendance_rate: number }
 type Report = { from: string; to: string; totals: Omit<SectionSummary, 'section_id' | 'class' | 'section'>; sections: SectionSummary[] }
@@ -16,6 +17,7 @@ export default function AttendanceReports({ organizationId }: { organizationId: 
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [activeReport, setActiveReport] = useState<'attendance' | 'courses'>('attendance')
 
   useEffect(() => {
     let cancelled = false
@@ -29,7 +31,8 @@ export default function AttendanceReports({ organizationId }: { organizationId: 
   }, [organizationId, from, to])
 
   return <div className="reports-workspace">
-    <section className="dash-panel dash-masters-panel">
+    <nav className="report-tabs" aria-label="Academic reports"><button aria-pressed={activeReport === 'attendance'} className={activeReport === 'attendance' ? 'report-tab-active' : ''} onClick={() => setActiveReport('attendance')}>Attendance</button><button aria-pressed={activeReport === 'courses'} className={activeReport === 'courses' ? 'report-tab-active' : ''} onClick={() => setActiveReport('courses')}>Course progress</button></nav>
+    {activeReport === 'courses' ? <CourseProgressReports organizationId={organizationId} /> : <section className="dash-panel dash-masters-panel">
       <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ACADEMIC REPORTS</span><h2>Attendance summary</h2><p className="dash-record-subtitle">Recorded attendance by class and section for the selected date range. Late marks count toward attendance.</p></div></div>
       <div className="report-filters"><label>From<input type="date" value={from} max={to} onChange={event => setFrom(event.target.value)} /></label><label>To<input type="date" value={to} min={from} onChange={event => setTo(event.target.value)} /></label><span><CalendarDays size={16} /> {from} – {to}</span></div>
       {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
@@ -37,6 +40,6 @@ export default function AttendanceReports({ organizationId }: { organizationId: 
         <div className="report-stat-grid"><article><small>ATTENDANCE RATE</small><b>{report.totals.attendance_rate}%</b></article><article><small>MARKED PRESENT</small><b>{report.totals.present}</b></article><article><small>LATE</small><b>{report.totals.late}</b></article><article><small>ABSENT</small><b>{report.totals.absent}</b></article><article><small>TOTAL RECORDS</small><b>{report.totals.records}</b></article></div>
         {report.sections.length ? <div className="dash-table-scroll attendance-table"><table><thead><tr><th>CLASS / SECTION</th><th>RATE</th><th>PRESENT</th><th>LATE</th><th>ABSENT</th><th>EXCUSED</th><th>MARKS</th></tr></thead><tbody>{report.sections.map(section => <tr key={section.section_id}><td><b>{section.class} · {section.section}</b></td><td><span className="report-rate">{section.attendance_rate}%</span></td><td>{section.present}</td><td>{section.late}</td><td>{section.absent}</td><td>{section.excused}</td><td>{section.records}</td></tr>)}</tbody></table></div> : <p className="master-empty"><BarChart3 size={18} />No attendance has been recorded in this date range.</p>}
       </>}
-    </section>
+    </section>}
   </div>
 }

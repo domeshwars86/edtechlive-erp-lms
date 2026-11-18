@@ -4,7 +4,7 @@
 
 ## Current milestone
 
-Phase 7 — free-first integrations. The public website and seven role dashboard layouts are in place. Registration, login, verification, recovery, organization membership/invitations, academic masters, rosters, assignments, attendance, timetable, student/guardian access, attendance reports, LMS course/material/assessment/progress, manual meetings, contact intake, manual fee records, and scoped in-app notifications use Laravel APIs. Teacher attendance/courses/meetings and student/parent data are profile/link scoped. Provider room creation, broader exams, academic reports and overview metrics remain unfinished; the fee ledger is not a payment gateway. PostgreSQL and production email delivery remain unverified.
+Phase 7 — free-first integrations. The public website and seven role dashboard layouts are in place. Registration, login, verification, recovery, organization membership/invitations, academic masters, rosters, assignments, attendance, timetable, student/guardian access, attendance and course progress reports, LMS course/material/assessment/progress, manual meetings, contact intake, manual fee records, and scoped in-app notifications use Laravel APIs. Teacher attendance/courses/meetings and student/parent data are profile/link scoped. Provider room creation, broader exams, other academic reports and overview metrics remain unfinished; the fee ledger is not a payment gateway. PostgreSQL and production email delivery remain unverified.
 
 ## Implemented
 
@@ -23,6 +23,7 @@ Phase 7 — free-first integrations. The public website and seven role dashboard
 - Teachers can read only their linked teaching assignments and timetable entries. They can take attendance only for assigned sections and sessions through the teacher workspace.
 - Student invitations require an active matching roster profile and link the accepted account to it. Parent invitations identify active students to link; parent views expose only those explicit links.
 - Admin, management, and independent educator can view a date-filtered attendance report with organization-scoped totals and class/section breakdowns in the dashboard.
+- Admin, management, independent educator, and course-owning teachers can view published-course progress summaries; teacher reports are restricted to their own courses and omit individual learner identity.
 - Managers and linked teachers can create draft courses, publish lessons with written content or an external HTTPS resource, upload private course files, publish assignments, review submissions, and author MCQ quizzes. Managers can publish a course after it has a published lesson and enroll active student roster records. Students can read published lessons, download published materials, and record completion only when their linked student profile has an active course enrollment. Students and instructors can review submitted quiz attempt history within each quiz; course teachers/managers can view progress for that course's active learners.
 - Public contact enquiries are rate-limited, consent-checked, honeypot-filtered, persisted, and optionally sent to a configured inbox; the form reports whether email notification was actually sent.
 - Admins, management, and independent educators can create tenant-scoped INR fee receivables and record partial/final receipts already received. Students and linked parents can read their own fees; balances cannot be overpaid. No external payment is initiated.
@@ -58,7 +59,7 @@ Phase 7 — free-first integrations. The public website and seven role dashboard
 ## Next
 
 1. Verify client auth flows against a persistent local development database and configure a safe local PostgreSQL service before migration validation.
-2. Continue LMS workflows with modular course organization, broader examinations, and assignment result history; add organization-wide academic reporting.
+2. Continue LMS workflows with modular course organization, broader examinations, and assignment result history; extend academic reporting to enrollment, timetable/workload, and finance.
 3. Expand reports to enrollment, timetable/workload and finance metrics.
 4. Build the staff enquiry review/response workflow and define enquiry retention; configure real email delivery before promising a response.
 5. Reassess npm audit advisories when compatible upstream dependency releases are available.

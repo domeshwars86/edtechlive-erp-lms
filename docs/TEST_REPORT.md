@@ -8,6 +8,12 @@
 - `npm run typecheck`, `npm run lint`, and `npm run build` passed; Vite prerendered 14 public routes.
 - `vendor/bin/pint --test` — passed. The notifications migration was applied to the ignored local SQLite development database. PostgreSQL validation, configured-mail delivery and browser visual review remain separate gates.
 
+## Course progress reporting milestone (18 November 2026)
+
+- Full PHPUnit Feature suite — **63 passed / 427 assertions** using in-memory SQLite. Added access and aggregate checks for the organization course progress report.
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed; Vite prerendered 14 public routes.
+- `vendor/bin/pint --test` passed. The report is read-only and has no schema migration.
+
 ## Frontend checks
 
 - `npm run typecheck` — passed.

@@ -48,8 +48,14 @@ class CourseProgressTest extends TestCase
             ->assertJsonPath('summary.learners', 1)
             ->assertJsonPath('summary.average_percent', 50)
             ->assertJsonPath('data.0.student.name', 'Learner One');
+        $this->getJson("{$base}/reports/course-progress")->assertOk()
+            ->assertJsonPath('summary.courses', 1)
+            ->assertJsonPath('summary.learners', 1)
+            ->assertJsonPath('summary.average_percent', 50)
+            ->assertJsonPath('data.0.course_id', $course->id);
 
         Sanctum::actingAs($studentUser);
+        $this->getJson("{$base}/reports/course-progress")->assertForbidden();
         $this->putJson("{$base}/courses/{$course->id}/lessons/{$lessons[0]->id}/progress", ['completed' => false])->assertOk();
         $this->assertDatabaseHas('course_lesson_progress', ['lesson_id' => $lessons[0]->id, 'student_id' => $studentId, 'completed_at' => null]);
     }
