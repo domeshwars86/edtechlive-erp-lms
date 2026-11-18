@@ -2,6 +2,11 @@
 
 **Updated:** 18 November 2026
 
+## Continuous quality workflow milestone (18 November 2026)
+
+- Added a GitHub Actions quality workflow for root web typecheck/lint/build, Laravel PHPUnit/Pint with in-memory SQLite, and mobile typecheck/Android bundle export. It is push/PR triggered, read-only for repository contents, and has no deployment step.
+- Workflow YAML parsed locally and its web/mobile commands passed in this environment. A hosted GitHub Actions run cannot be triggered from this workspace because no remote CI session/credentials are connected.
+
 ## Expo mobile foundation milestone (18 November 2026)
 
 - Added `apps/mobile`, an Expo SDK 56 / React Native 0.85 app with verified API sign-in, SecureStore token persistence, organization selection, scoped role summaries, course lists and published lesson reading.
