@@ -11,7 +11,8 @@
 ## Scoped document library (19 November 2026)
 
 - Added a paginated organization document endpoint and role-based web views. Administrators and management see tenant files, teachers see their course files, and students see only published files for actively enrolled courses.
-- Full Laravel suite passed (**109 tests / 767 assertions**) with in-memory SQLite and Pint; root typecheck, ESLint, and production build passed. The build prerendered 14 public routes and emitted a 492.31 kB main JavaScript bundle plus a lazy-loaded document-library chunk.
+- Full Laravel suite passed (**109 tests / 767 assertions**) with in-memory SQLite and Pint; root typecheck, ESLint, and production build passed. The build prerendered 14 public routes and emitted a 481.79 kB main JavaScript bundle plus separate lazy-loaded document-library and management-roster chunks.
+- The management roster route now switches between student and teacher records using the existing management-authorized APIs. Web typecheck, ESLint, and production build passed after the dashboard connection.
 
 ## Continuous quality workflow milestone (18 November 2026)
 
