@@ -2,6 +2,10 @@
 
 **Updated:** 18 November 2026
 
+## Dashboard schedule integration milestone (18 November 2026)
+
+- Dashboard schedule integration: role-scoped upcoming meetings now load from the organization meetings API, with loading/error/empty states and join links enabled only during the scheduled meeting window. `npm run typecheck`, `npm run lint`, and `npm run build` passed; build prerendered 14 public routes.
+
 ## Live staff, educator, teacher, student, and parent overview milestone (18 November 2026)
 
 - Full PHPUnit Feature suite — **70 passed / 477 assertions** using in-memory SQLite. Dashboard summary checks cover active roster counts, tenant isolation, organization-local timetable and attendance aggregation, teacher assignment/grading scope, educator courses/learners/reviews/meetings, student learning activity, linked-child-only parent summaries, empty attendance, and role scoping.
