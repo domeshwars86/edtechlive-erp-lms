@@ -1,6 +1,6 @@
 # edTechLive Mobile
 
-Expo React Native application for Android and iOS. The first vertical slice supports verified account sign-in with a Sanctum personal access token, secure token persistence, organization selection, role-scoped dashboard summaries, and course/lesson reading.
+Expo React Native application for Android and iOS. The learner and family workflows support verified account sign-in with a Sanctum personal access token, secure token persistence, organization selection, role-scoped dashboard summaries, course/lesson reading, and published study materials. Material downloads open in the device browser through a two-minute signed link issued after server-side enrollment or guardian-link checks; the account token is not placed in the URL.
 
 ## Local setup
 

@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -130,6 +131,36 @@ class CourseAssetController
         $membership = $this->access->membership($request, $organization);
         $learnerView = $this->authorizeCourseRead($request, $membership->role, $organization, $asset->course);
         abort_if($learnerView && ! $asset->is_published, 404);
+        abort_unless(Storage::disk('private')->exists($asset->storage_path), 404);
+
+        return Storage::disk('private')->download($asset->storage_path, $asset->original_name, [
+            'Content-Type' => $asset->mime_type,
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function downloadLink(Request $request, int $organization, int $record): JsonResponse
+    {
+        $asset = CourseAsset::query()->where('organization_id', $organization)->with('course')->findOrFail($record);
+        $membership = $this->access->membership($request, $organization);
+        $this->authorizeCourseRead($request, $membership->role, $organization, $asset->course);
+        abort_unless($asset->is_published && $asset->course->status === 'published', 404);
+
+        $expiresAt = now()->addMinutes(2);
+        $url = URL::temporarySignedRoute(
+            'api.v1.assets.download-signed',
+            $expiresAt,
+            ['organization' => $organization, 'record' => $asset->id],
+            absolute: false,
+        );
+
+        return response()->json(['data' => ['path' => $url, 'expires_at' => $expiresAt->toISOString()]]);
+    }
+
+    public function signedDownload(int $organization, int $record): StreamedResponse
+    {
+        $asset = CourseAsset::query()->where('organization_id', $organization)->with('course')->findOrFail($record);
+        abort_unless($asset->is_published && $asset->course->status === 'published', 404);
         abort_unless(Storage::disk('private')->exists($asset->storage_path), 404);
 
         return Storage::disk('private')->download($asset->storage_path, $asset->original_name, [

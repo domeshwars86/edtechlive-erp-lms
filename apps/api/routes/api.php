@@ -56,6 +56,9 @@ Route::prefix('v1')->group(function (): void {
 
     Route::post('/enquiries', [ContactEnquiryController::class, 'store'])
         ->middleware('throttle:6,1')->name('api.v1.enquiries.store');
+    Route::get('/assets/{organization}/{record}/download', [CourseAssetController::class, 'signedDownload'])
+        ->whereNumber('organization')->whereNumber('record')->middleware(['signed:relative', 'throttle:60,1'])
+        ->name('api.v1.assets.download-signed');
 
     Route::middleware(['auth:sanctum', 'verified'])->group(function (): void {
         Route::get('/enquiries', [ContactEnquiryController::class, 'index'])->name('api.v1.enquiries.index');
@@ -201,6 +204,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('/courses/{course}/assets', [CourseAssetController::class, 'store'])->whereNumber('course');
                 Route::patch('/assets/{record}', [CourseAssetController::class, 'update'])->whereNumber('record');
                 Route::get('/assets/{record}/download', [CourseAssetController::class, 'download'])->whereNumber('record');
+                Route::post('/assets/{record}/download-link', [CourseAssetController::class, 'downloadLink'])->whereNumber('record');
                 Route::get('/timetable', [TimetableController::class, 'index']);
                 Route::post('/timetable', [TimetableController::class, 'store']);
                 Route::patch('/timetable/{record}', [TimetableController::class, 'update'])->whereNumber('record');

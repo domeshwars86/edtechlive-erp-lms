@@ -24,6 +24,7 @@ export type AssessmentResults = { exams: PublishedExamResult[]; quizzes: Assessm
 export type StudentProgress = { data: { course_id: number; title: string; lessons: number; completed_lessons: number; completion_percent: number }[]; summary: { courses: number; lessons: number; completed_lessons: number; completion_percent: number } }
 export type FamilyHomework = { id: number; title: string; course: string; due_at: string | null; max_points: string; submitted_at: string | null; score: string | null; feedback: string | null; status: 'pending' | 'overdue' | 'submitted' | 'graded' }
 export type FamilyFee = { id: number; title: string; amount: string; paid_amount: string; balance: string; due_on: string | null; status: 'unpaid' | 'partial' | 'paid'; student: { id: number; name: string; admission_number: string | null } | null }
+export type StudyMaterial = { id: number; title: string; filename: string; mime_type: string; course: { id: number; title: string } }
 export type DashboardSummary = Record<string, unknown> & { kind?: string }
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '')
@@ -56,6 +57,7 @@ async function request<T>(path: string, token?: string, options: RequestInit = {
 }
 
 export const mobileApi = {
+  absoluteUrl: (path: string) => `${baseUrl}${path}`,
   login: (email: string, password: string) => request<{ data: ApiUser; token: string; expires_at: string }>('/api/v1/auth/login', undefined, {
     method: 'POST', body: JSON.stringify({ email, password, device_name: 'edTechLive mobile' }),
   }),

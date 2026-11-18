@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
-import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type StudentAttendance, type StudentProgress, type TeachingAssignment } from './src/api'
+import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type StudentAttendance, type StudentProgress, type StudyMaterial, type TeachingAssignment } from './src/api'
 
 const TOKEN_KEY = 'edtechlive.mobile.token'
 const ORGANIZATION_KEY = 'edtechlive.mobile.organization'
@@ -29,6 +29,7 @@ export default function App() {
   const [ownProgress, setOwnProgress] = useState<StudentProgress | null>(null)
   const [ownHomework, setOwnHomework] = useState<FamilyHomework[]>([])
   const [familyFees, setFamilyFees] = useState<FamilyFee[]>([])
+  const [studyMaterials, setStudyMaterials] = useState<StudyMaterial[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [lessons, setLessons] = useState<Lesson[]>([])
@@ -79,7 +80,7 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
+    setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
@@ -90,6 +91,10 @@ export default function App() {
     if (active.role !== 'parent') {
       tasks.push(mobileApi.get<{ data: Course[] }>(`${base}/courses?per_page=100`, token)
         .then(result => { if (!cancelled) setCourses(result.data) }))
+    }
+    if (active.role === 'student' || active.role === 'parent') {
+      tasks.push(mobileApi.get<{ data: StudyMaterial[] }>(`${base}/documents?per_page=100`, token)
+        .then(result => { if (!cancelled) setStudyMaterials(result.data) }))
     }
     if (active.role === 'teacher') {
       tasks.push(mobileApi.get<{ data: TeachingAssignment[] }>(`${base}/teaching-assignments?per_page=100`, token)
@@ -189,6 +194,17 @@ export default function App() {
     finally { setBusy(false) }
   }
 
+  async function openStudyMaterial(material: StudyMaterial) {
+    if (!active || !token) return
+    setBusy(true); setError('')
+    try {
+      const base = `/api/v1/organizations/${active.organization.id}/assets/${material.id}/download-link`
+      const result = await mobileApi.post<{ data: { path: string; expires_at: string } }>(base, token)
+      await Linking.openURL(mobileApi.absoluteUrl(result.data.path))
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not open this study material.') }
+    finally { setBusy(false) }
+  }
+
   async function submitAssignment(assignment: CourseAssignment) {
     if (!active || !token) return
     setBusy(true); setError('')
@@ -272,7 +288,7 @@ export default function App() {
     try { if (current) await mobileApi.post('/api/v1/auth/logout', current) }
     catch { /* Local credentials must still be removed if the API is offline. */ }
     await SecureStore.deleteItemAsync(TOKEN_KEY); await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
-    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
+    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
   }
 
   if (busy && !user) return <Splash />
@@ -322,6 +338,10 @@ export default function App() {
         <Text style={styles.sectionTitle}>Recent updates</Text>
         {notices.length ? notices.map(notice => <Pressable key={notice.id} onPress={() => void markNoticeRead(notice)} style={[styles.noticeCard, !notice.read_at && styles.noticeUnread]}><Text style={styles.courseTitle}>{notice.title}</Text><Text style={styles.courseMeta}>{notice.body}</Text>{notice.created_at ? <Text style={styles.noticeDate}>{new Date(notice.created_at).toLocaleString()}</Text> : null}</Pressable>) : <Empty text="No recent updates." />}
         {active.role === 'student' && studentProfile ? <View style={styles.infoCard}><Text style={styles.courseTitle}>My profile</Text><Text style={styles.courseMeta}>{studentProfile.admission_number ? `Admission ${studentProfile.admission_number} · ` : ''}{studentProfile.academic_class?.name ?? 'Class not assigned'}{studentProfile.academic_section?.name ? ` · ${studentProfile.academic_section.name}` : ''}{studentProfile.academic_session?.name ? ` · ${studentProfile.academic_session.name}` : ''}</Text></View> : null}
+        {active.role === 'student' || active.role === 'parent' ? <>
+          <Text style={styles.sectionTitle}>Study materials</Text>
+          {studyMaterials.length ? studyMaterials.map(material => <View style={styles.recordCard} key={material.id}><Text style={styles.courseTitle}>{material.title}</Text><Text style={styles.courseMeta}>{material.course.title} · {material.filename}</Text><Pressable onPress={() => void openStudyMaterial(material)} disabled={busy} accessibilityRole="link"><Text style={styles.link}>{busy ? 'Preparing secure link…' : 'Open study material'}</Text></Pressable></View>) : <Empty text={busy ? 'Loading study materials…' : 'No published materials are available for your enrolled courses.'} />}
+        </> : null}
         {active.role === 'student' ? <>
           <Text style={styles.sectionTitle}>My attendance</Text>
           {ownAttendance.length ? ownAttendance.map(record => <View style={styles.recordCard} key={record.id}><Text style={styles.courseTitle}>{record.date} · {record.status}</Text><Text style={styles.courseMeta}>{record.section.class} · {record.section.name} · {record.session.name}</Text>{record.note ? <Text style={styles.courseMeta}>{record.note}</Text> : null}</View>) : <Empty text={busy ? 'Loading attendance…' : 'No attendance records are available.'} />}

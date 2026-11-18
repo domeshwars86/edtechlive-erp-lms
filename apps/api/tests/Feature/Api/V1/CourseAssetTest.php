@@ -87,12 +87,19 @@ class CourseAssetTest extends TestCase
             ->assertJsonPath('data.0.title', 'Water cycle notes');
         $this->get("{$base}/assets/{$assetId}/download")->assertOk();
         $this->get("{$base}/assets/{$otherAsset->id}/download")->assertNotFound();
+        $link = $this->postJson("{$base}/assets/{$assetId}/download-link")->assertOk()
+            ->assertJsonStructure(['data' => ['path', 'expires_at']]);
+        $signedPath = $link->json('data.path');
+        $this->assertStringContainsString('signature=', $signedPath);
+        $this->get($signedPath)->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
+        $tamperedPath = str_replace("/{$assetId}/download?", "/{$otherAsset->id}/download?", $signedPath);
+        $this->get($tamperedPath)->assertForbidden();
     }
 
     public function test_unenrolled_student_cannot_view_course_materials(): void
     {
         Storage::fake('private');
-        [, , $organization, $course] = $this->workspace();
+        [$admin, , $organization, $course] = $this->workspace();
         $otherUser = User::factory()->create(['email' => 'other@example.com']);
         OrganizationMembership::query()->create([
             'organization_id' => $organization->id, 'user_id' => $otherUser->id,
@@ -102,8 +109,14 @@ class CourseAssetTest extends TestCase
             'organization_id' => $organization->id, 'user_id' => $otherUser->id,
             'name' => 'Other Learner', 'admission_number' => 'S-200', 'status' => 'active',
         ]);
+        $asset = CourseAsset::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id, 'uploaded_by' => $admin->id,
+            'title' => 'Enrolled learner notes', 'original_name' => 'notes.pdf', 'storage_path' => 'notes.pdf',
+            'mime_type' => 'application/pdf', 'size_bytes' => 20, 'is_published' => true,
+        ]);
         Sanctum::actingAs($otherUser);
         $this->getJson("/api/v1/organizations/{$organization->id}/courses/{$course->id}/assets")->assertNotFound();
+        $this->postJson("/api/v1/organizations/{$organization->id}/assets/{$asset->id}/download-link")->assertNotFound();
     }
 
     public function test_teacher_document_library_is_limited_to_courses_owned_by_their_profile(): void
