@@ -2,14 +2,14 @@
 
 ## Current state
 
-The frontend still uses sample dashboard data. Laravel Sanctum session auth is connected to the web client; login, registration, verification and password reset endpoints are rate-limited. `/api/v1/me` and organization reads require authentication; organization reads additionally require verified email and active membership. Organization IDs selected in the client are never treated as authorization. Detailed role policies, membership revocation and real academic resources remain unimplemented. Do not enter real learner, child or institutional records.
+Laravel Sanctum session auth is connected to the web client; login, registration, verification and password reset endpoints are rate-limited. `/api/v1/me` and organization reads require authentication; organization reads additionally require verified email and active membership. Organization IDs selected in the client are never treated as authorization. Core academic, attendance, family, reporting and initial LMS records have tenant-aware routes; broader policies, membership revocation, audit logging, MFA and production data controls remain open. Dashboard overview and many non-academic workflows still use sample content. Do not enter production learner, child or institutional records before the deployment and privacy gates are complete.
 
 ## Required before production
 
 - MFA for sensitive roles where practical, production email transport, and security review of identity/session configuration.
 - Server-side tenant/resource authorization, membership revocation, least privilege and automated cross-tenant denial tests.
 - CSRF/XSS protections, strict input validation, safe output encoding, secure headers and dependency review.
-- Private file uploads with allow-listed formats, size limits, malware scanning decision, authorization on every download and retention/deletion controls.
+- Production private object storage and durable retention/deletion controls for uploads; the current API allow-lists formats and sizes, and rechecks enrollment/publication for each download. Decide and add malware scanning before accepting untrusted files in production.
 - Secret manager/environment configuration; no credentials in repository or logs.
 - HTTPS, encryption-at-rest strategy, backup encryption, tested recovery and access logging.
 - Minimized audit records, redaction of student data from telemetry and safe notification previews.

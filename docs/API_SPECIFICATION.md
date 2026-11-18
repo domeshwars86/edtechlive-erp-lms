@@ -1,6 +1,6 @@
 # API Specification (Proposed)
 
-**Status:** Health, authentication, password recovery, email verification, organization invitations, current-user, organization reads, academic masters, people rosters, teaching assignments, attendance, timetable, family access, attendance reports, courses, lessons, enrollments, assignments, submissions, grading, quizzes, and attempts routes are implemented. Other routes remain proposals.
+**Status:** Health, authentication, password recovery, email verification, organization invitations, current-user, organization reads, academic masters, people rosters, teaching assignments, attendance, timetable, family access, attendance reports, courses, lessons, enrollments, private course assets, assignments, submissions, grading, quizzes, and attempts routes are implemented. Other routes remain proposals.
 
 Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return consistent validation and authorization errors; lists are paginated. Organization context is explicit in authorized routes and verified against the authenticated user's active membership. Never trust a client-provided organization ID without policy enforcement.
 
@@ -79,6 +79,9 @@ Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return co
 | `POST /api/v1/organizations/{organization}/quizzes/{quiz}/attempts` | Linked student actively enrolled in the published course | Starts a timed or untimed attempt, subject to configured attempt limit; returns prompts and choices without the answer key. |
 | `PATCH /api/v1/organizations/{organization}/quizzes/{quiz}/attempts/{attempt}` | Student who owns the active attempt | Submits selected question options; score and maximum are calculated server-side. Attempts past their time limit are closed with a zero score. |
 | `GET /api/v1/organizations/{organization}/quizzes/{quiz}/attempts` | Course manager/editor or enrolled student | Returns submitted attempts; students see only their own result, teachers/managers see roster identity and scores. |
+| `GET/POST /api/v1/organizations/{organization}/courses/{course}/assets` | Course manager/editor; enrolled student may list published materials | Lists authorized metadata or uploads an allow-listed PDF, Office document, or image (maximum 20 MB) into private storage. Uploads start unpublished. |
+| `PATCH /api/v1/organizations/{organization}/assets/{record}` | Course manager or linked teacher | Publishes/unpublishes a course asset; publishing requires a published course. |
+| `GET /api/v1/organizations/{organization}/assets/{record}/download` | Course manager/editor or enrolled student for a published asset | Streams a private attachment after checking active organization membership, course ownership/enrollment, and asset publication. The API does not reveal storage keys. |
 | `GET /api/v1/organizations/{organization}/timetable` | Admin, management, independent educator, or linked teacher | Lists paginated weekly entries with optional session, section, and weekday filters; teachers only see their own entries. |
 | `POST/PATCH /api/v1/organizations/{organization}/timetable` | Same roles | Creates or updates a section/subject slot, optional assigned teacher/room/HTTPS meeting link, and rejects active section, teacher, or room conflicts. |
 

@@ -44,4 +44,9 @@ class Course extends Model
     {
         return $this->hasMany(CourseQuiz::class);
     }
+
+    public function assets(): HasMany
+    {
+        return $this->hasMany(CourseAsset::class);
+    }
 }

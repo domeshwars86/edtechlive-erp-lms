@@ -57,6 +57,12 @@
 
 ## Existing QA and known dependency issue
 
+## Private course material milestone (18 November 2026)
+
+- Full PHPUnit suite — **53 passed / 328 assertions** using in-memory SQLite. Coverage includes private file upload, publication state, enrollment-scoped metadata/downloads, cross-course denial, and `nosniff` response headers.
+- `npm run typecheck`, `npm run lint`, `npm run build` (14 prerendered public routes), and `vendor/bin/pint --test` passed after adding multipart uploads to the course workspace.
+- Files are stored in a private local disk during development. Durable production storage and malware scanning have not been configured.
+
 ## Timed quiz and auto-scored attempt milestone (18 November 2026)
 
 - Full PHPUnit suite — **51 passed / 313 assertions** using in-memory SQLite. Tests cover private answer keys, published-quiz requirements, enrollment checks, attempt limits, server-side scoring, and teacher result visibility.

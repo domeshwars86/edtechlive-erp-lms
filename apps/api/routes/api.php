@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\Auth\NewPasswordController;
 use App\Http\Controllers\Api\V1\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Api\V1\Auth\RegisteredOrganizationController;
 use App\Http\Controllers\Api\V1\Auth\VerifyEmailController;
+use App\Http\Controllers\Api\V1\CourseAssetController;
 use App\Http\Controllers\Api\V1\CourseAssignmentController;
 use App\Http\Controllers\Api\V1\CourseController;
 use App\Http\Controllers\Api\V1\CourseQuizController;
@@ -108,6 +109,10 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('/quizzes/{quiz}/attempts', [CourseQuizController::class, 'startAttempt'])->whereNumber('quiz');
                 Route::patch('/quizzes/{quiz}/attempts/{attempt}', [CourseQuizController::class, 'submitAttempt'])->whereNumber('quiz')->whereNumber('attempt');
                 Route::get('/quizzes/{quiz}/attempts', [CourseQuizController::class, 'attempts'])->whereNumber('quiz');
+                Route::get('/courses/{course}/assets', [CourseAssetController::class, 'index'])->whereNumber('course');
+                Route::post('/courses/{course}/assets', [CourseAssetController::class, 'store'])->whereNumber('course');
+                Route::patch('/assets/{record}', [CourseAssetController::class, 'update'])->whereNumber('record');
+                Route::get('/assets/{record}/download', [CourseAssetController::class, 'download'])->whereNumber('record');
                 Route::get('/timetable', [TimetableController::class, 'index']);
                 Route::post('/timetable', [TimetableController::class, 'store']);
                 Route::patch('/timetable/{record}', [TimetableController::class, 'update'])->whereNumber('record');

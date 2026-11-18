@@ -33,7 +33,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const method = (options.method || 'GET').toUpperCase()
   const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
-  if (options.body) headers.set('Content-Type', 'application/json')
+  if (options.body && !(typeof FormData !== 'undefined' && options.body instanceof FormData)) headers.set('Content-Type', 'application/json')
 
   let response: Response
   try {
@@ -67,6 +67,10 @@ export const api = {
   post: <T>(path: string, data?: unknown) => request<T>(path, {
     method: 'POST',
     body: data === undefined ? undefined : JSON.stringify(data),
+  }),
+  postForm: <T>(path: string, data: FormData) => request<T>(path, {
+    method: 'POST',
+    body: data,
   }),
   patch: <T>(path: string, data: unknown) => request<T>(path, {
     method: 'PATCH',
