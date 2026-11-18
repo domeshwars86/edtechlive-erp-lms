@@ -11,6 +11,8 @@ const roleNames: Record<OrganizationMembership['role'], string> = {
 type MobileNotice = { id: string; type: string; title: string; body: string; read_at: string | null; created_at: string | null }
 type MobileMeeting = { id: number; kind: 'class' | 'management'; title: string; description: string | null; starts_at: string; ends_at: string; meeting_url: string; status: 'scheduled' | 'cancelled'; section: { id: number; name: string; class: string | null } | null; course: { id: number; title: string } | null }
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused'
+type MobileRosterStudent = { id: number; name: string; admission_number: string | null; academic_class: { id: number; name: string } | null; academic_section: { id: number; name: string } | null }
+type MobileRosterTeacher = { id: number; name: string; employee_number: string | null; specialization: string | null }
 const attendanceStatuses: AttendanceStatus[] = ['present', 'absent', 'late', 'excused']
 function localDate() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}` }
 
@@ -29,6 +31,10 @@ export default function App() {
   const [ownProgress, setOwnProgress] = useState<StudentProgress | null>(null)
   const [ownHomework, setOwnHomework] = useState<FamilyHomework[]>([])
   const [familyFees, setFamilyFees] = useState<FamilyFee[]>([])
+  const [rosterStudents, setRosterStudents] = useState<MobileRosterStudent[]>([])
+  const [rosterTeachers, setRosterTeachers] = useState<MobileRosterTeacher[]>([])
+  const [rosterStudentTotal, setRosterStudentTotal] = useState(0)
+  const [rosterTeacherTotal, setRosterTeacherTotal] = useState(0)
   const [studyMaterials, setStudyMaterials] = useState<StudyMaterial[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
@@ -80,7 +86,7 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
+    setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
@@ -99,6 +105,17 @@ export default function App() {
     if (active.role === 'teacher') {
       tasks.push(mobileApi.get<{ data: TeachingAssignment[] }>(`${base}/teaching-assignments?per_page=100`, token)
         .then(result => { if (!cancelled) setTeachingAssignments(result.data) }))
+    }
+    if (active.role === 'admin' || active.role === 'management') {
+      tasks.push(Promise.all([
+        mobileApi.get<{ data: MobileRosterStudent[]; meta: { total: number } }>(`${base}/students?status=active&per_page=5`, token),
+        mobileApi.get<{ data: MobileRosterTeacher[]; meta: { total: number } }>(`${base}/teachers?status=active&per_page=5`, token),
+      ]).then(([studentResult, teacherResult]) => {
+        if (!cancelled) {
+          setRosterStudents(studentResult.data); setRosterStudentTotal(studentResult.meta.total)
+          setRosterTeachers(teacherResult.data); setRosterTeacherTotal(teacherResult.meta.total)
+        }
+      }))
     }
     if (active.role === 'student') {
       tasks.push(Promise.all([
@@ -288,7 +305,7 @@ export default function App() {
     try { if (current) await mobileApi.post('/api/v1/auth/logout', current) }
     catch { /* Local credentials must still be removed if the API is offline. */ }
     await SecureStore.deleteItemAsync(TOKEN_KEY); await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
-    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
+    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
   }
 
   if (busy && !user) return <Splash />
@@ -328,6 +345,12 @@ export default function App() {
       </> : <>
         <Text style={styles.eyebrow}>YOUR LEARNING SPACE</Text><Text style={styles.pageTitle}>Welcome, {user.name.split(' ')[0]}</Text><Text style={styles.subtitle}>{roleNames[active.role]} · {active.organization.type.replaceAll('_', ' ')}</Text>
         {summary ? <View style={styles.statGrid}>{summaryCards(summary, active.role).map(item => <View style={styles.statCard} key={item.label}><Text style={styles.statValue}>{item.value}</Text><Text style={styles.statLabel}>{item.label}</Text></View>)}</View> : null}
+        {active.role === 'admin' || active.role === 'management' ? <>
+          <Text style={styles.sectionTitle}>Student overview · {rosterStudentTotal} active</Text>
+          {rosterStudents.length ? rosterStudents.map(student => <View style={styles.recordCard} key={student.id}><Text style={styles.courseTitle}>{student.name}</Text><Text style={styles.courseMeta}>{student.admission_number ?? 'Active learner'}{student.academic_class?.name ? ` · ${student.academic_class.name}` : ''}{student.academic_section?.name ? ` · ${student.academic_section.name}` : ''}</Text></View>) : <Empty text={busy ? 'Loading student roster…' : 'No active students are on the roster.'} />}
+          <Text style={styles.sectionTitle}>Teacher overview · {rosterTeacherTotal} active</Text>
+          {rosterTeachers.length ? rosterTeachers.map(teacher => <View style={styles.recordCard} key={teacher.id}><Text style={styles.courseTitle}>{teacher.name}</Text><Text style={styles.courseMeta}>{teacher.employee_number ?? 'Teaching staff'}{teacher.specialization ? ` · ${teacher.specialization}` : ''}</Text></View>) : <Empty text={busy ? 'Loading teacher roster…' : 'No active teachers are on the roster.'} />}
+        </> : null}
         <Text style={styles.sectionTitle}>Upcoming classes and meetings</Text>
         {meetings.filter(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() > Date.now()).slice(0, 5).map(item => {
           const startsAt = new Date(item.starts_at).getTime()

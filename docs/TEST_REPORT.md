@@ -8,6 +8,11 @@
 - Cross-database execution found that notification organization scope used a JSON path operator unsupported for Laravel's text-backed PostgreSQL notification payload. Replacing it with Laravel's driver-aware `whereJsonContains` resolved the issue; notification and announcement tests passed on both engines.
 - `vendor/bin/pint --test` passed. The PostgreSQL 16 GitHub Actions job is configured but has not yet had a hosted run. The disposable local cluster is not a deployment database.
 
+## Mobile Admin/Management roster overview (19 November 2026)
+
+- Admin and Management now load five active students and five active teachers, along with total active roster counts, from their authenticated organization endpoints. The API remains the source of role authorization and tenant scoping.
+- Mobile TypeScript passed and Expo Android export bundled 564 modules (2.5 MB JavaScript payload). Native device verification and mobile reporting/approval flows remain open.
+
 ## Preferred organization persistence (19 November 2026)
 
 - Added a nullable user preference with a foreign key that clears on organization deletion, a membership-checked save endpoint, and restore-on-reload behavior in the web client. The API reports a saved choice only while its membership and organization remain active.
