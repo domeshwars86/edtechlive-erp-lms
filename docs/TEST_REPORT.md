@@ -264,3 +264,10 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Deployment readiness check: a new public database readiness endpoint returns 200 when a simple query succeeds and a generic 503 with no internal connection details when it fails. Full API regression is green (**96 tests / 647 assertions**), Pint passes, and local setup reports no pending migrations.
 - Family academic progress: the student and parent progress routes return only published lessons in active published-course enrollments; linked-child privacy and completion totals are covered. Full API suite passes (**97 tests / 656 assertions**), along with root TypeScript, ESLint, production build (14 prerendered routes; 485.69 kB main JS), and Pint.
 - Parent homework: family views list published assignments for the selected child with due date, status, score and feedback while omitting submitted answer text. Full API suite passes (**98 tests / 667 assertions**); root TypeScript, ESLint, production build (14 prerendered routes; 487.66 kB main JS) and Pint passed.
+
+## Bank statement reconciliation (19 November 2026)
+
+- Added tenant-scoped CSV statement import (maximum 500 rows), duplicate-content protection, opening/closing balance validation, exact-amount and seven-day transaction matching against fee receipts or paid expenses, and reversible one-to-one matches. Candidate lookup excludes already reconciled ledger entries; student, parent and teacher roles are denied.
+- Full API suite passed (**102 tests / 705 assertions**) using in-memory SQLite; Pint passed. Reconciliation migrations applied to the ignored local SQLite development database through `npm run setup:local`.
+- Root `npm run typecheck`, `npm run lint`, and `npm run build` passed. Build prerendered 14 public routes; the reconciliation UI is a lazy-loaded chunk and the main bundle remains below the 500 kB warning threshold (488.00 kB).
+- PostgreSQL CI execution, duplicate statement detection, and visual browser review remain open.

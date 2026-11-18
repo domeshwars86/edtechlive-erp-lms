@@ -1,6 +1,6 @@
 # Database Schema Direction
 
-**Status:** Identity, organization, membership, invitation, academic session, class, section, subject, student, teacher, student/guardian links, courses/modules/lessons/enrollment/progress/assets, assignment/submissions, quiz questions/attempts, fees/receipts, teaching assignment, attendance, timetable, meetings, and in-app notifications tables/models/migrations are implemented. Local development migrations are applied to SQLite; PostgreSQL deployment validation remains pending.
+**Status:** Identity, organization, membership, invitation, academic session, class, section, subject, student, teacher, student/guardian links, courses/modules/lessons/enrollment/progress/assets, assignment/submissions, quiz questions/attempts, fees/receipts, statement reconciliation, teaching assignment, attendance, timetable, meetings, and in-app notifications tables/models/migrations are implemented. Local development migrations are applied to SQLite; PostgreSQL deployment validation remains pending.
 
 ## Core entities
 
@@ -10,6 +10,7 @@
 - `organization_invitations`: organization, normalized email, limited role, hashed one-time token, inviter, expiry, and acceptance audit fields. Raw invitation tokens exist only in the mail link.
 - `contact_enquiries`: public prospective-user submissions with contact details, consent timestamp, workflow status, and optional notification timestamp. This table is not tenant-owned; access is not exposed through public read APIs.
 - `fee_records`, `fee_payments`: tenant-owned INR receivables for active students and staff-entered partial/final receipts. Each receipt stores the staff user, method, optional reference, and received timestamp; this is a manual ledger, not a gateway transaction.
+- `bank_statements`, `bank_statement_lines`: tenant-owned CSV-imported statement periods, account labels, opening/closing balances, a unique-per-tenant content fingerprint and transaction lines. Statement lines may be linked one-to-one to a same-tenant fee receipt or expense; matched ledger IDs are unique across statements. No account number, bank credential, or raw uploaded statement is retained.
 - `meetings`: tenant-owned one-time class or management meeting with optional section/session or published course scope, HTTPS meeting URL, start/end time, creator, and scheduled/cancelled state. No provider credentials or participant secrets are stored.
 - `notifications`: Laravel database notifications addressed to individual users; payloads carry organization and event identifiers for fee issue/receipt and meeting scheduling. Reads and read receipts are restricted to the recipient and active organization membership.
 - `roles`, `permissions`, membership-role assignments: scoped authorization primitives.
