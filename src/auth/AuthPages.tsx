@@ -50,8 +50,8 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
 
     try {
       if (mode === 'login') {
-        await signIn(String(values.get('email')), String(values.get('password')), values.get('remember') === 'on')
-        navigate('/select-organization')
+        const currentUser = await signIn(String(values.get('email')), String(values.get('password')), values.get('remember') === 'on')
+        navigate(currentUser.is_platform_admin ? '/workspace/super-admin' : '/select-organization')
       } else if (mode === 'register') {
         await api.post('/api/v1/auth/register', {
           name: values.get('name'), email: values.get('email'), password: values.get('password'),
@@ -111,6 +111,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       {error && <div className="auth-error" role="alert">{error}</div>}
       {!loading && user && organizations.map((membership) => <button className="organization-choice" key={membership.membership_id} onClick={() => pickOrganization(membership)}><span className="organization-initial">{membership.organization.name.slice(0, 1)}</span><span><b>{membership.organization.name}</b><small>{membership.role.replace('_', ' ')} · {membership.organization.type.replaceAll('_', ' ')}</small></span><ArrowUpRight size={17} /></button>)}
       {!loading && user && organizations.length === 0 && !error && <div className="auth-feedback">No active organization memberships are available for this account.</div>}
+      {!loading && user?.is_platform_admin && <button type="button" className="auth-primary" onClick={() => navigate('/workspace/super-admin')}>Open platform operations</button>}
       <div className="auth-links"><button type="button" onClick={() => navigate('/login')}>Use another account</button></div>
       <small className="auth-demo-note"><ShieldCheck size={13} />Organization choices are checked by the API.</small>
     </div></AccountShell>

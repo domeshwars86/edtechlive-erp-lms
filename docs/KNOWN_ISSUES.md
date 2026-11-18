@@ -3,6 +3,7 @@
 - [ ] Full client/API session verification has not been completed against a persistent local database and configured email transport.
 - [ ] No automated component or browser end-to-end suite exists; current CI covers typecheck, lint, production builds, backend API tests, and mobile bundling.
 - [ ] Dashboard routes and role navigation still need a full authenticated browser/mobile visual review. Windows Chrome could not reach Vite/Laravel processes launched from the isolated Codex shell.
+- [ ] Platform operators have a live aggregate overview and enquiry inbox; organization/user CRUD, role configuration, audit logs, platform reports, subscription controls, and support tools remain unfinished.
 - [ ] `public/sitemap.xml` currently uses a reserved `.example` host; replace with the approved canonical domain before launch.
 - [ ] Contact enquiries are persisted and can notify a configured mailbox; an allowlisted staff inbox tracks status/reviewer, but retention cleanup and response content tracking remain open.
 - [ ] Fee records support staff-entered INR receivables and receipts, paid expense tracking, and CSV statement matching with balance checks and duplicate-statement protection. There is no payment gateway, refund workflow, idempotency key, or finance-specific role.

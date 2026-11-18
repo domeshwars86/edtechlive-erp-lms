@@ -40,4 +40,8 @@ return [
         'admin_emails' => array_values(array_filter(array_map('trim', explode(',', env('ENQUIRY_ADMIN_EMAILS', ''))))),
     ],
 
+    'platform' => [
+        'admin_emails' => array_values(array_filter(array_map('trim', explode(',', env('PLATFORM_ADMIN_EMAILS', ''))))),
+    ],
+
 ];

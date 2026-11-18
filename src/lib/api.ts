@@ -91,6 +91,7 @@ export type ApiUser = {
   name: string
   email: string
   email_verified_at: string | null
+  is_platform_admin: boolean
 }
 
 export type OrganizationMembership = {

@@ -36,6 +36,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\OrganizationInvitationController;
 use App\Http\Controllers\Api\V1\PeopleController;
+use App\Http\Controllers\Api\V1\PlatformOverviewController;
 use App\Http\Controllers\Api\V1\StudentGuardianController;
 use App\Http\Controllers\Api\V1\TeacherWorkloadReportController;
 use App\Http\Controllers\Api\V1\TeachingAssignmentController;
@@ -80,6 +81,7 @@ Route::prefix('v1')->group(function (): void {
 
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/me', MeController::class)->name('api.v1.me');
+        Route::get('/platform/overview', PlatformOverviewController::class)->middleware('verified');
         Route::post('/auth/logout', [AuthenticatedSessionController::class, 'destroy'])->name('api.v1.auth.logout');
 
         Route::middleware('verified')->group(function (): void {

@@ -8,6 +8,11 @@
 - The full API suite passed (**107 tests / 757 assertions**) with in-memory SQLite; `vendor/bin/pint --test`, web typecheck, and ESLint passed. The migration applied to the isolated local SQLite database; production build passed with 14 prerendered routes and a 490.99 kB main JavaScript bundle.
 - The Expo client now reads the account preference on restore/sign-in and saves changes through the same membership-checked endpoint. Mobile TypeScript passed and Android export bundled 564 modules (2.5 MB JavaScript payload); native device verification remains open.
 
+## Allowlisted platform overview (19 November 2026)
+
+- Added an explicit `PLATFORM_ADMIN_EMAILS` allowlist, separate from organization roles and enquiry inbox access, and a read-only platform API with organization/user/educator/open-enquiry counts and recent organization metadata. The verified operator can open the live overview directly after sign-in.
+- API coverage confirms accurate aggregates and denies non-allowlisted accounts. Full Laravel suite passed (**111 tests / 780 assertions**) with Pint; web typecheck, ESLint, and production build passed (14 routes prerendered, 483.28 kB main bundle).
+
 ## Scoped document library (19 November 2026)
 
 - Added a paginated organization document endpoint and role-based web views. Administrators and management see tenant files, teachers see their course files, and students see only published files for actively enrolled courses.
