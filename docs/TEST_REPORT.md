@@ -30,7 +30,7 @@
 ## People roster milestone (18 November 2026)
 
 - Full PHPUnit suite — **19 passed / 95 assertions** using in-memory SQLite. Added coverage for student and teacher creation/search, duplicate identifiers, cross-tenant access/placement, and student-role denial.
-- `npm run typecheck`, `npm run lint`, PHP syntax checks, and `vendor/bin/pint --test` passed after adding the roster APIs and admin forms.
+- `npm run typecheck`, `npm run lint`, `npm run build` (14 prerendered routes), PHP syntax checks, and `vendor/bin/pint --test` passed after adding the roster APIs and admin forms.
 - `php artisan migrate --force` applied the ignored local SQLite people-profile migration; 20 organization routes are registered.
 - Production email, invitation/account linking, and PostgreSQL migration validation remain unconfigured.
 
