@@ -2,6 +2,12 @@
 
 **Updated:** 19 November 2026
 
+## PostgreSQL compatibility recheck (19 November 2026)
+
+- A temporary local PostgreSQL 17 cluster applied every API migration, then the complete Laravel suite passed (**113 tests / 820 assertions**). The same full suite passed on in-memory SQLite.
+- Cross-database execution found that notification organization scope used a JSON path operator unsupported for Laravel's text-backed PostgreSQL notification payload. Replacing it with Laravel's driver-aware `whereJsonContains` resolved the issue; notification and announcement tests passed on both engines.
+- `vendor/bin/pint --test` passed. The PostgreSQL 16 GitHub Actions job is configured but has not yet had a hosted run. The disposable local cluster is not a deployment database.
+
 ## Preferred organization persistence (19 November 2026)
 
 - Added a nullable user preference with a foreign key that clears on organization deletion, a membership-checked save endpoint, and restore-on-reload behavior in the web client. The API reports a saved choice only while its membership and organization remain active.

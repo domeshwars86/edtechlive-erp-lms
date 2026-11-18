@@ -14,7 +14,7 @@ class NotificationController
     {
         $this->access->membership($request, $organization);
         $notifications = $request->user()->notifications()
-            ->where('data->organization_id', $organization)
+            ->whereJsonContains('data', ['organization_id' => $organization])
             ->orderByRaw('read_at IS NULL DESC')->orderByDesc('created_at')
             ->paginate(min(max($request->integer('per_page', 20), 1), 100));
 
@@ -33,7 +33,7 @@ class NotificationController
                 'current_page' => $notifications->currentPage(),
                 'last_page' => $notifications->lastPage(),
                 'total' => $notifications->total(),
-                'unread' => $request->user()->unreadNotifications()->where('data->organization_id', $organization)->count(),
+                'unread' => $request->user()->unreadNotifications()->whereJsonContains('data', ['organization_id' => $organization])->count(),
             ],
         ]);
     }
@@ -42,7 +42,7 @@ class NotificationController
     {
         $this->access->membership($request, $organization);
         $record = $request->user()->notifications()
-            ->where('id', $notification)->where('data->organization_id', $organization)->firstOrFail();
+            ->where('id', $notification)->whereJsonContains('data', ['organization_id' => $organization])->firstOrFail();
         $record->markAsRead();
 
         return response()->json(['data' => ['id' => $record->id, 'read_at' => $record->read_at?->toISOString()]]);
