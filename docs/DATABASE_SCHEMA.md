@@ -1,6 +1,6 @@
 # Database Schema Direction
 
-**Status:** Identity, organization, membership, invitation, academic session, class, section, subject, student, teacher, student/guardian links, courses/lessons/enrollment/progress/assets, assignment/submissions, quiz questions/attempts, fees/receipts, teaching assignment, attendance, timetable, meetings, and in-app notifications tables/models/migrations are implemented. Local development migrations are applied to SQLite; PostgreSQL deployment validation remains pending.
+**Status:** Identity, organization, membership, invitation, academic session, class, section, subject, student, teacher, student/guardian links, courses/modules/lessons/enrollment/progress/assets, assignment/submissions, quiz questions/attempts, fees/receipts, teaching assignment, attendance, timetable, meetings, and in-app notifications tables/models/migrations are implemented. Local development migrations are applied to SQLite; PostgreSQL deployment validation remains pending.
 
 ## Core entities
 
@@ -25,7 +25,7 @@
 - `fee_categories`, `invoices`, `payments`, `payment_webhook_events`: finance records and idempotent provider events.
 - `ai_usage_records`, provider configuration references: usage/cost tracking; secrets live outside database/application source.
 
-The implemented schema uses `organizations` and `organization_memberships`, indexed by organization/user/status with a unique organization/user membership. `organization_invitations`, `organization_invitation_students`, `student_guardians`, `courses`, `course_enrollments`, `course_lessons`, `course_assignments`, `assignment_submissions`, `course_quizzes`, `quiz_questions`, `quiz_attempts`, `academic_sessions`, `academic_classes`, `academic_sections`, `subjects`, `students`, `teachers`, `teaching_assignments`, `attendance_records`, and `timetable_entries` carry organization ownership and tenant-aware validation/index constraints. Attendance reports aggregate existing records and require no separate materialized table. Local SQLite migrations pass; PostgreSQL-specific migration and constraint behavior still needs validation. Role, organization type and membership status use PHP backed enums.
+The implemented schema uses `organizations` and `organization_memberships`, indexed by organization/user/status with a unique organization/user membership. `organization_invitations`, `organization_invitation_students`, `student_guardians`, `courses`, `course_modules`, `course_enrollments`, `course_lessons`, `course_assignments`, `assignment_submissions`, `course_quizzes`, `quiz_questions`, `quiz_attempts`, `academic_sessions`, `academic_classes`, `academic_sections`, `subjects`, `students`, `teachers`, `teaching_assignments`, `attendance_records`, and `timetable_entries` carry organization ownership and tenant-aware validation/index constraints. Attendance, enrollment and course-progress reports aggregate existing records and require no separate materialized table. Local SQLite migrations pass; PostgreSQL-specific migration and constraint behavior still needs validation. Role, organization type and membership status use PHP backed enums.
 
 ## Modeling rules
 

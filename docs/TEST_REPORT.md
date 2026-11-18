@@ -196,6 +196,13 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Added API coverage for cross-course module rejection, teacher course ownership, and published-module student visibility. Full API suite: **79 tests / 527 assertions**; Pint passed. Web typecheck, lint and production build passed with 14 prerendered public routes.
 - Applied the additive module/lesson migration to local SQLite after confirming prior migrations were applied. PostgreSQL validation and browser regression remain outstanding.
 
+## Enrollment placement report (19 November 2026)
+
+- Added `GET /api/v1/organizations/{organization}/reports/enrollment` for admin, management, and independent educator roles, with active learner totals by academic session and section, unassigned student count, and active enrollment totals for published courses. The response contains aggregate counts and no student identifiers.
+- Added an Enrollment tab to the admin/management academic reports workspace. It shows placement, capacity, published-course enrollment totals, and current/inactive session markers.
+- Added tests for tenant isolation, session/section aggregation, published-course enrollment counts, and teacher denial. Full API suite: **81 tests / 538 assertions**; Pint passed. Web typecheck, lint and production build passed with 14 prerendered public routes.
+- No migration was required. Browser visual verification remains unavailable in this environment.
+
 ## Student course progress milestone (18 November 2026)
 
 - Added tenant-aware lesson completion records. Enrolled learners can mark/reopen published lessons and see a course completion count/percentage; course teachers and managers can review learner percentages for their authorized course. Draft lessons and inactive/non-enrolled courses are denied.

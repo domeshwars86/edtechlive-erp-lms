@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\CourseProgressReportController;
 use App\Http\Controllers\Api\V1\CourseQuizController;
 use App\Http\Controllers\Api\V1\DashboardActivityController;
 use App\Http\Controllers\Api\V1\DashboardSummaryController;
+use App\Http\Controllers\Api\V1\EnrollmentReportController;
 use App\Http\Controllers\Api\V1\FamilyController;
 use App\Http\Controllers\Api\V1\FeeRecordController;
 use App\Http\Controllers\Api\V1\MeController;
@@ -114,6 +115,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/attendance', [AttendanceController::class, 'index']);
                 Route::put('/attendance', [AttendanceController::class, 'store']);
                 Route::get('/reports/attendance', [AttendanceReportController::class, 'index']);
+                Route::get('/reports/enrollment', [EnrollmentReportController::class, 'index']);
                 Route::get('/reports/course-progress', [CourseProgressReportController::class, 'index']);
                 Route::get('/fees', [FeeRecordController::class, 'index']);
                 Route::post('/fees', [FeeRecordController::class, 'store']);
