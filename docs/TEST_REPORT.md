@@ -8,6 +8,11 @@
 - Full PHPUnit Feature suite — **74 passed / 491 assertions** using in-memory SQLite; `vendor/bin/pint --test` passed.
 - `npm run typecheck`, `npm run lint`, and `npm run build` passed; production build prerendered 14 public routes.
 
+## Live dashboard timetable and family updates milestone (18 November 2026)
+
+- Replaced the connected dashboard lower sample table with role-scoped upcoming timetable entries for admin, management, teacher, and educator roles; student and parent dashboards now show their private recent notifications. Demo workspaces retain labeled sample rows.
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed; production build prerendered 14 public routes. The full PHPUnit Feature suite passed — 74 tests / 491 assertions; timetable and notification role/tenant scope are covered.
+
 ## Workspace chooser and local run alignment (18 November 2026)
 
 - Dashboard workspace control now reopens the authenticated membership chooser and navigates to the selected membership's role workspace.
