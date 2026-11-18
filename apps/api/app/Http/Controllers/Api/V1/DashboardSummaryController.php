@@ -9,7 +9,9 @@ use App\Models\Course;
 use App\Models\CourseAssignment;
 use App\Models\CourseEnrollment;
 use App\Models\CourseLessonProgress;
+use App\Models\Meeting;
 use App\Models\Student;
+use App\Models\StudentGuardian;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;
 use App\Models\TimetableEntry;
@@ -30,6 +32,9 @@ class DashboardSummaryController
         }
         if ($membership->role === OrganizationRole::Teacher) {
             return $this->teacherSummary($request, $organization, $membership->organization->timezone ?: 'UTC');
+        }
+        if ($membership->role === OrganizationRole::Parent) {
+            return $this->parentSummary($request, $organization, $membership->organization->timezone ?: 'UTC');
         }
 
         abort_unless(in_array($membership->role, [
@@ -95,7 +100,8 @@ class DashboardSummaryController
             ->whereBetween('completed_at', [$now->copy()->subDays(6)->startOfDay()->utc(), $now->copy()->endOfDay()->utc()])
             ->whereHas('lesson', fn ($query) => $query->where('status', 'published'))->count();
         $attendance = AttendanceRecord::query()->where('organization_id', $organization)->where('student_id', $student->id)
-            ->whereBetween('attendance_date', [$now->copy()->subDays(29)->toDateString(), $now->toDateString()])
+            ->whereDate('attendance_date', '>=', $now->copy()->subDays(29)->toDateString())
+            ->whereDate('attendance_date', '<=', $now->toDateString())
             ->get(['status'])->countBy('status');
         $records = $attendance->sum();
 
@@ -122,9 +128,14 @@ class DashboardSummaryController
         $weekdays = collect(range(0, 6))->map(fn (int $offset): int => ($weekStart->dayOfWeekIso - 1 + $offset) % 7);
         $assignments = TeachingAssignment::query()->where('organization_id', $organization)
             ->where('teacher_id', $teacher->id)
-            ->whereHas('academicSession', fn ($query) => $query->where('is_active', true)
-                ->whereDate('starts_on', '<=', $now->toDateString())->whereDate('ends_on', '>=', $now->toDateString()))
-            ->whereHas('academicSection', fn ($query) => $query->where('is_active', true))
+            ->whereHas('academicSession', function ($query) use ($now): void {
+                $query->where('is_active', true)
+                    ->whereDate('starts_on', '<=', $now->toDateString())
+                    ->whereDate('ends_on', '>=', $now->toDateString());
+            })
+            ->whereHas('academicSection', function ($query): void {
+                $query->where('is_active', true);
+            })
             ->get(['academic_section_id', 'academic_session_id']);
         $students = Student::query()->where('organization_id', $organization)->where('status', 'active')
             ->whereIn('academic_section_id', $assignments->pluck('academic_section_id')->unique())
@@ -133,8 +144,11 @@ class DashboardSummaryController
             ->whereHas('assignment.course', fn ($query) => $query->where('teacher_id', $teacher->id)->where('status', 'published'))->count();
         $classesThisWeek = TimetableEntry::query()->where('organization_id', $organization)->where('teacher_id', $teacher->id)
             ->where('is_active', true)->whereIn('weekday', $weekdays)
-            ->whereHas('academicSession', fn ($query) => $query->where('is_active', true)
-                ->whereDate('starts_on', '<=', $weekEnd->toDateString())->whereDate('ends_on', '>=', $weekStart->toDateString()))->count();
+            ->whereHas('academicSession', function ($query) use ($weekEnd, $weekStart): void {
+                $query->where('is_active', true)
+                    ->whereDate('starts_on', '<=', $weekEnd->toDateString())
+                    ->whereDate('ends_on', '>=', $weekStart->toDateString());
+            })->count();
 
         return response()->json(['data' => [
             'kind' => 'teacher',
@@ -145,6 +159,64 @@ class DashboardSummaryController
             'classes_this_week' => $classesThisWeek,
             'courses' => Course::query()->where('organization_id', $organization)
                 ->where('teacher_id', $teacher->id)->where('status', 'published')->count(),
+        ]]);
+    }
+
+    private function parentSummary(Request $request, int $organization, string $timezone): JsonResponse
+    {
+        $now = Carbon::now($timezone);
+        $studentIds = StudentGuardian::query()->where('organization_id', $organization)
+            ->where('guardian_user_id', $request->user()->id)
+            ->whereHas('student', function ($query): void {
+                $query->where('status', 'active');
+            })->pluck('student_id');
+        $students = Student::query()->where('organization_id', $organization)->whereIn('id', $studentIds)
+            ->get(['id', 'academic_section_id', 'academic_session_id']);
+        $enrollments = CourseEnrollment::query()->where('organization_id', $organization)->whereIn('student_id', $studentIds)
+            ->where('status', 'active')->whereHas('course', fn ($query) => $query->where('status', 'published'))
+            ->get(['course_id', 'student_id']);
+        $courseIds = $enrollments->pluck('course_id')->unique();
+        $assignments = CourseAssignment::query()->where('organization_id', $organization)
+            ->whereIn('course_id', $courseIds)->where('status', 'published')->get(['id', 'course_id']);
+        $submittedKeys = AssignmentSubmission::query()->where('organization_id', $organization)
+            ->whereIn('student_id', $studentIds)->whereIn('assignment_id', $assignments->pluck('id'))
+            ->get(['student_id', 'assignment_id'])->mapWithKeys(fn ($submission): array => ["{$submission->student_id}:{$submission->assignment_id}" => true]);
+        $pendingAssignments = 0;
+        foreach ($enrollments as $enrollment) {
+            foreach ($assignments->where('course_id', $enrollment->course_id) as $assignment) {
+                if (! $submittedKeys->has("{$enrollment->student_id}:{$assignment->id}")) {
+                    $pendingAssignments++;
+                }
+            }
+        }
+
+        $startDate = $now->copy()->subDays(29)->toDateString();
+        $attendance = AttendanceRecord::query()->where('organization_id', $organization)->whereIn('student_id', $studentIds)
+            ->whereDate('attendance_date', '>=', $startDate)->whereDate('attendance_date', '<=', $now->toDateString())
+            ->get(['status'])->countBy('status');
+        $attendanceRecords = $attendance->sum();
+        $sectionIds = $students->pluck('academic_section_id')->filter()->unique();
+        $sessionIds = $students->pluck('academic_session_id')->filter()->unique();
+        $upcomingMeetings = Meeting::query()->where('organization_id', $organization)->where('status', 'scheduled')
+            ->where('starts_at', '>=', $now->utc())
+            ->where(function ($query) use ($sectionIds, $sessionIds, $courseIds): void {
+                $query->where(function ($sectionQuery) use ($sectionIds, $sessionIds): void {
+                    $sectionQuery->whereIn('academic_section_id', $sectionIds)
+                        ->whereIn('academic_session_id', $sessionIds);
+                });
+                $query->orWhereIn('course_id', $courseIds);
+            })->count();
+
+        return response()->json(['data' => [
+            'kind' => 'parent',
+            'date' => $now->toDateString(),
+            'children' => $students->count(),
+            'assignments_pending' => $pendingAssignments,
+            'attendance_recent' => [
+                'records' => $attendanceRecords,
+                'rate' => $attendanceRecords > 0 ? round(($attendance->get('present', 0) + $attendance->get('late', 0)) / $attendanceRecords * 100, 1) : null,
+            ],
+            'upcoming_meetings' => $upcomingMeetings,
         ]]);
     }
 }

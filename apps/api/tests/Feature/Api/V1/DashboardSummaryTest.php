@@ -15,9 +15,11 @@ use App\Models\CourseAssignment;
 use App\Models\CourseEnrollment;
 use App\Models\CourseLesson;
 use App\Models\CourseLessonProgress;
+use App\Models\Meeting;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\Student;
+use App\Models\StudentGuardian;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;
@@ -189,6 +191,79 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('data.reviews_pending', 1)
             ->assertJsonPath('data.classes_this_week', 1)
             ->assertJsonPath('data.courses', 1);
+    }
+
+    public function test_parent_summary_includes_only_explicitly_linked_children(): void
+    {
+        $organization = $this->organization('Northstar Academy');
+        $parent = User::factory()->create();
+        $this->membership($organization, $parent, OrganizationRole::Parent);
+        $admin = User::factory()->create();
+        $year = Carbon::now('Asia/Kolkata')->year;
+        $session = AcademicSession::query()->create([
+            'organization_id' => $organization->id, 'name' => 'Current session',
+            'starts_on' => "{$year}-01-01", 'ends_on' => ($year + 1).'-12-31', 'is_current' => true, 'is_active' => true,
+        ]);
+        $class = AcademicClass::query()->create(['organization_id' => $organization->id, 'name' => 'Grade 5']);
+        $section = AcademicSection::query()->create([
+            'organization_id' => $organization->id, 'academic_class_id' => $class->id,
+            'academic_session_id' => $session->id, 'name' => 'A', 'is_active' => true,
+        ]);
+        $linkedStudent = Student::query()->create([
+            'organization_id' => $organization->id, 'name' => 'Linked child', 'admission_number' => 'S-1', 'status' => 'active',
+            'academic_section_id' => $section->id, 'academic_session_id' => $session->id,
+        ]);
+        $unlinkedStudent = Student::query()->create([
+            'organization_id' => $organization->id, 'name' => 'Other child', 'admission_number' => 'S-2', 'status' => 'active',
+            'academic_section_id' => $section->id, 'academic_session_id' => $session->id,
+        ]);
+        StudentGuardian::query()->create([
+            'organization_id' => $organization->id, 'student_id' => $linkedStudent->id,
+            'guardian_user_id' => $parent->id, 'relationship' => 'parent', 'is_primary' => true, 'linked_at' => now(),
+        ]);
+        $course = Course::query()->create([
+            'organization_id' => $organization->id, 'created_by' => $admin->id,
+            'title' => 'Science', 'status' => 'published', 'published_at' => now(),
+        ]);
+        foreach ([$linkedStudent, $unlinkedStudent] as $student) {
+            CourseEnrollment::query()->create([
+                'organization_id' => $organization->id, 'course_id' => $course->id,
+                'student_id' => $student->id, 'enrolled_by' => $admin->id, 'status' => 'active',
+            ]);
+        }
+        $assignment = CourseAssignment::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id,
+            'created_by' => $admin->id, 'title' => 'Homework', 'max_points' => 10, 'status' => 'published',
+        ]);
+        AssignmentSubmission::query()->create([
+            'organization_id' => $organization->id, 'assignment_id' => $assignment->id,
+            'student_id' => $unlinkedStudent->id, 'answer' => 'Submitted', 'submitted_at' => now(),
+        ]);
+        AttendanceRecord::query()->create([
+            'organization_id' => $organization->id, 'academic_section_id' => $section->id,
+            'academic_session_id' => $session->id, 'student_id' => $linkedStudent->id,
+            'attendance_date' => Carbon::now('Asia/Kolkata')->toDateString(), 'status' => 'present', 'marked_by' => $admin->id,
+        ]);
+        AttendanceRecord::query()->create([
+            'organization_id' => $organization->id, 'academic_section_id' => $section->id,
+            'academic_session_id' => $session->id, 'student_id' => $unlinkedStudent->id,
+            'attendance_date' => Carbon::now('Asia/Kolkata')->toDateString(), 'status' => 'absent', 'marked_by' => $admin->id,
+        ]);
+        Meeting::query()->create([
+            'organization_id' => $organization->id, 'created_by' => $admin->id, 'course_id' => $course->id,
+            'title' => 'Science class', 'starts_at' => Carbon::now('Asia/Kolkata')->addDay()->utc(),
+            'ends_at' => Carbon::now('Asia/Kolkata')->addDay()->addHour()->utc(),
+            'meeting_url' => 'https://meet.example.test/science', 'kind' => 'class', 'status' => 'scheduled',
+        ]);
+        Sanctum::actingAs($parent);
+
+        $this->getJson("/api/v1/organizations/{$organization->id}/dashboard/summary")->assertOk()
+            ->assertJsonPath('data.kind', 'parent')
+            ->assertJsonPath('data.children', 1)
+            ->assertJsonPath('data.assignments_pending', 1)
+            ->assertJsonPath('data.attendance_recent.records', 1)
+            ->assertJsonPath('data.attendance_recent.rate', 100)
+            ->assertJsonPath('data.upcoming_meetings', 1);
     }
 
     private function membership(Organization $organization, User $user, OrganizationRole $role): void
