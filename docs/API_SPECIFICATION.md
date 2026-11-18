@@ -1,6 +1,6 @@
 # API Specification (Proposed)
 
-**Status:** Health, authentication, password recovery, email verification, organization invitations, current-user, organization reads, academic masters, people rosters, teaching assignments, attendance, timetable, family access, attendance reports, courses, lessons, enrollments, assignments, submissions, and grading routes are implemented. Other routes remain proposals.
+**Status:** Health, authentication, password recovery, email verification, organization invitations, current-user, organization reads, academic masters, people rosters, teaching assignments, attendance, timetable, family access, attendance reports, courses, lessons, enrollments, assignments, submissions, grading, quizzes, and attempts routes are implemented. Other routes remain proposals.
 
 Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return consistent validation and authorization errors; lists are paginated. Organization context is explicit in authorized routes and verified against the authenticated user's active membership. Never trust a client-provided organization ID without policy enforcement.
 
@@ -73,6 +73,12 @@ Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return co
 | `POST /api/v1/organizations/{organization}/assignments/{assignment}/submissions` | Linked student actively enrolled in the published course | Creates or updates the student's text response until it has been graded. Each assignment/student pair has one submission record. Late work is accepted and retains its submission timestamp. |
 | `GET /api/v1/organizations/{organization}/assignments/{assignment}/submissions` | Course manager or linked teacher | Lists submissions for one tenant-owned assignment, including student roster name and admission number. |
 | `PATCH /api/v1/organizations/{organization}/submissions/{submission}/grade` | Course manager or linked teacher | Stores a numeric score no higher than the assignment maximum and optional feedback; records grader and grading time. |
+| `GET/POST /api/v1/organizations/{organization}/courses/{course}/quizzes` | Course manager/editor; enrolled student may list published quizzes | Creates draft quizzes or lists authorized quizzes. Student responses omit correct answer indexes and include only their own latest attempt/result. |
+| `PATCH /api/v1/organizations/{organization}/quizzes/{quiz}` | Course manager or linked teacher | Updates quiz settings or publishes it after at least one question has been added. Question/settings edits are locked after publication. |
+| `POST /api/v1/organizations/{organization}/quizzes/{quiz}/questions` | Course manager or linked teacher on a draft quiz | Adds a 2–6 option MCQ with a server-stored correct answer, points, and display order. |
+| `POST /api/v1/organizations/{organization}/quizzes/{quiz}/attempts` | Linked student actively enrolled in the published course | Starts a timed or untimed attempt, subject to configured attempt limit; returns prompts and choices without the answer key. |
+| `PATCH /api/v1/organizations/{organization}/quizzes/{quiz}/attempts/{attempt}` | Student who owns the active attempt | Submits selected question options; score and maximum are calculated server-side. Attempts past their time limit are closed with a zero score. |
+| `GET /api/v1/organizations/{organization}/quizzes/{quiz}/attempts` | Course manager/editor or enrolled student | Returns submitted attempts; students see only their own result, teachers/managers see roster identity and scores. |
 | `GET /api/v1/organizations/{organization}/timetable` | Admin, management, independent educator, or linked teacher | Lists paginated weekly entries with optional session, section, and weekday filters; teachers only see their own entries. |
 | `POST/PATCH /api/v1/organizations/{organization}/timetable` | Same roles | Creates or updates a section/subject slot, optional assigned teacher/room/HTTPS meeting link, and rejects active section, teacher, or room conflicts. |
 

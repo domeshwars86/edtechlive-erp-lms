@@ -57,6 +57,12 @@
 
 ## Existing QA and known dependency issue
 
+## Timed quiz and auto-scored attempt milestone (18 November 2026)
+
+- Full PHPUnit suite — **51 passed / 313 assertions** using in-memory SQLite. Tests cover private answer keys, published-quiz requirements, enrollment checks, attempt limits, server-side scoring, and teacher result visibility.
+- `npm run typecheck`, `npm run lint`, `npm run build` (14 prerendered public routes), and `vendor/bin/pint --test` passed after adding the quiz builder and student attempt workspace.
+- Quiz/question/attempt migration applied to the ignored local SQLite development database. PostgreSQL and browser visual verification remain unverified.
+
 ## Assignment submission and grading milestone (18 November 2026)
 
 - Full PHPUnit suite — **49 passed / 286 assertions** using in-memory SQLite. Coverage includes enrollment-gated assignment reads/submissions, teacher course ownership, score caps, feedback, locked graded submissions, and publication gating on the course state.
