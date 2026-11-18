@@ -4,7 +4,7 @@
 
 ## Current milestone
 
-Phase 10 — mobile applications, initial vertical slice. The responsive public website, seven role dashboards, Laravel ERP/LMS APIs and connected web workflows are in place. The Expo client signs into the shared API, stores its Sanctum token with SecureStore, selects organization membership, and provides role-scoped summaries, courses/lessons, student assignment submissions, teacher grading, timed quiz attempts/results, recent notification read receipts, assignment-scoped teacher attendance, and upcoming scoped meeting links that can be joined only during the scheduled window. Native device builds remain open. Production email, PostgreSQL validation, external integrations and deployment remain unverified.
+Phase 10 — mobile applications, initial vertical slice. The responsive public website, seven role dashboards, Laravel ERP/LMS APIs and connected web workflows are in place. The Expo client signs into the shared API, stores its Sanctum token with SecureStore, selects organization membership, and provides role-scoped summaries, courses/lessons, student/parent profile and attendance views, read-only fee records, student assignment submissions, teacher grading, timed quiz attempts/results, recent notification read receipts, assignment-scoped teacher attendance, and upcoming scoped meeting links that can be joined only during the scheduled window. Native device builds remain open. Production email, PostgreSQL validation, external integrations and deployment remain unverified.
 
 ## Implemented
 
@@ -33,7 +33,7 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - The dashboard notification bell lists and marks recipient-owned notifications within the active organization. Fee issuance/receipt and meeting scheduling create notices for relevant students, linked guardians, assigned teachers or managers. Email/push delivery, announcements, notification preferences and retention policies remain open.
 - API and web setup/auth configuration is documented in `.env.example` files and `apps/api/README.md`.
 - Multi-organization users can reopen the verified membership chooser from the dashboard workspace control. Selection changes the active role/workspace in the current frontend session; a persistent active-organization preference is not implemented.
-- The Expo SDK 56 mobile app in `apps/mobile` uses the shared Sanctum API, Expo SecureStore token persistence, membership selection, role-scoped summaries, published lesson reading, student assignment submissions, scoped teacher grading, timed quizzes/results, notification read receipts, teacher attendance registers scoped to assigned sections, and role-scoped meeting details/join links. Android and iOS native toolchains/device builds are not available in this workspace; profile workflows remain open.
+- The Expo SDK 56 mobile app in `apps/mobile` uses the shared Sanctum API, Expo SecureStore token persistence, membership selection, role-scoped summaries, published lesson reading, student/parent profile and attendance reads, family-scoped fee records, student assignment submissions, scoped teacher grading, timed quizzes/results, notification read receipts, teacher attendance registers scoped to assigned sections, and role-scoped meeting details/join links. Android and iOS native toolchains/device builds are not available in this workspace.
 
 ## Current limitations
 

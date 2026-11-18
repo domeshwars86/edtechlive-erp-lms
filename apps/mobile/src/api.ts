@@ -15,6 +15,9 @@ export type CourseQuiz = { id: number; course_id: number; title: string; instruc
 export type QuizRun = { attempt: QuizAttempt; quiz: Pick<CourseQuiz, 'id' | 'title' | 'instructions' | 'time_limit_minutes'>; questions: QuizQuestion[] }
 export type TeachingAssignment = { id: number; academic_session_id: number; academic_section_id: number; subject_id: number; teacher_id: number; academic_session: { id: number; name: string }; academic_section: { id: number; name: string; academic_class: { id: number; name: string } }; subject: { id: number; name: string } }
 export type AttendanceStudent = { id: number; name: string; admission_number: string | null; status: 'present' | 'absent' | 'late' | 'excused' | null; note: string | null }
+export type FamilyStudent = { id: number; name: string; admission_number: string | null; academic_class: { id: number; name: string } | null; academic_section: { id: number; name: string } | null; academic_session: { id: number; name: string } | null; relationship?: string; is_primary?: boolean }
+export type StudentAttendance = { id: number; date: string; status: 'present' | 'absent' | 'late' | 'excused'; note: string | null; section: { id: number; name: string; class: string }; session: { id: number; name: string } }
+export type FamilyFee = { id: number; title: string; amount: string; paid_amount: string; balance: string; due_on: string | null; status: 'unpaid' | 'partial' | 'paid'; student: { id: number; name: string; admission_number: string | null } | null }
 export type DashboardSummary = Record<string, unknown> & { kind?: string }
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '')

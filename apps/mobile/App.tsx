@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
-import { ApiError, mobileApi, type ApiUser, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type Lesson, type OrganizationMembership, type QuizRun, type TeachingAssignment } from './src/api'
+import { ApiError, mobileApi, type ApiUser, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type FamilyFee, type FamilyStudent, type Lesson, type OrganizationMembership, type QuizRun, type StudentAttendance, type TeachingAssignment } from './src/api'
 
 const TOKEN_KEY = 'edtechlive.mobile.token'
 const ORGANIZATION_KEY = 'edtechlive.mobile.organization'
@@ -22,6 +22,10 @@ export default function App() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [notices, setNotices] = useState<MobileNotice[]>([])
   const [meetings, setMeetings] = useState<MobileMeeting[]>([])
+  const [studentProfile, setStudentProfile] = useState<FamilyStudent | null>(null)
+  const [familyChildren, setFamilyChildren] = useState<Array<FamilyStudent & { attendance: StudentAttendance[] }>>([])
+  const [ownAttendance, setOwnAttendance] = useState<StudentAttendance[]>([])
+  const [familyFees, setFamilyFees] = useState<FamilyFee[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [lessons, setLessons] = useState<Lesson[]>([])
@@ -70,7 +74,7 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setNotices([]); setMeetings([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
+    setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setFamilyFees([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
@@ -85,6 +89,28 @@ export default function App() {
     if (active.role === 'teacher') {
       tasks.push(mobileApi.get<{ data: TeachingAssignment[] }>(`${base}/teaching-assignments?per_page=100`, token)
         .then(result => { if (!cancelled) setTeachingAssignments(result.data) }))
+    }
+    if (active.role === 'student') {
+      tasks.push(Promise.all([
+        mobileApi.get<{ data: FamilyStudent }>(`${base}/my/student`, token),
+        mobileApi.get<{ data: StudentAttendance[] }>(`${base}/my/student/attendance?per_page=10`, token),
+        mobileApi.get<{ data: FamilyFee[] }>(`${base}/fees?per_page=50`, token),
+      ]).then(([profileResult, attendanceResult, feeResult]) => {
+        if (!cancelled) { setStudentProfile(profileResult.data); setOwnAttendance(attendanceResult.data); setFamilyFees(feeResult.data) }
+      }))
+    }
+    if (active.role === 'parent') {
+      tasks.push((async () => {
+        const childResult = await mobileApi.get<{ data: FamilyStudent[] }>(`${base}/my/children?per_page=100`, token)
+        const [feeResult, ...attendanceResults] = await Promise.all([
+          mobileApi.get<{ data: FamilyFee[] }>(`${base}/fees?per_page=100`, token),
+          ...childResult.data.map(child => mobileApi.get<{ data: StudentAttendance[] }>(`${base}/my/children/${child.id}/attendance?per_page=10`, token)),
+        ])
+        if (!cancelled) {
+          setFamilyChildren(childResult.data.map((child, index) => ({ ...child, attendance: attendanceResults[index].data })))
+          setFamilyFees(feeResult.data)
+        }
+      })())
     }
     Promise.all(tasks).catch(reason => {
       if (!cancelled) setError(reason instanceof Error ? reason.message : 'Could not load your learning workspace.')
@@ -268,11 +294,24 @@ export default function App() {
         {!meetings.some(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() > Date.now()) ? <Empty text="No upcoming meetings are scheduled." /> : null}
         <Text style={styles.sectionTitle}>Recent updates</Text>
         {notices.length ? notices.map(notice => <Pressable key={notice.id} onPress={() => void markNoticeRead(notice)} style={[styles.noticeCard, !notice.read_at && styles.noticeUnread]}><Text style={styles.courseTitle}>{notice.title}</Text><Text style={styles.courseMeta}>{notice.body}</Text>{notice.created_at ? <Text style={styles.noticeDate}>{new Date(notice.created_at).toLocaleString()}</Text> : null}</Pressable>) : <Empty text="No recent updates." />}
-        {active.role === 'parent' ? <View style={styles.infoCard}><Text style={styles.courseTitle}>Family updates</Text><Text style={styles.courseMeta}>Updates above are restricted to your linked family workspace.</Text></View> : <>
+        {active.role === 'student' && studentProfile ? <View style={styles.infoCard}><Text style={styles.courseTitle}>My profile</Text><Text style={styles.courseMeta}>{studentProfile.admission_number ? `Admission ${studentProfile.admission_number} · ` : ''}{studentProfile.academic_class?.name ?? 'Class not assigned'}{studentProfile.academic_section?.name ? ` · ${studentProfile.academic_section.name}` : ''}{studentProfile.academic_session?.name ? ` · ${studentProfile.academic_session.name}` : ''}</Text></View> : null}
+        {active.role === 'student' ? <>
+          <Text style={styles.sectionTitle}>My attendance</Text>
+          {ownAttendance.length ? ownAttendance.map(record => <View style={styles.recordCard} key={record.id}><Text style={styles.courseTitle}>{record.date} · {record.status}</Text><Text style={styles.courseMeta}>{record.section.class} · {record.section.name} · {record.session.name}</Text>{record.note ? <Text style={styles.courseMeta}>{record.note}</Text> : null}</View>) : <Empty text={busy ? 'Loading attendance…' : 'No attendance records are available.'} />}
+        </> : null}
+        {active.role === 'parent' ? <>
+          <Text style={styles.sectionTitle}>Linked learners</Text>
+          {familyChildren.length ? familyChildren.map(child => <View style={styles.recordCard} key={child.id}><Text style={styles.courseTitle}>{child.name}{child.is_primary ? ' · Primary contact' : ''}</Text><Text style={styles.courseMeta}>{child.relationship ?? 'Guardian link'} · {child.academic_class?.name ?? 'Class not assigned'}{child.academic_section?.name ? ` · ${child.academic_section.name}` : ''}{child.academic_session?.name ? ` · ${child.academic_session.name}` : ''}</Text><Text style={styles.recordHeading}>Recent attendance</Text>{child.attendance.length ? child.attendance.slice(0, 5).map(record => <Text style={styles.courseMeta} key={record.id}>{record.date} · {record.status} · {record.section.class} {record.section.name}</Text>) : <Text style={styles.courseMeta}>{busy ? 'Loading attendance…' : 'No attendance records available.'}</Text>}</View>) : <Empty text={busy ? 'Loading linked learners…' : 'No active linked learners are available.'} />}
+        </> : null}
+        {active.role === 'student' || active.role === 'parent' ? <>
+          <Text style={styles.sectionTitle}>Fee records</Text>
+          {familyFees.length ? familyFees.map(fee => <View style={styles.recordCard} key={fee.id}><Text style={styles.courseTitle}>{fee.title}{fee.student && active.role === 'parent' ? ` · ${fee.student.name}` : ''}</Text><Text style={styles.courseMeta}>Amount ₹{fee.amount} · Paid ₹{fee.paid_amount} · Balance ₹{fee.balance}{fee.due_on ? ` · Due ${fee.due_on}` : ''}</Text><Text style={styles.feeStatus}>{fee.status.toUpperCase()}</Text></View>) : <Empty text={busy ? 'Loading fee records…' : 'No fee records available.'} />}
+        </> : null}
+        {active.role !== 'parent' ? <>
           <Text style={styles.sectionTitle}>{active.role === 'student' ? 'My courses' : active.role === 'teacher' ? 'My courses' : 'Courses in this workspace'}</Text>
           {courses.length ? courses.map(course => <Pressable style={styles.courseCard} key={course.id} onPress={() => void openCourse(course)}><View style={styles.courseIcon}><Text style={styles.courseIconText}>{course.title.slice(0, 1).toUpperCase()}</Text></View><View style={{ flex: 1 }}><Text style={styles.courseTitle}>{course.title}</Text><Text style={styles.courseMeta}>{course.subject?.name ?? course.level ?? 'Learning course'}{course.teacher?.name ? ` · ${course.teacher.name}` : ''}</Text></View><Text style={styles.chevron}>›</Text></Pressable>) : <Empty text="No courses are available in this organization yet." />}
           {active.role === 'teacher' ? <><Text style={styles.sectionTitle}>My assigned classes</Text>{teachingAssignments.length ? teachingAssignments.map(item => <Pressable style={styles.courseCard} key={item.id} onPress={() => void loadAttendance(item)}><View style={{ flex: 1 }}><Text style={styles.courseTitle}>{item.academic_section.academic_class.name} · {item.academic_section.name}</Text><Text style={styles.courseMeta}>{item.subject.name} · {item.academic_session.name}</Text></View><Text style={styles.chevron}>›</Text></Pressable>) : <Empty text="No active teaching assignments are linked to this account." />}</> : null}
-        </>}
+        </> : null}
       </>}
       <Text style={styles.footer}>Connected securely to your organization workspace.</Text>
     </ScrollView>
@@ -388,6 +427,9 @@ const styles = StyleSheet.create({
   noticeCard: { padding: 12, marginBottom: 8, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
   noticeUnread: { borderLeftColor: '#3869c8', borderLeftWidth: 3 },
   noticeDate: { color: '#9aa7b5', fontSize: 8, marginTop: 6 },
+  recordCard: { gap: 5, padding: 12, marginBottom: 8, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
+  recordHeading: { color: '#526d8d', fontSize: 9, fontWeight: '800', marginTop: 8 },
+  feeStatus: { alignSelf: 'flex-start', color: '#5270a3', backgroundColor: '#edf3ff', borderRadius: 6, overflow: 'hidden', paddingVertical: 4, paddingHorizontal: 6, fontSize: 8, fontWeight: '800', marginTop: 4 },
   empty: { padding: 15, marginTop: 8, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
   backLink: { color: '#446eb7', fontSize: 11, fontWeight: '700', marginTop: 7 },
   link: { color: '#3c6fc2', fontWeight: '700', fontSize: 10, marginTop: 9 },
