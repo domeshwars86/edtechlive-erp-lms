@@ -4,7 +4,7 @@
 
 ## Automated checks
 
-On 18 November 2026, `npm run typecheck`, `npm run lint` and `npm run build` passed after the public-site static prerendering and role-dashboard implementation. The production build generated 14 route-specific public HTML pages. Checks were rerun after the final role-switch remount change; record any later rerun below.
+On 18 November 2026, with Node 20.19, Vite 8.3.8 and `@vitejs/plugin-react` 6.3.0, `npm run typecheck`, `npm run lint` and `npm run build` passed. The production build generated 14 route-specific public HTML pages.
 
 `npm audit --json` identified nine high findings in the Vite/TypeScript-ESLint dependency tree via `picomatch@4.0.7`. Vite was upgraded to 8.3.8 with `@vitejs/plugin-react` 6.3.0 and Node 20.19; the findings remain because npm reports 4.0.7 as the latest picomatch release and recommends an incompatible Vite 6.2.7 downgrade. No forced downgrade was applied; monitor upstream remediation.
 
@@ -25,4 +25,7 @@ Visual review was completed on desktop public home and a narrow mobile dashboard
 
 ## Backend/API/security tests
 
-Not applicable yet. API, authentication, tenant isolation, file access and payment tests require corresponding backend implementation.
+- Laravel route list contains the three documented `/api/v1` routes.
+- `php artisan test --compact`: **5 passed, 17 assertions**, using PHPUnit's in-memory SQLite test configuration. Coverage includes public health, unauthenticated denial, current-user credential omission and active-membership/tenant scoping including suspended organizations.
+- `vendor/bin/pint --test`: passed.
+- PostgreSQL migrations have not been run; no local PostgreSQL service was confirmed.

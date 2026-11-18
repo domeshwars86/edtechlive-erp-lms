@@ -36,7 +36,7 @@ Phase 3 — Laravel backend and tenancy foundation. Phases 1 (public website) an
 
 ## Checks
 
-Public checks: `npm run typecheck`, `npm run lint` and static prerender production build passed on Vite 8.3.8. Browser preview validated public routes/interactions and seven dashboard roles at target widths. Static HTML smoke checks confirmed route content and metadata. API checks: Laravel route list showed the three versioned routes; `php artisan test --compact` passed 5 tests / 17 assertions after generating a local-only app key; Pint formatting check passed. npm audit reports 9 high severity findings through picomatch 4.0.7; its incompatible suggested Vite 6.2.7 downgrade was not applied. No PostgreSQL migration or deployment has been performed.
+Public checks: `npm run typecheck`, `npm run lint` and static prerender production build passed on Vite 8.3.8. Browser preview validated public routes/interactions and seven dashboard roles at target widths. Static HTML smoke checks confirmed route content and metadata. API checks: Laravel route list showed the three versioned routes; `php artisan test --compact` passed 5 tests / 17 assertions after generating a local-only app key; Pint formatting check passed. npm audit reports 9 high severity findings through picomatch 4.0.7; its incompatible suggested Vite 6.2.7 downgrade was not applied. Initial work is committed as `da205d0`. No PostgreSQL migration or deployment has been performed.
 
 ## Next
 
