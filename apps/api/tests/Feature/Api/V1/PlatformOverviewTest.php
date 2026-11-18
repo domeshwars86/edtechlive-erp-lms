@@ -58,6 +58,38 @@ class PlatformOverviewTest extends TestCase
         $this->getJson('/api/v1/me')->assertOk()->assertJsonPath('data.is_platform_admin', false);
         $this->getJson('/api/v1/platform/overview')->assertForbidden();
         $this->getJson('/api/v1/platform/organizations')->assertForbidden();
+        $this->getJson('/api/v1/platform/users')->assertForbidden();
+    }
+
+    public function test_allowlisted_operator_can_filter_a_paginated_user_directory(): void
+    {
+        Config::set('services.platform.admin_emails', ['operator@example.com']);
+        $operator = User::factory()->create(['email' => 'operator@example.com']);
+        $teacher = User::factory()->create(['name' => 'School Teacher', 'email' => 'teacher@example.com']);
+        $pending = User::factory()->create([
+            'name' => 'Pending Parent', 'email' => 'pending-parent@example.com', 'email_verified_at' => null,
+        ]);
+        $organization = $this->organization('Directory School', 'directory-school', 'active');
+        OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $teacher->id,
+            'role' => OrganizationRole::Teacher, 'status' => MembershipStatus::Active,
+        ]);
+        OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $pending->id,
+            'role' => OrganizationRole::Parent, 'status' => MembershipStatus::Active,
+        ]);
+
+        Sanctum::actingAs($operator);
+
+        $this->getJson('/api/v1/platform/users?q=SCHOOL&role=teacher&email_verified=true&per_page=1')
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.email', 'teacher@example.com')
+            ->assertJsonPath('data.0.active_organizations', 1)
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonMissingPath('data.0.password');
+        $this->getJson('/api/v1/platform/users?email_verified=false')
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.email', 'pending-parent@example.com');
     }
 
     private function organization(string $name, string $slug, string $status): Organization

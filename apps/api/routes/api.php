@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\V1\OrganizationSettingsController;
 use App\Http\Controllers\Api\V1\PeopleController;
 use App\Http\Controllers\Api\V1\PlatformOrganizationController;
 use App\Http\Controllers\Api\V1\PlatformOverviewController;
+use App\Http\Controllers\Api\V1\PlatformUserController;
 use App\Http\Controllers\Api\V1\StudentGuardianController;
 use App\Http\Controllers\Api\V1\TeacherWorkloadReportController;
 use App\Http\Controllers\Api\V1\TeachingAssignmentController;
@@ -85,6 +86,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/me', MeController::class)->name('api.v1.me');
         Route::get('/platform/overview', PlatformOverviewController::class)->middleware('verified');
         Route::get('/platform/organizations', [PlatformOrganizationController::class, 'index'])->middleware('verified');
+        Route::get('/platform/users', [PlatformUserController::class, 'index'])->middleware('verified');
         Route::post('/auth/logout', [AuthenticatedSessionController::class, 'destroy'])->name('api.v1.auth.logout');
 
         Route::middleware('verified')->group(function (): void {
