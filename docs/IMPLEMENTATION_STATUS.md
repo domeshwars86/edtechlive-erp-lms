@@ -43,7 +43,7 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 
 ## Current limitations
 
-- API database migrations have not been applied to PostgreSQL; local PostgreSQL service status was not confirmed.
+- API database migrations have not been applied to PostgreSQL in this workspace; no local PostgreSQL client, service, or Docker runtime is available. CI now includes an isolated PostgreSQL 16 migration and full API test job, but it has not run from this local branch.
 - Email delivery must be configured for verification, reset, and organization invitation links; local development logs messages.
 - Contact enquiries are stored through a public throttled API after explicit consent and can notify a configured recipient. Staff inbox access requires a verified account whose email is listed in `ENQUIRY_ADMIN_EMAILS`; retention cleanup remains open.
 - Fee records are manual ledger entries only. Payment gateway integration, refund handling, idempotency, reconciliation reporting, and a dedicated finance role remain open.
@@ -75,10 +75,11 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - Teacher workload verification: root typecheck, ESLint, production build (14 prerendered routes), Pint, and full API suite passed (**83 tests / 549 assertions**). Coverage includes deduplicated workload, inactive timetable exclusion, future-session exclusion, tenant-scoped enrollment totals, and teacher-role denial.
 - Finance summary is implemented for staff roles with aggregate issued, received, outstanding, and overdue values; root typecheck/lint/build, Pint, and full API suite pass (**85 tests / 561 assertions**). Coverage includes cent-safe currency totals, partial overdue balances, tenant isolation, and teacher-role denial.
 - Assessment reporting now includes published quizzes and assignments, active quiz attempts, assignment grading backlog, and weighted scores without student identities; teacher accounts see only their own published courses. Full API suite passes (**87 tests / 583 assertions**), along with Pint, web typecheck/lint, and production build (14 prerendered routes).
+- PostgreSQL validation progress: added a dedicated PostgreSQL 16 service job to GitHub Actions to run fresh migrations and the full Laravel suite. Workflow YAML parsed successfully with `js-yaml`; execution awaits a CI run because PostgreSQL and Docker are unavailable locally.
 
 ## Next
 
-1. Verify client auth flows against a persistent local development database and configure a safe local PostgreSQL service before migration validation.
+1. Run the new PostgreSQL CI job and resolve any migration or query compatibility issues it exposes; verify client auth flows against a persistent development database.
 2. Continue LMS workflows with broader examinations and assignment result history.
 3. Expand reports to cash flow periods and exam attempts outside the quiz module.
 4. Build the staff enquiry review/response workflow and define enquiry retention; configure real email delivery before promising a response.

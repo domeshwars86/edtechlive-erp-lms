@@ -221,6 +221,11 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Admin, management, and independent educator roles see tenant totals. Teacher access is limited to published courses assigned to that teacher. Student and parent accounts are denied.
 - Focused API tests pass (**2 tests / 22 assertions**) covering quiz and assignment weighted score totals, in-progress handling, grading backlog, teacher course scoping, and student denial. Full API suite passes (**87 tests / 583 assertions**), Pint, web typecheck/lint, and production build (14 prerendered routes).
 
+## PostgreSQL CI gate (19 November 2026)
+
+- Added a separate PostgreSQL 16 service job to `.github/workflows/quality.yml`. It installs `pdo_pgsql`, applies a fresh schema to a disposable CI database, then runs the complete API test suite.
+- Workflow YAML parses with the installed `js-yaml` parser. The job has not executed from this checkout; no local PostgreSQL server, client, or Docker runtime is available. PostgreSQL compatibility remains unverified until the CI job runs.
+
 ## Student course progress milestone (18 November 2026)
 
 - Added tenant-aware lesson completion records. Enrolled learners can mark/reopen published lessons and see a course completion count/percentage; course teachers and managers can review learner percentages for their authorized course. Draft lessons and inactive/non-enrolled courses are denied.

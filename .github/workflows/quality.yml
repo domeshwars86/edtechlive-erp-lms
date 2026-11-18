@@ -53,6 +53,55 @@ jobs:
       - run: vendor/bin/phpunit
       - run: vendor/bin/pint --test
 
+  api-postgres:
+    name: Laravel PostgreSQL migration and test compatibility
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: edtechlive_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d edtechlive_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: apps/api
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: edtechlive_test
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@2.40.0
+        with:
+          php-version: '8.4'
+          extensions: ctype, curl, dom, fileinfo, filter, hash, mbstring, openssl, pdo_pgsql, session, tokenizer, xml
+          coverage: none
+      - uses: actions/cache@v6
+        with:
+          path: apps/api/vendor
+          key: composer-pgsql-${{ runner.os }}-${{ hashFiles('apps/api/composer.lock') }}
+          restore-keys: composer-pgsql-${{ runner.os }}-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: php artisan migrate:fresh --force
+      - run: vendor/bin/phpunit
+
   mobile:
     name: Expo mobile typecheck and Android bundle
     runs-on: ubuntu-latest

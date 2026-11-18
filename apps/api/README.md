@@ -32,7 +32,7 @@ php artisan test
 vendor/bin/pint --test
 ```
 
-Tests use in-memory SQLite and do not require PostgreSQL. The academic migration has been applied to the ignored local SQLite development database; migrations have not yet been validated against PostgreSQL.
+The default CI API job uses in-memory SQLite. A separate PostgreSQL 16 CI job provisions an isolated service, applies fresh migrations, and runs the API suite. That job must execute successfully before PostgreSQL compatibility is considered verified. The ignored local development SQLite schema is not production data.
 
 ## Implemented API routes
 
