@@ -6,6 +6,7 @@
 
 - Added a nullable user preference with a foreign key that clears on organization deletion, a membership-checked save endpoint, and restore-on-reload behavior in the web client. The API reports a saved choice only while its membership and organization remain active.
 - The full API suite passed (**107 tests / 757 assertions**) with in-memory SQLite; `vendor/bin/pint --test`, web typecheck, and ESLint passed. The migration applied to the isolated local SQLite database; production build passed with 14 prerendered routes and a 490.99 kB main JavaScript bundle.
+- The Expo client now reads the account preference on restore/sign-in and saves changes through the same membership-checked endpoint. Mobile TypeScript passed and Android export bundled 564 modules (2.5 MB JavaScript payload); native device verification remains open.
 
 ## Continuous quality workflow milestone (18 November 2026)
 

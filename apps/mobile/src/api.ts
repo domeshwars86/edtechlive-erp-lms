@@ -4,6 +4,7 @@ export type OrganizationMembership = {
   role: 'admin' | 'management' | 'teacher' | 'student' | 'parent' | 'independent_educator'
   organization: { id: number; name: string; slug: string; type: string; status: string; timezone: string }
 }
+export type OrganizationList = { data: OrganizationMembership[]; preferred_organization_id: number | null }
 export type Course = { id: number; title: string; level: string | null; description: string | null; status: string; subject: { id: number; name: string } | null; teacher: { id: number; name: string } | null }
 export type Lesson = { id: number; title: string; sort_order: number; content: string | null; external_url: string | null; status: 'draft' | 'published' }
 export type AssignmentSubmission = { id: number; assignment_id: number; answer: string; submitted_at: string | null; awarded_points: number | null; feedback: string | null; graded_at: string | null }

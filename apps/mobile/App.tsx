@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
-import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationMembership, type QuizRun, type StudentAttendance, type StudentProgress, type TeachingAssignment } from './src/api'
+import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type StudentAttendance, type StudentProgress, type TeachingAssignment } from './src/api'
 
 const TOKEN_KEY = 'edtechlive.mobile.token'
 const ORGANIZATION_KEY = 'edtechlive.mobile.organization'
@@ -56,11 +56,12 @@ export default function App() {
         const saved = await SecureStore.getItemAsync(TOKEN_KEY)
         if (!saved) return
         const me = await mobileApi.get<{ data: ApiUser }>('/api/v1/me', saved)
-        const organizationList = await mobileApi.get<{ data: OrganizationMembership[] }>('/api/v1/organizations?per_page=100', saved)
+        const organizationList = await mobileApi.get<OrganizationList>('/api/v1/organizations?per_page=100', saved)
         if (cancelled) return
         setToken(saved); setUser(me.data); setMemberships(organizationList.data)
         const remembered = await SecureStore.getItemAsync(ORGANIZATION_KEY)
-        const selection = organizationList.data.find(item => String(item.organization.id) === remembered)
+        const selection = organizationList.data.find(item => item.organization.id === organizationList.preferred_organization_id)
+          ?? organizationList.data.find(item => String(item.organization.id) === remembered)
           ?? (organizationList.data.length === 1 ? organizationList.data[0] : null)
         if (selection) setActive(selection)
       } catch {
@@ -134,10 +135,12 @@ export default function App() {
     setBusy(true); setError(''); setSuccess(''); setVerificationNeeded(false)
     try {
       const result = await mobileApi.login(email.trim(), password)
-      const organizationList = await mobileApi.get<{ data: OrganizationMembership[] }>('/api/v1/organizations?per_page=100', result.token)
+      const organizationList = await mobileApi.get<OrganizationList>('/api/v1/organizations?per_page=100', result.token)
       await SecureStore.setItemAsync(TOKEN_KEY, result.token)
       setToken(result.token); setUser(result.data); setMemberships(organizationList.data)
-      if (organizationList.data.length === 1) await chooseOrganization(organizationList.data[0], result.token)
+      const preferred = organizationList.data.find(item => item.organization.id === organizationList.preferred_organization_id)
+      if (preferred) await chooseOrganization(preferred, result.token)
+      else if (organizationList.data.length === 1) await chooseOrganization(organizationList.data[0], result.token)
       setPassword('')
     } catch (reason) {
       if (reason instanceof ApiError && reason.code === 'email_verification_required') {
@@ -158,6 +161,7 @@ export default function App() {
   }
 
   async function chooseOrganization(membership: OrganizationMembership, currentToken = token) {
+    if (currentToken) await mobileApi.patch<{ data: OrganizationMembership }>('/api/v1/me/organization', currentToken, { organization_id: membership.organization.id })
     await SecureStore.setItemAsync(ORGANIZATION_KEY, String(membership.organization.id))
     setActive(membership); setError('')
     if (currentToken) setToken(currentToken)
