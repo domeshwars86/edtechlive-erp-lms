@@ -209,6 +209,12 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Added the Teacher workload tab to the admin/management academic reports workspace. Focused API tests pass (**2 tests / 11 assertions**); full API suite passes (**83 tests / 549 assertions**), Pint, web typecheck/lint, and production build (14 prerendered routes).
 - No migration was required. Browser visual verification remains unavailable in this environment.
 
+## Finance summary report (19 November 2026)
+
+- Added `GET /api/v1/organizations/{organization}/reports/finance` for admin, management, and independent educator roles. It summarizes INR receivables, staff-entered receipts, remaining balance, fee status counts, and overdue balances using the organization's local date.
+- The report returns aggregate values only and is tenant-scoped. A manager-side overview is displayed above the fee ledger; family fee views remain individually scoped. No payment provider or charge flow was added.
+- Focused API tests pass (**2 tests / 12 assertions**) covering totals, overdue partial balance, foreign-tenant exclusion, and teacher denial. Full API suite passes (**85 tests / 561 assertions**), Pint, web typecheck/lint, and production build (14 prerendered routes).
+
 ## Student course progress milestone (18 November 2026)
 
 - Added tenant-aware lesson completion records. Enrolled learners can mark/reopen published lessons and see a course completion count/percentage; course teachers and managers can review learner percentages for their authorized course. Draft lessons and inactive/non-enrolled courses are denied.

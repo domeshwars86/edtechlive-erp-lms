@@ -5,7 +5,7 @@
 - [ ] Dashboard routes and role navigation still need a full authenticated browser/mobile visual review. Windows Chrome could not reach Vite/Laravel processes launched from the isolated Codex shell.
 - [ ] `public/sitemap.xml` currently uses a reserved `.example` host; replace with the approved canonical domain before launch.
 - [ ] Contact enquiries are persisted and can notify a configured mailbox; an allowlisted staff inbox tracks status/reviewer, but retention cleanup and response content tracking remain open.
-- [ ] Fee records currently support staff-entered INR receivables and receipts only. There is no payment gateway, refund workflow, idempotency key, reconciliation report, or finance-specific role.
+- [ ] Fee records currently support staff-entered INR receivables and receipts, plus aggregate issued/received/outstanding/overdue reporting. There is no payment gateway, refund workflow, idempotency key, detailed reconciliation, or finance-specific role.
 - [ ] Class and management meetings save scoped HTTPS links, but Google Meet provisioning, reminders, participant invites and recording workflows are not connected.
 - [ ] Authentication APIs are connected, but verification/reset delivery depends on configuring an email transport.
 - [ ] Sample courses and provisional plan scope/pricing are not commercial offers.
