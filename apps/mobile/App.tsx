@@ -13,8 +13,14 @@ type MobileMeeting = { id: number; kind: 'class' | 'management'; title: string; 
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused'
 type MobileRosterStudent = { id: number; name: string; admission_number: string | null; academic_class: { id: number; name: string } | null; academic_section: { id: number; name: string } | null }
 type MobileRosterTeacher = { id: number; name: string; employee_number: string | null; specialization: string | null }
+type MobileAttendanceReport = { from: string; to: string; totals: { records: number; present: number; late: number; absent: number; excused: number; attendance_rate: number }; sections: { section_id: number; class: string; section: string; records: number; attendance_rate: number; absent: number }[] }
 const attendanceStatuses: AttendanceStatus[] = ['present', 'absent', 'late', 'excused']
 function localDate() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}` }
+function organizationDate(timezone: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]))
+  return `${values.year}-${values.month}-${values.day}`
+}
 
 export default function App() {
   const [token, setToken] = useState('')
@@ -35,6 +41,7 @@ export default function App() {
   const [rosterTeachers, setRosterTeachers] = useState<MobileRosterTeacher[]>([])
   const [rosterStudentTotal, setRosterStudentTotal] = useState(0)
   const [rosterTeacherTotal, setRosterTeacherTotal] = useState(0)
+  const [attendanceReport, setAttendanceReport] = useState<MobileAttendanceReport | null>(null)
   const [studyMaterials, setStudyMaterials] = useState<StudyMaterial[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
@@ -86,7 +93,7 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
+    setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
@@ -107,13 +114,16 @@ export default function App() {
         .then(result => { if (!cancelled) setTeachingAssignments(result.data) }))
     }
     if (active.role === 'admin' || active.role === 'management') {
+      const today = organizationDate(active.organization.timezone)
       tasks.push(Promise.all([
         mobileApi.get<{ data: MobileRosterStudent[]; meta: { total: number } }>(`${base}/students?status=active&per_page=5`, token),
         mobileApi.get<{ data: MobileRosterTeacher[]; meta: { total: number } }>(`${base}/teachers?status=active&per_page=5`, token),
-      ]).then(([studentResult, teacherResult]) => {
+        mobileApi.get<{ data: MobileAttendanceReport }>(`${base}/reports/attendance?from=${today}&to=${today}`, token),
+      ]).then(([studentResult, teacherResult, attendanceResult]) => {
         if (!cancelled) {
           setRosterStudents(studentResult.data); setRosterStudentTotal(studentResult.meta.total)
           setRosterTeachers(teacherResult.data); setRosterTeacherTotal(teacherResult.meta.total)
+          setAttendanceReport(attendanceResult.data)
         }
       }))
     }
@@ -305,7 +315,7 @@ export default function App() {
     try { if (current) await mobileApi.post('/api/v1/auth/logout', current) }
     catch { /* Local credentials must still be removed if the API is offline. */ }
     await SecureStore.deleteItemAsync(TOKEN_KEY); await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
-    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
+    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
   }
 
   if (busy && !user) return <Splash />
@@ -350,6 +360,8 @@ export default function App() {
           {rosterStudents.length ? rosterStudents.map(student => <View style={styles.recordCard} key={student.id}><Text style={styles.courseTitle}>{student.name}</Text><Text style={styles.courseMeta}>{student.admission_number ?? 'Active learner'}{student.academic_class?.name ? ` · ${student.academic_class.name}` : ''}{student.academic_section?.name ? ` · ${student.academic_section.name}` : ''}</Text></View>) : <Empty text={busy ? 'Loading student roster…' : 'No active students are on the roster.'} />}
           <Text style={styles.sectionTitle}>Teacher overview · {rosterTeacherTotal} active</Text>
           {rosterTeachers.length ? rosterTeachers.map(teacher => <View style={styles.recordCard} key={teacher.id}><Text style={styles.courseTitle}>{teacher.name}</Text><Text style={styles.courseMeta}>{teacher.employee_number ?? 'Teaching staff'}{teacher.specialization ? ` · ${teacher.specialization}` : ''}</Text></View>) : <Empty text={busy ? 'Loading teacher roster…' : 'No active teachers are on the roster.'} />}
+          <Text style={styles.sectionTitle}>Attendance report · {attendanceReport?.to ?? 'today'}</Text>
+          {attendanceReport ? attendanceReport.totals.records ? <><View style={styles.infoCard}><Text style={styles.courseTitle}>{attendanceReport.totals.attendance_rate}% attendance rate</Text><Text style={styles.courseMeta}>{attendanceReport.totals.records} records · {attendanceReport.totals.present} present · {attendanceReport.totals.late} late · {attendanceReport.totals.absent} absent · {attendanceReport.totals.excused} excused</Text></View>{attendanceReport.sections.slice(0, 5).map(section => <View style={styles.recordCard} key={section.section_id}><Text style={styles.courseTitle}>{section.class} · {section.section}</Text><Text style={styles.courseMeta}>{section.attendance_rate}% attendance · {section.absent} absent of {section.records} records</Text></View>)}</> : <Empty text="No attendance has been recorded today." /> : <Empty text={busy ? 'Loading attendance report…' : 'No attendance report is available.'} />}
         </> : null}
         <Text style={styles.sectionTitle}>Upcoming classes and meetings</Text>
         {meetings.filter(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() > Date.now()).slice(0, 5).map(item => {
