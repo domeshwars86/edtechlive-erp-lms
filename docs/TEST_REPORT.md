@@ -6,6 +6,7 @@
 
 - Added a GitHub Actions quality workflow for root web typecheck/lint/build, Laravel PHPUnit/Pint with in-memory SQLite, and mobile typecheck/Android bundle export. It is push/PR triggered, read-only for repository contents, and has no deployment step.
 - Workflow YAML parsed locally and its web/mobile commands passed in this environment. A hosted GitHub Actions run cannot be triggered from this workspace because no remote CI session/credentials are connected.
+- Current backend regression recheck: full Laravel suite **76 passed / 493 assertions** against in-memory SQLite; `vendor/bin/pint --test` passed. Running PHPUnit with the normal sandbox token was blocked by PHP `is_readable` on workspace files; the same read-only repository check and test run passed with the authorized user token.
 - Local browser reachability follow-up: Vite and Laravel report ready on ports 4173 and 8001 when launched from this shell, but both direct HTTP probes and Windows Chrome time out. This shell/browser network boundary prevents confirming browser access; stopgap local URL remains `http://127.0.0.1:4173` when both processes run on the user's machine.
 
 ## Expo mobile foundation milestone (18 November 2026)

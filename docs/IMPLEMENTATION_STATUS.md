@@ -52,6 +52,7 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 ## Verification
 
 - Added `.github/workflows/quality.yml`: web typecheck/lint/build, Laravel PHPUnit/Pint on SQLite, and Expo mobile typecheck/Android JS export. Workflow has read-only repository permissions and does not deploy.
+- Latest backend regression recheck: **76 PHPUnit tests / 493 assertions** passed against in-memory SQLite, and Pint passed. This run used the authorized user token after the sandbox token made PHP report workspace files unreadable.
 - LMS foundation verification: full PHPUnit suite **53 passed / 328 assertions** using in-memory SQLite; `npm run typecheck`, `npm run lint`, `npm run build` (14 prerendered public routes), and `vendor/bin/pint --test` passed. Course/lesson/enrollment and assignment/submission, quiz/attempt, and course-asset migrations applied to the ignored local SQLite development database.
 - `npm run typecheck` — passed after invitation and teacher workspace integration.
 - `npm run lint` — passed after invitation and teacher workspace integration.
