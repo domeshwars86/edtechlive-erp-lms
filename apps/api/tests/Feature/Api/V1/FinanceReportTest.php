@@ -11,6 +11,7 @@ use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\Student;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -24,12 +25,13 @@ class FinanceReportTest extends TestCase
         $organization = $this->organization('Northstar Academy');
         $admin = User::factory()->create();
         $this->membership($organization, $admin, OrganizationRole::Admin);
+        $today = CarbonImmutable::now($organization->timezone)->startOfDay();
         $student = Student::query()->create([
             'organization_id' => $organization->id, 'name' => 'Learner', 'admission_number' => 'S-1', 'status' => 'active',
         ]);
         $partial = FeeRecord::query()->create([
             'organization_id' => $organization->id, 'student_id' => $student->id,
-            'title' => 'Past due', 'amount' => '100.00', 'due_on' => now($organization->timezone)->subDay()->toDateString(),
+            'title' => 'Past due', 'amount' => '100.00', 'due_on' => $today->subDay()->toDateString(),
             'status' => 'partial', 'created_by' => $admin->id,
         ]);
         $paid = FeeRecord::query()->create([
@@ -38,13 +40,13 @@ class FinanceReportTest extends TestCase
         ]);
         FeeRecord::query()->create([
             'organization_id' => $organization->id, 'student_id' => $student->id,
-            'title' => 'Upcoming fee', 'amount' => '25.00', 'due_on' => now($organization->timezone)->addDay()->toDateString(),
+            'title' => 'Upcoming fee', 'amount' => '25.00', 'due_on' => $today->addDay()->toDateString(),
             'status' => 'unpaid', 'created_by' => $admin->id,
         ]);
-        foreach ([[$partial, '30.00'], [$paid, '50.00']] as [$record, $amount]) {
+        foreach ([[$partial, '30.00', $today->addHours(12)->utc()], [$paid, '50.00', $today->addHours(12)->utc()], [$partial, '20.00', $today->subDay()->addHours(12)->utc()]] as [$record, $amount, $receivedAt]) {
             FeePayment::query()->create([
                 'organization_id' => $organization->id, 'fee_record_id' => $record->id,
-                'amount' => $amount, 'method' => 'cash', 'received_by' => $admin->id, 'received_at' => now(),
+                'amount' => $amount, 'method' => 'cash', 'received_by' => $admin->id, 'received_at' => $receivedAt,
             ]);
         }
 
@@ -60,17 +62,22 @@ class FinanceReportTest extends TestCase
         ]);
 
         Sanctum::actingAs($admin);
-        $this->getJson("/api/v1/organizations/{$organization->id}/reports/finance")->assertOk()
+        $todayString = $today->toDateString();
+        $this->getJson("/api/v1/organizations/{$organization->id}/reports/finance?from={$todayString}&to={$todayString}")->assertOk()
             ->assertJsonPath('data.currency', 'INR')
+            ->assertJsonPath('data.collections_period.from', $todayString)
+            ->assertJsonPath('data.collections_period.to', $todayString)
+            ->assertJsonPath('data.collections_period.receipt_count', 2)
+            ->assertJsonPath('data.collections_period.received_amount', '80.00')
             ->assertJsonPath('data.summary.fee_records', 3)
             ->assertJsonPath('data.summary.unpaid_records', 1)
             ->assertJsonPath('data.summary.partial_records', 1)
             ->assertJsonPath('data.summary.paid_records', 1)
             ->assertJsonPath('data.summary.issued_amount', '175.00')
-            ->assertJsonPath('data.summary.received_amount', '80.00')
-            ->assertJsonPath('data.summary.outstanding_amount', '95.00')
+            ->assertJsonPath('data.summary.received_amount', '100.00')
+            ->assertJsonPath('data.summary.outstanding_amount', '75.00')
             ->assertJsonPath('data.summary.overdue_records', 1)
-            ->assertJsonPath('data.summary.overdue_balance', '70.00');
+            ->assertJsonPath('data.summary.overdue_balance', '50.00');
     }
 
     public function test_teacher_cannot_read_organization_wide_financial_totals(): void
@@ -81,6 +88,19 @@ class FinanceReportTest extends TestCase
         Sanctum::actingAs($teacher);
 
         $this->getJson("/api/v1/organizations/{$organization->id}/reports/finance")->assertForbidden();
+    }
+
+    public function test_finance_receipt_period_requires_valid_bounded_dates(): void
+    {
+        $organization = $this->organization('Northstar Academy');
+        $admin = User::factory()->create();
+        $this->membership($organization, $admin, OrganizationRole::Admin);
+        Sanctum::actingAs($admin);
+
+        $base = "/api/v1/organizations/{$organization->id}/reports/finance";
+        $this->getJson("{$base}?from=2026-02-30&to=2026-03-01")->assertUnprocessable()->assertJsonValidationErrors('from');
+        $this->getJson("{$base}?from=2026-01-01&to=2025-01-01")->assertUnprocessable()->assertJsonValidationErrors('to');
+        $this->getJson("{$base}?from=2024-01-01&to=2025-01-02")->assertUnprocessable()->assertJsonValidationErrors('to');
     }
 
     private function membership(Organization $organization, User $user, OrganizationRole $role): void

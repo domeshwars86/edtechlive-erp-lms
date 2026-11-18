@@ -211,9 +211,9 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 
 ## Finance summary report (19 November 2026)
 
-- Added `GET /api/v1/organizations/{organization}/reports/finance` for admin, management, and independent educator roles. It summarizes INR receivables, staff-entered receipts, remaining balance, fee status counts, and overdue balances using the organization's local date.
+- Added `GET /api/v1/organizations/{organization}/reports/finance` for admin, management, and independent educator roles. It summarizes INR receivables, staff-entered receipts, remaining balance, fee status counts, and overdue balances using the organization's local date. A validated local-date filter (up to 366 days) summarizes receipt count/amount for the selected range; default is the last 30 days.
 - The report returns aggregate values only and is tenant-scoped. A manager-side overview is displayed above the fee ledger; family fee views remain individually scoped. No payment provider or charge flow was added.
-- Focused API tests pass (**2 tests / 12 assertions**) covering totals, overdue partial balance, foreign-tenant exclusion, and teacher denial. Full API suite passes (**85 tests / 561 assertions**), Pint, web typecheck/lint, and production build (14 prerendered routes).
+- Focused API tests pass (**3 tests / 25 assertions**) covering all-time and period totals, timezone-aware day boundaries, date validation, overdue partial balance, foreign-tenant exclusion, and teacher denial. Full API suite passes (**88 tests / 596 assertions**), Pint, web typecheck/lint, and production build (14 prerendered routes).
 
 ## Assessment outcome report (19 November 2026)
 

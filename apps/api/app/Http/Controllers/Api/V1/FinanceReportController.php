@@ -9,6 +9,7 @@ use App\Services\OrganizationAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class FinanceReportController
 {
@@ -23,7 +24,21 @@ class FinanceReportController
             OrganizationRole::IndependentEducator,
         ], true), 403);
 
-        $today = CarbonImmutable::now($membership->organization->timezone)->toDateString();
+        $timezone = $membership->organization->timezone;
+        $today = CarbonImmutable::now($timezone)->toDateString();
+        $filters = $request->validate([
+            'from' => ['sometimes', 'required_with:to', 'date_format:Y-m-d'],
+            'to' => ['sometimes', 'required_with:from', 'date_format:Y-m-d', 'after_or_equal:from'],
+        ]);
+        $periodEnd = isset($filters['to'])
+            ? CarbonImmutable::createFromFormat('!Y-m-d', $filters['to'], $timezone)->endOfDay()
+            : CarbonImmutable::now($timezone)->endOfDay();
+        $periodStart = isset($filters['from'])
+            ? CarbonImmutable::createFromFormat('!Y-m-d', $filters['from'], $timezone)->startOfDay()
+            : $periodEnd->startOfDay()->subDays(29);
+        if ($periodStart->startOfDay()->diffInDays($periodEnd->startOfDay()) > 365) {
+            throw ValidationException::withMessages(['to' => ['The receipt date range cannot exceed 366 calendar days.']]);
+        }
         $records = FeeRecord::query()->where('organization_id', $organization)
             ->selectRaw('COUNT(*) as record_count')
             ->selectRaw('COALESCE(SUM(amount), 0) as issued_amount')
@@ -33,6 +48,9 @@ class FinanceReportController
             ->first();
 
         $received = FeePayment::query()->where('organization_id', $organization)->sum('amount');
+        $periodReceipts = FeePayment::query()->where('organization_id', $organization)
+            ->whereBetween('received_at', [$periodStart->utc(), $periodEnd->utc()])
+            ->selectRaw('COUNT(*) as receipt_count')->selectRaw('COALESCE(SUM(amount), 0) as received_amount')->first();
         $paymentTotals = FeePayment::query()->where('organization_id', $organization)
             ->selectRaw('fee_record_id, SUM(amount) as paid_amount')->groupBy('fee_record_id');
         $overdue = FeeRecord::query()->where('fee_records.organization_id', $organization)
@@ -51,6 +69,12 @@ class FinanceReportController
         return response()->json(['data' => [
             'as_of' => $today,
             'currency' => 'INR',
+            'collections_period' => [
+                'from' => $periodStart->toDateString(),
+                'to' => $periodEnd->toDateString(),
+                'receipt_count' => (int) $periodReceipts->receipt_count,
+                'received_amount' => number_format(((int) round((float) $periodReceipts->received_amount * 100)) / 100, 2, '.', ''),
+            ],
             'summary' => [
                 'fee_records' => (int) $records->record_count,
                 'unpaid_records' => (int) $records->unpaid_count,
