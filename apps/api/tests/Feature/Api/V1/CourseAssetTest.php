@@ -94,6 +94,9 @@ class CourseAssetTest extends TestCase
         $this->get($signedPath)->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
         $tamperedPath = str_replace("/{$assetId}/download?", "/{$otherAsset->id}/download?", $signedPath);
         $this->get($tamperedPath)->assertForbidden();
+        $this->travel(3)->minutes();
+        $this->get($signedPath)->assertForbidden();
+        $this->travelBack();
     }
 
     public function test_unenrolled_student_cannot_view_course_materials(): void
