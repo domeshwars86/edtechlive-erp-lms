@@ -3,13 +3,47 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Models\Organization;
+use App\Models\PlatformAuditEvent;
 use App\Services\PlatformOperatorAccess;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class PlatformOrganizationController
 {
+    public function update(Request $request, int $organization, PlatformOperatorAccess $platformAccess, DatabaseManager $database): JsonResponse
+    {
+        abort_unless($platformAccess->allows($request->user()), 403);
+        $data = $request->validate([
+            'status' => ['required', 'string', Rule::in(['active', 'suspended'])],
+            'reason' => ['required', 'string', 'min:8', 'max:500'],
+        ]);
+
+        $record = $database->transaction(function () use ($request, $organization, $data): Organization {
+            $record = Organization::query()->lockForUpdate()->findOrFail($organization);
+            $previous = $record->status;
+            if ($previous === $data['status']) {
+                return $record;
+            }
+
+            $record->forceFill(['status' => $data['status']])->save();
+            PlatformAuditEvent::query()->create([
+                'actor_user_id' => $request->user()->id,
+                'organization_id' => $record->id,
+                'organization_name' => $record->name,
+                'action' => 'organization.status_changed',
+                'reason' => trim($data['reason']),
+                'before' => ['status' => $previous],
+                'after' => ['status' => $record->status],
+            ]);
+
+            return $record;
+        });
+
+        return response()->json(['data' => ['id' => $record->id, 'name' => $record->name, 'status' => $record->status]]);
+    }
+
     public function index(Request $request, PlatformOperatorAccess $platformAccess): JsonResponse
     {
         abort_unless($platformAccess->allows($request->user()), 403);

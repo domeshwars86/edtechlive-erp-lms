@@ -37,6 +37,7 @@ use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\OrganizationInvitationController;
 use App\Http\Controllers\Api\V1\OrganizationSettingsController;
 use App\Http\Controllers\Api\V1\PeopleController;
+use App\Http\Controllers\Api\V1\PlatformAuditEventController;
 use App\Http\Controllers\Api\V1\PlatformOrganizationController;
 use App\Http\Controllers\Api\V1\PlatformOverviewController;
 use App\Http\Controllers\Api\V1\PlatformUserController;
@@ -89,6 +90,8 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/me', MeController::class)->name('api.v1.me');
         Route::get('/platform/overview', PlatformOverviewController::class)->middleware('verified');
         Route::get('/platform/organizations', [PlatformOrganizationController::class, 'index'])->middleware('verified');
+        Route::patch('/platform/organizations/{organization}', [PlatformOrganizationController::class, 'update'])->whereNumber('organization')->middleware('verified');
+        Route::get('/platform/audit-events', [PlatformAuditEventController::class, 'index'])->middleware('verified');
         Route::get('/platform/users', [PlatformUserController::class, 'index'])->middleware('verified');
         Route::post('/auth/logout', [AuthenticatedSessionController::class, 'destroy'])->name('api.v1.auth.logout');
 

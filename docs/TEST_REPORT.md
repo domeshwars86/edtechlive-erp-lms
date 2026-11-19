@@ -323,3 +323,10 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Added browser CSV export for attendance by class/section and date range, course progress, enrollment by session/section, teacher workload, quiz/assignment outcomes, published school exam performance, and all-time plus selected-period finance summaries. CSV values are quoted and spreadsheet formula prefixes are neutralized; rows reflect the data already scoped for the report view.
 - `npm run typecheck`, `npm run lint`, and `npm run build` passed. Production build prerendered 14 public routes and produced a 487.00 kB main JavaScript bundle. Lint initially identified a disallowed control-character regex; the implementation was adjusted and the final lint run passed.
 - Browser download behavior has not been visually exercised in an authenticated browser in this environment.
+
+## Platform organization controls and status audit (19 November 2026)
+
+- Added allowlisted, verified-operator API controls to suspend/reactivate an organization, requiring a reason and writing an audit event in the same transaction. Suspended organizations disappear from member organization selection and organization access; reactivation restores access.
+- Added a paginated operator-only audit API and dashboard history panel. History contains the organization snapshot, action, reason, before/after status, and operator name/email, with no credentials or tokens.
+- Full Laravel suite: **115 tests / 847 assertions** passed on in-memory SQLite. Focused platform suite: **5 tests / 56 assertions**. `vendor/bin/pint --test`, web typecheck, ESLint, and production build passed; the build prerendered 14 public routes with a 487.00 kB main JavaScript bundle.
+- The sandboxed PHP runtime could not read workspace paths for PHPUnit bootstrap checks; tests were run with local filesystem access. No production database was changed.

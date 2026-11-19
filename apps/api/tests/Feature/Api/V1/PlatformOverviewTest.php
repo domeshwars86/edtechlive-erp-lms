@@ -7,6 +7,7 @@ use App\Enums\OrganizationRole;
 use App\Enums\OrganizationType;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
+use App\Models\PlatformAuditEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
@@ -58,7 +59,65 @@ class PlatformOverviewTest extends TestCase
         $this->getJson('/api/v1/me')->assertOk()->assertJsonPath('data.is_platform_admin', false);
         $this->getJson('/api/v1/platform/overview')->assertForbidden();
         $this->getJson('/api/v1/platform/organizations')->assertForbidden();
+        $this->getJson('/api/v1/platform/audit-events')->assertForbidden();
         $this->getJson('/api/v1/platform/users')->assertForbidden();
+        $this->patchJson('/api/v1/platform/organizations/1', ['status' => 'suspended', 'reason' => 'Policy violation review'])->assertForbidden();
+    }
+
+    public function test_allowlisted_operator_can_suspend_and_reactivate_an_organization_with_audit_history(): void
+    {
+        Config::set('services.platform.admin_emails', ['operator@example.com']);
+        $operator = User::factory()->create(['email' => 'operator@example.com']);
+        $organization = $this->organization('Audit Academy', 'audit-academy', 'active');
+        $member = User::factory()->create();
+        OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $member->id,
+            'role' => OrganizationRole::Admin, 'status' => MembershipStatus::Active,
+        ]);
+        Sanctum::actingAs($operator);
+
+        $this->patchJson("/api/v1/platform/organizations/{$organization->id}", [
+            'status' => 'suspended', 'reason' => 'Compliance review requested',
+        ])->assertOk()->assertJsonPath('data.status', 'suspended');
+        $this->assertDatabaseHas('platform_audit_events', [
+            'actor_user_id' => $operator->id,
+            'organization_id' => $organization->id,
+            'action' => 'organization.status_changed',
+            'reason' => 'Compliance review requested',
+        ]);
+        $this->assertDatabaseHas('platform_audit_events', ['organization_id' => $organization->id, 'before->status' => 'active', 'after->status' => 'suspended']);
+        $this->getJson('/api/v1/platform/audit-events?per_page=1')
+            ->assertOk()->assertJsonPath('data.0.organization_name', 'Audit Academy')
+            ->assertJsonPath('data.0.actor.email', 'operator@example.com')
+            ->assertJsonPath('data.0.before.status', 'active')
+            ->assertJsonPath('data.0.after.status', 'suspended')
+            ->assertJsonMissingPath('data.0.actor.password');
+
+        Sanctum::actingAs($member);
+        $this->getJson('/api/v1/organizations')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson("/api/v1/organizations/{$organization->id}")->assertNotFound();
+
+        Sanctum::actingAs($operator);
+        $this->patchJson("/api/v1/platform/organizations/{$organization->id}", [
+            'status' => 'active', 'reason' => 'Compliance review completed',
+        ])->assertOk()->assertJsonPath('data.status', 'active');
+        $this->assertSame(2, PlatformAuditEvent::query()->where('organization_id', $organization->id)->count());
+        $this->assertSame('active', $organization->fresh()->status);
+        Sanctum::actingAs($member);
+        $this->getJson('/api/v1/organizations')->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_organization_status_change_requires_an_explanation_and_supported_status(): void
+    {
+        Config::set('services.platform.admin_emails', ['operator@example.com']);
+        $operator = User::factory()->create(['email' => 'operator@example.com']);
+        $organization = $this->organization('Validated Academy', 'validated-academy', 'active');
+        Sanctum::actingAs($operator);
+
+        $this->patchJson("/api/v1/platform/organizations/{$organization->id}", ['status' => 'deleted', 'reason' => 'Short'])
+            ->assertUnprocessable()->assertJsonValidationErrors(['status', 'reason']);
+        $this->assertSame('active', $organization->fresh()->status);
+        $this->assertDatabaseCount('platform_audit_events', 0);
     }
 
     public function test_allowlisted_operator_can_filter_a_paginated_user_directory(): void
