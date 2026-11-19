@@ -16,6 +16,7 @@ type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused'
 type MobileAttendanceStudent = AttendanceStudent & { originalStatus: AttendanceStudent['status']; correctionReason: string }
 type MobileRosterStudent = { id: number; name: string; admission_number: string | null; academic_class: { id: number; name: string } | null; academic_section: { id: number; name: string } | null }
 type MobileRosterTeacher = { id: number; name: string; employee_number: string | null; specialization: string | null }
+type MobileRosterKind = 'students' | 'teachers'
 type MobileAttendanceReport = { from: string; to: string; totals: { records: number; present: number; late: number; absent: number; excused: number; attendance_rate: number }; sections: { section_id: number; class: string; section: string; records: number; attendance_rate: number; absent: number }[] }
 type MobileCourseProgressReport = { data: { course_id: number; title: string; lessons: number; learners: number; average_percent: number; completed_learners: number }[]; summary: { courses: number; learners: number; average_percent: number } }
 type MobileFinanceReport = { as_of: string; currency: 'INR'; collections_period: { from: string; to: string; receipt_count: number; received_amount: string; expense_count: number; expense_amount: string; net_cash_flow: string }; summary: { fee_records: number; unpaid_records: number; partial_records: number; paid_records: number; issued_amount: string; received_amount: string; expense_amount: string; net_cash_flow: string; outstanding_amount: string; overdue_records: number; overdue_balance: string } }
@@ -39,6 +40,10 @@ function isIsoDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
   const date = new Date(`${value}T00:00:00Z`)
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value
+}
+function appendRosterItems<T extends { id: number }>(current: T[], incoming: T[]) {
+  const existing = new Set(current.map(item => item.id))
+  return [...current, ...incoming.filter(item => !existing.has(item.id))]
 }
 
 export default function App() {
@@ -74,6 +79,17 @@ export default function App() {
   const [rosterTeachers, setRosterTeachers] = useState<MobileRosterTeacher[]>([])
   const [rosterStudentTotal, setRosterStudentTotal] = useState(0)
   const [rosterTeacherTotal, setRosterTeacherTotal] = useState(0)
+  const [rosterStudentPage, setRosterStudentPage] = useState(1)
+  const [rosterStudentLastPage, setRosterStudentLastPage] = useState(1)
+  const [rosterTeacherPage, setRosterTeacherPage] = useState(1)
+  const [rosterTeacherLastPage, setRosterTeacherLastPage] = useState(1)
+  const [rosterStudentSearch, setRosterStudentSearch] = useState('')
+  const [rosterTeacherSearch, setRosterTeacherSearch] = useState('')
+  const [rosterStudentLoading, setRosterStudentLoading] = useState(false)
+  const [rosterTeacherLoading, setRosterTeacherLoading] = useState(false)
+  const [rosterStudentError, setRosterStudentError] = useState('')
+  const [rosterTeacherError, setRosterTeacherError] = useState('')
+  const rosterRequestRef = useRef<Record<MobileRosterKind, number>>({ students: 0, teachers: 0 })
   const [attendanceReport, setAttendanceReport] = useState<MobileAttendanceReport | null>(null)
   const [attendanceFrom, setAttendanceFrom] = useState(localDate())
   const [attendanceTo, setAttendanceTo] = useState(localDate())
@@ -142,6 +158,35 @@ export default function App() {
     }
   }, [active, token, user?.id])
 
+  const loadRoster = useCallback(async (kind: MobileRosterKind, page = 1, search = '', append = false) => {
+    if (!active || !token) return
+    const requestId = ++rosterRequestRef.current[kind]
+    const workspaceContext = `${user?.id ?? ''}:${active.organization.id}`
+    const setLoading = kind === 'students' ? setRosterStudentLoading : setRosterTeacherLoading
+    const setRosterError = kind === 'students' ? setRosterStudentError : setRosterTeacherError
+    setLoading(true)
+    setRosterError('')
+    try {
+      const base = `/api/v1/organizations/${active.organization.id}`
+      const endpoint = `${base}/${kind}?status=active&per_page=20&page=${page}${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`
+      const result = await mobileApi.get<{ data: Array<MobileRosterStudent | MobileRosterTeacher>; meta: { current_page: number; last_page: number; total: number } }>(endpoint, token)
+      if (requestId !== rosterRequestRef.current[kind] || workspaceContextRef.current !== workspaceContext) return
+      if (kind === 'students') {
+        setRosterStudents(current => append ? appendRosterItems(current, result.data as MobileRosterStudent[]) : result.data as MobileRosterStudent[])
+        setRosterStudentTotal(result.meta.total); setRosterStudentPage(result.meta.current_page); setRosterStudentLastPage(result.meta.last_page)
+      } else {
+        setRosterTeachers(current => append ? appendRosterItems(current, result.data as MobileRosterTeacher[]) : result.data as MobileRosterTeacher[])
+        setRosterTeacherTotal(result.meta.total); setRosterTeacherPage(result.meta.current_page); setRosterTeacherLastPage(result.meta.last_page)
+      }
+    } catch (reason) {
+      if (requestId === rosterRequestRef.current[kind] && workspaceContextRef.current === workspaceContext) {
+        setRosterError(reason instanceof Error ? reason.message : `Could not load the ${kind} roster.`)
+      }
+    } finally {
+      if (requestId === rosterRequestRef.current[kind] && workspaceContextRef.current === workspaceContext) setLoading(false)
+    }
+  }, [active, token, user?.id])
+
   function applyAttendanceRange(from = attendanceFrom, to = attendanceTo) {
     setAttendanceFrom(from)
     setAttendanceTo(to)
@@ -182,13 +227,18 @@ export default function App() {
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
     attendanceReportRequestRef.current += 1
+    rosterRequestRef.current.students += 1; rosterRequestRef.current.teachers += 1
     setAttendanceReportLoading(false); setAttendanceReportError('')
+    setRosterStudentLoading(false); setRosterTeacherLoading(false); setRosterStudentError(''); setRosterTeacherError('')
+    setRosterStudentSearch(''); setRosterTeacherSearch(''); setRosterStudentPage(1); setRosterStudentLastPage(1); setRosterTeacherPage(1); setRosterTeacherLastPage(1)
     setSummary(null); setNotices([]); setNoticePage(1); setNoticeLastPage(1); setNoticeLoading(false); setMeetings([]); setMeetingSections([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setMeetingFormOpen(false)
     const base = `/api/v1/organizations/${active.organization.id}`
     if (['admin', 'management', 'independent_educator'].includes(active.role)) {
       const today = organizationDate(active.organization.timezone)
       setAttendanceFrom(today); setAttendanceTo(today)
       void fetchAttendanceReport(today, today)
+      void loadRoster('students')
+      void loadRoster('teachers')
     }
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
@@ -244,16 +294,12 @@ export default function App() {
     }
     if (active.role === 'admin' || active.role === 'management') {
       tasks.push(Promise.all([
-        mobileApi.get<{ data: MobileRosterStudent[]; meta: { total: number } }>(`${base}/students?status=active&per_page=5`, token),
-        mobileApi.get<{ data: MobileRosterTeacher[]; meta: { total: number } }>(`${base}/teachers?status=active&per_page=5`, token),
         mobileApi.get<MobileCourseProgressReport>(`${base}/reports/course-progress`, token),
         mobileApi.get<{ data: ExamSectionSummary[] }>(`${base}/reports/exams/sections`, token),
         mobileApi.get<{ data: ExamSeriesComparison[] }>(`${base}/reports/exams/comparisons`, token).catch(() => ({ data: [] as ExamSeriesComparison[] })),
         mobileApi.get<{ data: MobileFinanceReport }>(`${base}/reports/finance`, token),
-      ]).then(([studentResult, teacherResult, progressResult, examResult, comparisonResult, financeResult]) => {
+      ]).then(([progressResult, examResult, comparisonResult, financeResult]) => {
         if (!cancelled) {
-          setRosterStudents(studentResult.data); setRosterStudentTotal(studentResult.meta.total)
-          setRosterTeachers(teacherResult.data); setRosterTeacherTotal(teacherResult.meta.total)
           setCourseProgressReport(progressResult)
           setExamSectionSummaries(examResult.data)
           setExamSeriesComparisons(comparisonResult.data)
@@ -295,7 +341,7 @@ export default function App() {
       if (!cancelled) setError(reason instanceof Error ? reason.message : 'Could not load your learning workspace.')
     }).finally(() => { if (!cancelled) setBusy(false) })
     return () => { cancelled = true }
-  }, [active, token, fetchAttendanceReport])
+  }, [active, token, fetchAttendanceReport, loadRoster])
 
   async function signIn() {
     setBusy(true); setError(''); setSuccess(''); setVerificationNeeded(false)
@@ -727,11 +773,13 @@ export default function App() {
       </> : <>
         <Text style={styles.eyebrow}>YOUR LEARNING SPACE</Text><Text style={styles.pageTitle}>Welcome, {user.name.split(' ')[0]}</Text><Text style={styles.subtitle}>{roleNames[active.role]} · {active.organization.type.replaceAll('_', ' ')}</Text>
         {summary ? <View style={styles.statGrid}>{summaryCards(summary, active.role).map(item => <View style={styles.statCard} key={item.label}><Text style={styles.statValue}>{item.value}</Text><Text style={styles.statLabel}>{item.label}</Text></View>)}</View> : null}
+        {['admin', 'management', 'independent_educator'].includes(active.role) ? <>
+          <StudentRosterSection items={rosterStudents} total={rosterStudentTotal} search={rosterStudentSearch} loading={rosterStudentLoading} error={rosterStudentError} page={rosterStudentPage} lastPage={rosterStudentLastPage}
+            onChangeSearch={setRosterStudentSearch} onSearch={() => void loadRoster('students', 1, rosterStudentSearch)} onLoadMore={() => void loadRoster('students', rosterStudentPage + 1, rosterStudentSearch, true)} />
+          <TeacherRosterSection items={rosterTeachers} total={rosterTeacherTotal} search={rosterTeacherSearch} loading={rosterTeacherLoading} error={rosterTeacherError} page={rosterTeacherPage} lastPage={rosterTeacherLastPage}
+            onChangeSearch={setRosterTeacherSearch} onSearch={() => void loadRoster('teachers', 1, rosterTeacherSearch)} onLoadMore={() => void loadRoster('teachers', rosterTeacherPage + 1, rosterTeacherSearch, true)} />
+        </> : null}
         {active.role === 'admin' || active.role === 'management' ? <>
-          <Text style={styles.sectionTitle}>Student overview · {rosterStudentTotal} active</Text>
-          {rosterStudents.length ? rosterStudents.map(student => <View style={styles.recordCard} key={student.id}><Text style={styles.courseTitle}>{student.name}</Text><Text style={styles.courseMeta}>{student.admission_number ?? 'Active learner'}{student.academic_class?.name ? ` · ${student.academic_class.name}` : ''}{student.academic_section?.name ? ` · ${student.academic_section.name}` : ''}</Text></View>) : <Empty text={busy ? 'Loading student roster…' : 'No active students are on the roster.'} />}
-          <Text style={styles.sectionTitle}>Teacher overview · {rosterTeacherTotal} active</Text>
-          {rosterTeachers.length ? rosterTeachers.map(teacher => <View style={styles.recordCard} key={teacher.id}><Text style={styles.courseTitle}>{teacher.name}</Text><Text style={styles.courseMeta}>{teacher.employee_number ?? 'Teaching staff'}{teacher.specialization ? ` · ${teacher.specialization}` : ''}</Text></View>) : <Empty text={busy ? 'Loading teacher roster…' : 'No active teachers are on the roster.'} />}
           <AttendanceReportPanel report={attendanceReport} from={attendanceFrom} to={attendanceTo} loading={attendanceReportLoading} error={attendanceReportError}
             onChangeFrom={setAttendanceFrom} onChangeTo={setAttendanceTo} onApply={() => applyAttendanceRange()}
             onToday={() => { const today = organizationDate(active.organization.timezone); applyAttendanceRange(today, today) }}
@@ -932,6 +980,32 @@ function OrganizationPicker({ user, memberships, busy, error, onChoose, onSignOu
 
 function Empty({ text }: { text: string }) { return <View style={styles.empty}><Text style={styles.courseMeta}>{text}</Text></View> }
 
+function StudentRosterSection({ items, total, search, loading, error, page, lastPage, onChangeSearch, onSearch, onLoadMore }: {
+  items: MobileRosterStudent[]; total: number; search: string; loading: boolean; error: string; page: number; lastPage: number
+  onChangeSearch: (value: string) => void; onSearch: () => void; onLoadMore: () => void
+}) {
+  return <>
+    <Text style={styles.sectionTitle}>Students · {total} {search.trim() ? 'matches' : 'active'}</Text>
+    <View style={styles.rosterSearchRow}><TextInput value={search} onChangeText={onChangeSearch} placeholder="Name or admission number" maxLength={100} style={[styles.input, styles.rosterSearchInput]} accessibilityLabel="Search active students" returnKeyType="search" onSubmitEditing={onSearch} /><Pressable style={[styles.rosterSearchButton, loading && styles.disabled]} onPress={onSearch} disabled={loading} accessibilityRole="button"><Text style={styles.primaryButtonText}>Search</Text></Pressable></View>
+    {error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}
+    {items.length ? items.map(student => <View style={styles.recordCard} key={student.id}><Text style={styles.courseTitle}>{student.name}</Text><Text style={styles.courseMeta}>{student.admission_number ?? 'Active learner'}{student.academic_class?.name ? ` · ${student.academic_class.name}` : ''}{student.academic_section?.name ? ` · ${student.academic_section.name}` : ''}</Text></View>) : <Empty text={loading ? 'Loading student roster…' : search.trim() ? 'No active students match this search.' : 'No active students are on the roster.'} />}
+    {page < lastPage ? <Pressable style={styles.noticeLoadMore} onPress={onLoadMore} disabled={loading} accessibilityRole="button"><Text style={styles.noticeLoadMoreText}>{loading ? 'Loading students…' : 'Load more students'}</Text></Pressable> : null}
+  </>
+}
+
+function TeacherRosterSection({ items, total, search, loading, error, page, lastPage, onChangeSearch, onSearch, onLoadMore }: {
+  items: MobileRosterTeacher[]; total: number; search: string; loading: boolean; error: string; page: number; lastPage: number
+  onChangeSearch: (value: string) => void; onSearch: () => void; onLoadMore: () => void
+}) {
+  return <>
+    <Text style={styles.sectionTitle}>Teachers · {total} {search.trim() ? 'matches' : 'active'}</Text>
+    <View style={styles.rosterSearchRow}><TextInput value={search} onChangeText={onChangeSearch} placeholder="Name or employee number" maxLength={100} style={[styles.input, styles.rosterSearchInput]} accessibilityLabel="Search active teachers" returnKeyType="search" onSubmitEditing={onSearch} /><Pressable style={[styles.rosterSearchButton, loading && styles.disabled]} onPress={onSearch} disabled={loading} accessibilityRole="button"><Text style={styles.primaryButtonText}>Search</Text></Pressable></View>
+    {error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}
+    {items.length ? items.map(teacher => <View style={styles.recordCard} key={teacher.id}><Text style={styles.courseTitle}>{teacher.name}</Text><Text style={styles.courseMeta}>{teacher.employee_number ?? 'Teaching staff'}{teacher.specialization ? ` · ${teacher.specialization}` : ''}</Text></View>) : <Empty text={loading ? 'Loading teacher roster…' : search.trim() ? 'No active teachers match this search.' : 'No active teachers are on the roster.'} />}
+    {page < lastPage ? <Pressable style={styles.noticeLoadMore} onPress={onLoadMore} disabled={loading} accessibilityRole="button"><Text style={styles.noticeLoadMoreText}>{loading ? 'Loading teachers…' : 'Load more teachers'}</Text></Pressable> : null}
+  </>
+}
+
 function AttendanceReportPanel({ report, from, to, loading, error, onChangeFrom, onChangeTo, onApply, onToday, onWeek }: {
   report: MobileAttendanceReport | null
   from: string
@@ -1001,6 +1075,9 @@ const styles = StyleSheet.create({
   input: { height: 48, borderRadius: 9, borderColor: '#dfe7f0', borderWidth: 1, paddingHorizontal: 12, backgroundColor: '#fff', color: '#304d6b', fontSize: 13 },
   primaryButton: { height: 48, borderRadius: 9, backgroundColor: '#2c61c2', alignItems: 'center', justifyContent: 'center', marginTop: 20 },
   dateRangeApply: { flexGrow: 1, minWidth: 150, paddingHorizontal: 12, marginTop: 0 },
+  rosterSearchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  rosterSearchInput: { flex: 1, minWidth: 0 },
+  rosterSearchButton: { minHeight: 48, minWidth: 72, paddingHorizontal: 14, borderRadius: 9, backgroundColor: '#2c61c2', alignItems: 'center', justifyContent: 'center' },
   primaryButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   disabled: { opacity: 0.6 },
   error: { marginTop: 13, padding: 10, borderRadius: 8, overflow: 'hidden', color: '#9c4141', backgroundColor: '#fff0f0', fontSize: 11, lineHeight: 17 },

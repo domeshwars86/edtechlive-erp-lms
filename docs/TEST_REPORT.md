@@ -6,6 +6,10 @@
 
 - Admin, Management and Independent Educator mobile dashboards now load attendance reports from the selected organization's timezone date and can request a custom inclusive date range or a seven-day preset. The client validates the date format and order, reports loading/API errors inline, and ignores late report responses after workspace switches. The existing API endpoint enforces organization membership and the same three roles. `AttendanceTest` passed (**9 tests / 52 assertions**), including an Independent Educator access regression; Pint passed for the test file. `apps/mobile` TypeScript typecheck and repository ESLint passed with no warnings, and `npx expo export --platform android` produced the final 1.7 MB Android JavaScript bundle (564 modules). Native-device QA was not performed.
 
+## Mobile searchable paginated staff rosters (20 November 2026)
+
+- Admin, Management and Independent Educator mobile dashboards now search active student and teacher records by name or roster number and browse 20 records per page with a load-more action. Search and pagination use the existing tenant-scoped roster APIs; request ordering guards prevent stale pages from appearing after search or workspace changes. `PeopleTest` passed (**7 tests / 55 assertions**), covering search, pagination, tenant isolation, role denial and Management/Independent Educator read access; Pint passed. Mobile TypeScript typecheck, repository ESLint and Android JavaScript export passed (564 modules; 1.7 MB). Native-device QA was not performed.
+
 ## Full Laravel API regression (20 November 2026)
 
 - The complete Laravel API suite passed **177 tests / 1,547 assertions** on in-memory SQLite (**72.99 seconds**) and a fresh disposable PostgreSQL 17 cluster (**39.87 seconds**); all migrations applied on PostgreSQL. The cluster was isolated to a unique system-temp path on loopback, then stopped and removed. The local development SQLite database and production databases were not used. Hosted PostgreSQL 16 CI remains unverified.

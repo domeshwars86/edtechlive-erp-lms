@@ -11,6 +11,8 @@ use App\Models\AcademicSession;
 use App\Models\Organization;
 use App\Models\OrganizationBranch;
 use App\Models\OrganizationMembership;
+use App\Models\Student;
+use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -60,6 +62,44 @@ class PeopleTest extends TestCase
 
         $this->getJson("/api/v1/organizations/{$organization->id}/students")->assertForbidden();
         $this->getJson("/api/v1/organizations/{$organization->id}/teachers")->assertForbidden();
+    }
+
+    public function test_staff_can_browse_paginated_student_and_teacher_rosters(): void
+    {
+        [$user, $organization] = $this->workspace(OrganizationRole::IndependentEducator);
+        Sanctum::actingAs($user);
+        for ($index = 1; $index <= 25; $index++) {
+            Student::query()->create([
+                'organization_id' => $organization->id,
+                'name' => sprintf('Student %02d', $index),
+                'admission_number' => sprintf('ST-%03d', $index),
+            ]);
+            Teacher::query()->create([
+                'organization_id' => $organization->id,
+                'name' => sprintf('Teacher %02d', $index),
+                'employee_number' => sprintf('TE-%03d', $index),
+            ]);
+        }
+        $base = "/api/v1/organizations/{$organization->id}";
+
+        $this->getJson("{$base}/students?status=active&per_page=20&page=2")
+            ->assertOk()->assertJsonPath('meta.current_page', 2)->assertJsonPath('meta.last_page', 2)
+            ->assertJsonPath('meta.total', 25)->assertJsonCount(5, 'data')
+            ->assertJsonPath('data.0.name', 'Student 21')->assertJsonPath('data.4.name', 'Student 25');
+        $this->getJson("{$base}/teachers?status=active&per_page=20&page=2")
+            ->assertOk()->assertJsonPath('meta.current_page', 2)->assertJsonPath('meta.last_page', 2)
+            ->assertJsonPath('meta.total', 25)->assertJsonCount(5, 'data')
+            ->assertJsonPath('data.0.name', 'Teacher 21')->assertJsonPath('data.4.name', 'Teacher 25');
+    }
+
+    public function test_management_members_can_read_student_and_teacher_rosters(): void
+    {
+        [$user, $organization] = $this->workspace(OrganizationRole::Management);
+        Sanctum::actingAs($user);
+        $base = "/api/v1/organizations/{$organization->id}";
+
+        $this->getJson("{$base}/students?status=active&per_page=20&page=1")->assertOk()->assertJsonPath('data', []);
+        $this->getJson("{$base}/teachers?status=active&per_page=20&page=1")->assertOk()->assertJsonPath('data', []);
     }
 
     public function test_roster_references_cannot_cross_tenant_boundaries(): void
