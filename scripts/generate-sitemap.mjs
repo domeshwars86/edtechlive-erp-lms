@@ -55,9 +55,24 @@ const urls = publicRoutes
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`
 await writeFile(resolve(outputDirectory, 'sitemap.xml'), sitemap)
 
+for (const route of publicRoutes) {
+  const pagePath = route === '/' ? 'index.html' : `${route.slice(1)}/index.html`
+  const filePath = resolve(outputDirectory, pagePath)
+  const canonicalUrl = `${canonicalOrigin}${route}`
+  const html = await readFile(filePath, 'utf8')
+  const withoutPreviousCanonical = html
+    .replace(/^\s*<link rel="canonical" href="[^"]*"\s*\/>\r?\n/gm, '')
+    .replace(/^\s*<meta property="og:url" content="[^"]*"\s*\/>\r?\n/gm, '')
+  const withCanonical = withoutPreviousCanonical.replace(
+    '</head>',
+    `    <link rel="canonical" href="${canonicalUrl}" />\n    <meta property="og:url" content="${canonicalUrl}" />\n  </head>`,
+  )
+  await writeFile(filePath, withCanonical)
+}
+
 const robotsPath = resolve(outputDirectory, 'robots.txt')
 const robots = await readFile(robotsPath, 'utf8')
 const withoutSitemap = robots.replace(/^Sitemap:.*\r?\n?/gim, '').trimEnd()
 await writeFile(robotsPath, `${withoutSitemap}\nSitemap: ${canonicalOrigin}/sitemap.xml\n`)
 
-console.log(`Generated sitemap.xml for ${publicRoutes.length} public routes at ${canonicalOrigin}.`)
+console.log(`Generated sitemap.xml and canonical metadata for ${publicRoutes.length} public routes at ${canonicalOrigin}.`)

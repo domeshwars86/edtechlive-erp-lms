@@ -4,8 +4,8 @@
 
 ## Canonical sitemap build handling (20 November 2026)
 
-- Removed the committed reserved `.example` sitemap. The frontend build generates sitemap URLs only from `EDTECHLIVE_SITE_URL`, validates it as a public HTTPS origin, includes all 17 pre-rendered public routes, and adds an absolute sitemap reference to built `robots.txt`. With no configured origin it omits the sitemap and emits a build warning. The production origin is not approved or configured in this repository.
-- `npm run build` passed with the origin unset and omitted the sitemap as designed; `npm run lint` passed. Configured-origin generation produced 17 parseable URLs and the expected absolute robots reference; reserved-origin validation rejected `.example`. The public-site Chromium suite passed **13 tests in 1.4 minutes**, including mobile navigation, auth verification resend, narrow viewport overflow and all seven dashboard previews.
+- Removed the committed reserved `.example` sitemap. The frontend build generates sitemap, canonical and Open Graph URLs only from `EDTECHLIVE_SITE_URL`, validates it as a public HTTPS origin, includes all 17 pre-rendered public routes, and adds an absolute sitemap reference to built `robots.txt`. With no configured origin it omits the sitemap and canonical metadata and emits a build warning. The production origin is not approved or configured in this repository.
+- `npm run build` passed both with an approved-origin-shaped HTTPS value and with the origin unset. The configured build produced 17 parseable sitemap URLs, canonical and Open Graph tags on all 17 prerendered pages, and the expected absolute robots reference; reserved-origin validation rejected `.example`. The unconfigured build omitted sitemap/canonical tags and the local `/login` preview returned HTTP 200. `npm run lint` passed. The public-site Chromium suite passed **13 tests in 1.4 minutes**, including mobile navigation, auth verification resend, narrow viewport overflow and all seven dashboard previews.
 
 ## Password reset session handling (20 November 2026)
 
