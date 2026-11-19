@@ -3,6 +3,8 @@ vendor/
 dist/
 dist-server/
 *.tsbuildinfo
+playwright-report/
+test-results/
 .env
 .env.*
 !.env.example

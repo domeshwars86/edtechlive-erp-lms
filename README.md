@@ -56,7 +56,10 @@ The Expo client setup and role/workflow coverage are documented in [`apps/mobile
 npm run typecheck
 npm run lint
 npm run build
+npm run test:e2e
 ```
+
+The Playwright suite starts its own Vite server on port 4188 and uses Chromium. Install the browser once with `npx playwright install chromium` before running it locally; CI installs Chromium automatically. Contact-form API calls are mocked in this browser suite, so it does not verify a live account or enquiry submission.
 
 ## Technology
 

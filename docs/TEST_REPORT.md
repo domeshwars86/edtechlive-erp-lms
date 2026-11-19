@@ -2,6 +2,11 @@
 
 **Updated:** 19 November 2026
 
+## Public website browser smoke suite (19 November 2026)
+
+- Added Playwright Chromium E2E coverage for homepage-to-course search/detail navigation, mobile menu navigation and horizontal overflow at 320/375/430/768 px, a 320 px student dashboard preview, and contact-form validation/success with CSRF and enquiry API responses mocked.
+- Browser suite passed: **4 tests** in Chromium (25.5 seconds). Web typecheck, ESLint, and production build passed; build prerendered 17 public routes (498.61 kB main JS bundle). This verifies frontend behavior only; contact persistence, account registration/login, authenticated dashboards, full accessibility, and other role workspaces are not covered. CI now installs Chromium and runs `npm run test:e2e` after the web production build.
+
 ## Opt-in workspace email notifications (19 November 2026)
 
 - Added per-category email preferences separate from in-app notifications. Only verified opted-in members are queued; the feature flag is off by default. Queued messages retry, completed jobs clear message bodies, and recipients can see only their own queued/sent/failed/cancelled status.
