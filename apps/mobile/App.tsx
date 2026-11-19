@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
-import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type ExamSectionSummary, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type StudentAttendance, type StudentProgress, type StudyMaterial, type TeachingAssignment } from './src/api'
+import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type ExamSectionSummary, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type SchoolExam, type SchoolExamMark, type SchoolExamPaper, type StudentAttendance, type StudentProgress, type StudyMaterial, type TeachingAssignment } from './src/api'
 
 const TOKEN_KEY = 'edtechlive.mobile.token'
 const ORGANIZATION_KEY = 'edtechlive.mobile.organization'
@@ -17,6 +17,9 @@ type MobileRosterTeacher = { id: number; name: string; employee_number: string |
 type MobileAttendanceReport = { from: string; to: string; totals: { records: number; present: number; late: number; absent: number; excused: number; attendance_rate: number }; sections: { section_id: number; class: string; section: string; records: number; attendance_rate: number; absent: number }[] }
 type MobileCourseProgressReport = { data: { course_id: number; title: string; lessons: number; learners: number; average_percent: number; completed_learners: number }[]; summary: { courses: number; learners: number; average_percent: number } }
 const attendanceStatuses: AttendanceStatus[] = ['present', 'absent', 'late', 'excused']
+const examOutcomes: { value: SchoolExamMark['outcome']; label: string }[] = [
+  { value: 'graded', label: 'Graded' }, { value: 'absent', label: 'Absent' }, { value: 'excused', label: 'Excused' },
+]
 function localDate() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}` }
 function organizationDate(timezone: string) {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
@@ -47,6 +50,9 @@ export default function App() {
   const [attendanceReport, setAttendanceReport] = useState<MobileAttendanceReport | null>(null)
   const [courseProgressReport, setCourseProgressReport] = useState<MobileCourseProgressReport | null>(null)
   const [examSectionSummaries, setExamSectionSummaries] = useState<ExamSectionSummary[]>([])
+  const [teacherExams, setTeacherExams] = useState<SchoolExam[]>([])
+  const [selectedExamPaper, setSelectedExamPaper] = useState<{ exam: SchoolExam; paper: SchoolExamPaper } | null>(null)
+  const [examMarks, setExamMarks] = useState<SchoolExamMark[]>([])
   const [studyMaterials, setStudyMaterials] = useState<StudyMaterial[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
@@ -98,7 +104,7 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setExamSectionSummaries([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
+    setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setExamSectionSummaries([]); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
@@ -132,6 +138,8 @@ export default function App() {
     if (active.role === 'teacher') {
       tasks.push(mobileApi.get<{ data: TeachingAssignment[] }>(`${base}/teaching-assignments?per_page=100`, token)
         .then(result => { if (!cancelled) setTeachingAssignments(result.data) }))
+      tasks.push(mobileApi.get<{ data: SchoolExam[] }>(`${base}/exams`, token)
+        .then(result => { if (!cancelled) setTeacherExams(result.data) }))
     }
     if (active.role === 'admin' || active.role === 'management') {
       const today = organizationDate(active.organization.timezone)
@@ -293,6 +301,62 @@ export default function App() {
     finally { setBusy(false) }
   }
 
+  async function loadExamPaper(exam: SchoolExam, paper: SchoolExamPaper) {
+    if (!active || !token) return
+    setBusy(true); setError(''); setSuccess('')
+    try {
+      const result = await mobileApi.get<{ data: SchoolExamMark[] }>(`/api/v1/organizations/${active.organization.id}/exam-papers/${paper.id}/results`, token)
+      setSelectedExamPaper({ exam, paper })
+      setExamMarks(result.data.map(mark => ({ ...mark, section_scores: mark.section_scores ?? {} })))
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not load this exam roster.') }
+    finally { setBusy(false) }
+  }
+
+  function updateExamMark(studentId: number, update: Partial<SchoolExamMark>) {
+    setExamMarks(current => current.map(mark => mark.student_id === studentId ? { ...mark, ...update } : mark))
+  }
+
+  async function saveExamMarks() {
+    if (!active || !token || !selectedExamPaper || selectedExamPaper.exam.status !== 'draft') return
+    const { exam, paper } = selectedExamPaper
+    const records = examMarks.filter(mark => mark.outcome !== null).map(mark => ({
+      student_id: mark.student_id,
+      outcome: mark.outcome as Exclude<SchoolExamMark['outcome'], null>,
+      score: mark.outcome === 'graded' ? mark.score : null,
+      remarks: mark.remarks?.trim() || null,
+      section_scores: mark.outcome === 'graded' ? paper.paper_sections.map(section => ({
+        section_id: section.id, score: mark.section_scores[String(section.id)] ?? '',
+      })) : [],
+    }))
+    if (!records.length) { setError('Choose graded, absent, or excused for at least one learner.'); return }
+    const invalidTotals = records.filter(record => record.outcome === 'graded' && (record.score === null || record.score.trim() === '' || !Number.isFinite(Number(record.score)) || Number(record.score) < 0 || Number(record.score) > Number(paper.max_marks)))
+    if (invalidTotals.length) { setError('Enter a valid total score within the paper maximum for every graded learner.'); return }
+    const invalidSections = examMarks.filter(mark => mark.outcome === 'graded').some(mark => {
+      const scores = paper.paper_sections.map(section => ({ section, value: mark.section_scores[String(section.id)] ?? '' }))
+      if (scores.some(item => item.value.trim() === '' || !Number.isFinite(Number(item.value)) || Number(item.value) < 0 || Number(item.value) > Number(item.section.max_marks))) return true
+      const partsTotal = scores.reduce((total, item) => total + Math.round(Number(item.value) * 100), 0)
+      return paper.paper_sections.length > 0 && partsTotal !== Math.round(Number(mark.score ?? 0) * 100)
+    })
+    if (invalidSections) { setError('Enter each paper-section score within its maximum, and make sure section scores add up to the total.'); return }
+
+    setBusy(true); setError(''); setSuccess('')
+    const base = `/api/v1/organizations/${active.organization.id}`
+    try {
+      await mobileApi.put(`${base}/exam-papers/${paper.id}/results`, token, { records })
+      const [examResult, markResult] = await Promise.all([
+        mobileApi.get<{ data: SchoolExam[] }>(`${base}/exams`, token),
+        mobileApi.get<{ data: SchoolExamMark[] }>(`${base}/exam-papers/${paper.id}/results`, token),
+      ])
+      setTeacherExams(examResult.data)
+      const refreshedExam = examResult.data.find(item => item.id === exam.id) ?? exam
+      const refreshedPaper = refreshedExam.papers.find(item => item.id === paper.id) ?? paper
+      setSelectedExamPaper({ exam: refreshedExam, paper: refreshedPaper })
+      setExamMarks(markResult.data.map(mark => ({ ...mark, section_scores: mark.section_scores ?? {} })))
+      setSuccess('Exam marks saved. Managers can publish results after every active learner has an outcome.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not save exam marks.') }
+    finally { setBusy(false) }
+  }
+
   async function startQuiz(quiz: CourseQuiz) {
     if (!active || !token) return
     setBusy(true); setError('')
@@ -361,7 +425,7 @@ export default function App() {
     try { if (current) await mobileApi.post('/api/v1/auth/logout', current) }
     catch { /* Local credentials must still be removed if the API is offline. */ }
     await SecureStore.deleteItemAsync(TOKEN_KEY); await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
-    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setExamSectionSummaries([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
+    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setExamSectionSummaries([]); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
   }
 
   if (busy && !user) return <Splash />
@@ -481,7 +545,39 @@ export default function App() {
         {active.role !== 'parent' ? <>
           <Text style={styles.sectionTitle}>{active.role === 'student' ? 'My courses' : active.role === 'teacher' ? 'My courses' : 'Courses in this workspace'}</Text>
           {courses.length ? courses.map(course => <Pressable style={styles.courseCard} key={course.id} onPress={() => void openCourse(course)}><View style={styles.courseIcon}><Text style={styles.courseIconText}>{course.title.slice(0, 1).toUpperCase()}</Text></View><View style={{ flex: 1 }}><Text style={styles.courseTitle}>{course.title}</Text><Text style={styles.courseMeta}>{course.subject?.name ?? course.level ?? 'Learning course'}{course.teacher?.name ? ` · ${course.teacher.name}` : ''}</Text></View><Text style={styles.chevron}>›</Text></Pressable>) : <Empty text="No courses are available in this organization yet." />}
-          {active.role === 'teacher' ? <><Text style={styles.sectionTitle}>My assigned classes</Text>{teachingAssignments.length ? teachingAssignments.map(item => <Pressable style={styles.courseCard} key={item.id} onPress={() => void loadAttendance(item)}><View style={{ flex: 1 }}><Text style={styles.courseTitle}>{item.academic_section.academic_class.name} · {item.academic_section.name}</Text><Text style={styles.courseMeta}>{item.subject.name} · {item.academic_session.name}</Text></View><Text style={styles.chevron}>›</Text></Pressable>) : <Empty text="No active teaching assignments are linked to this account." />}</> : null}
+          {active.role === 'teacher' ? <>
+            <Text style={styles.sectionTitle}>My assigned classes</Text>
+            {teachingAssignments.length ? teachingAssignments.map(item => <Pressable style={styles.courseCard} key={item.id} onPress={() => void loadAttendance(item)}><View style={{ flex: 1 }}><Text style={styles.courseTitle}>{item.academic_section.academic_class.name} · {item.academic_section.name}</Text><Text style={styles.courseMeta}>{item.subject.name} · {item.academic_session.name}</Text></View><Text style={styles.chevron}>›</Text></Pressable>) : <Empty text="No active teaching assignments are linked to this account." />}
+            <Text style={styles.sectionTitle}>School exam papers</Text>
+            {teacherExams.length ? teacherExams.map(exam => <View style={styles.recordCard} key={exam.id}>
+              <Text style={styles.courseTitle}>{exam.title} · {exam.session}</Text>
+              <Text style={styles.courseMeta}>{exam.status === 'published' ? 'Published and read-only' : `${exam.starts_on} – ${exam.ends_on} · Draft marks`}</Text>
+              {exam.papers.map(paper => <Pressable style={styles.examPaperButton} key={paper.id} onPress={() => void loadExamPaper(exam, paper)} disabled={busy} accessibilityRole="button" accessibilityLabel={`${exam.status === 'published' ? 'View results' : 'Enter marks'}: ${paper.section}, ${paper.subject}`}>
+                <View style={{ flex: 1 }}><Text style={styles.courseTitle}>{paper.section} · {paper.subject}</Text><Text style={styles.courseMeta}>{paper.exam_on} · {paper.results_recorded} results · maximum {paper.max_marks}</Text></View><Text style={styles.link}>{exam.status === 'published' ? 'View' : 'Enter marks'}</Text>
+              </Pressable>)}
+              {!exam.papers.length ? <Text style={styles.courseMeta}>No assigned papers.</Text> : null}
+            </View>) : <Empty text={busy ? 'Loading assigned exam papers…' : 'No school exam papers are assigned to your classes.'} />}
+            {selectedExamPaper ? <View style={styles.infoCard}>
+              <Text style={styles.courseTitle}>{selectedExamPaper.exam.title} · {selectedExamPaper.paper.section} · {selectedExamPaper.paper.subject}</Text>
+              <Text style={styles.courseMeta}>{selectedExamPaper.exam.status === 'published' ? 'Published results are read-only.' : `Mark the active roster. Maximum ${selectedExamPaper.paper.max_marks}. Managers publish after every learner has an outcome.`}</Text>
+              {examMarks.map(mark => <View style={styles.submissionCard} key={mark.student_id}>
+                <Text style={styles.courseTitle}>{mark.name}</Text><Text style={styles.courseMeta}>{mark.admission_number || 'Learner'}</Text>
+                {selectedExamPaper.exam.status === 'draft' ? <>
+                  <View style={styles.examOutcomeRow}>{examOutcomes.map(outcome => <Pressable key={outcome.value} style={[styles.examOutcome, mark.outcome === outcome.value && styles.examOutcomeSelected]} onPress={() => updateExamMark(mark.student_id, { outcome: outcome.value, score: outcome.value === 'graded' ? mark.score : null, section_scores: outcome.value === 'graded' ? mark.section_scores : {} })} disabled={busy} accessibilityRole="button" accessibilityState={{ selected: mark.outcome === outcome.value }}><Text style={[styles.examOutcomeText, mark.outcome === outcome.value && styles.examOutcomeTextSelected]}>{outcome.label}</Text></Pressable>)}</View>
+                  {mark.outcome === 'graded' ? <>
+                    {selectedExamPaper.paper.paper_sections.map(section => <View key={section.id}><Text style={styles.inputLabel}>{section.title} · max {section.max_marks}</Text><TextInput style={styles.input} keyboardType="decimal-pad" value={mark.section_scores[String(section.id)] ?? ''} onChangeText={value => updateExamMark(mark.student_id, { section_scores: { ...mark.section_scores, [String(section.id)]: value } })} placeholder="Section score" editable={!busy} accessibilityLabel={`${section.title} score for ${mark.name}`} /></View>)}
+                    <Text style={styles.inputLabel}>Total score · max {selectedExamPaper.paper.max_marks}</Text><TextInput style={styles.input} keyboardType="decimal-pad" value={mark.score ?? ''} onChangeText={value => updateExamMark(mark.student_id, { score: value })} placeholder="Enter total marks" editable={!busy} accessibilityLabel={`Total score for ${mark.name}`} />
+                  </> : null}
+                  <Text style={styles.inputLabel}>Remarks (optional)</Text><TextInput style={styles.input} value={mark.remarks ?? ''} onChangeText={value => updateExamMark(mark.student_id, { remarks: value })} placeholder="Feedback for the learner" editable={!busy} accessibilityLabel={`Remarks for ${mark.name}`} />
+                </> : <>
+                  <Text style={styles.resultText}>{mark.outcome === 'graded' ? `Score ${mark.score ?? '—'} / ${selectedExamPaper.paper.max_marks}` : mark.outcome ?? 'No result'}</Text>
+                  {selectedExamPaper.paper.paper_sections.map(section => <Text style={styles.courseMeta} key={section.id}>{section.title}: {mark.section_scores[String(section.id)] ?? '—'} / {section.max_marks}</Text>)}
+                  {mark.remarks ? <Text style={styles.courseMeta}>{mark.remarks}</Text> : null}
+                </>}
+              </View>)}
+              {selectedExamPaper.exam.status === 'draft' ? <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void saveExamMarks()} disabled={busy}><Text style={styles.primaryButtonText}>{busy ? 'Saving marks…' : 'Save exam marks'}</Text></Pressable> : null}
+            </View> : null}
+          </> : null}
         </> : null}
       </>}
       <Text style={styles.footer}>Connected securely to your organization workspace.</Text>
@@ -599,6 +695,12 @@ const styles = StyleSheet.create({
   courseIconText: { color: '#4169b5', fontWeight: '800' },
   courseTitle: { color: '#405b77', fontSize: 11, fontWeight: '700' },
   courseMeta: { color: '#8795a5', fontSize: 9, lineHeight: 15, marginTop: 4 },
+  examPaperButton: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, borderTopWidth: 1, borderTopColor: '#edf1f5' },
+  examOutcomeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 5 },
+  examOutcome: { paddingHorizontal: 9, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: '#e2eaf2', backgroundColor: '#fff' },
+  examOutcomeSelected: { borderColor: '#3568c7', backgroundColor: '#edf3ff' },
+  examOutcomeText: { color: '#65788d', fontSize: 9, fontWeight: '700' },
+  examOutcomeTextSelected: { color: '#315ca8' },
   chevron: { color: '#99a7b4', fontSize: 23 },
   lessonCard: { padding: 12, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3', flexDirection: 'row', gap: 10, marginBottom: 8 },
   activityCard: { gap: 9, padding: 13, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3', marginBottom: 9 },

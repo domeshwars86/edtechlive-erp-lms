@@ -16,6 +16,11 @@
 - Admin and Management mobile overviews now include the same tenant-scoped, identity-free section exam averages and published outcome counts available in the web reports. Mobile requests use the existing bearer token and organization context; no learner-level results are included.
 - `npm run typecheck` passed in `apps/mobile`; Expo Android export passed (564 modules, 1.7 MB). The available Node runtime was 20.19.1 while the app declares a minimum of 20.19.4; the local export succeeded, but native device/emulator testing was not performed.
 
+## Mobile teacher school-exam marking (19 November 2026)
+
+- Teachers can open only their assigned school-exam papers, load the active roster, mark graded/absent/excused outcomes, enter paper totals and named paper-section scores, and save draft results. The app validates score caps and section-total consistency before sending; API assignment scope, publication locks, and score validation remain authoritative. Published paper marks are view-only.
+- Mobile typecheck passed and Expo Android export passed (564 modules, 1.7 MB). Device/emulator interaction was not available for verification.
+
 ## Manual receipt idempotency (19 November 2026)
 
 - Fee receipt POSTs now require a tenant-scoped `Idempotency-Key`. An additive migration adds a unique `(organization_id, idempotency_key)` index and stores a SHA-256 fingerprint of the fee and validated payment payload. Exact retries return the current persisted fee result without another payment notification; a key reused for different payment details or a different fee returns 409.
