@@ -4,8 +4,8 @@
 
 ## Public website browser smoke suite (19 November 2026)
 
-- Added Playwright Chromium E2E coverage for homepage-to-course search/detail navigation, mobile menu navigation and horizontal overflow at 320/375/430/768 px, a 320 px student dashboard preview, and contact-form validation/success with CSRF and enquiry API responses mocked.
-- Browser suite passed: **4 tests** in Chromium (25.5 seconds). Web typecheck, ESLint, and production build passed; build prerendered 17 public routes (498.61 kB main JS bundle). This verifies frontend behavior only; contact persistence, account registration/login, authenticated dashboards, full accessibility, and other role workspaces are not covered. CI now installs Chromium and runs `npm run test:e2e` after the web production build.
+- Added Playwright Chromium E2E coverage for homepage-to-course search/detail navigation, mobile menu navigation and horizontal overflow at 320/375/430/768 px, a 320 px student dashboard preview, contact-form validation/success with mocked CSRF/enquiry API responses, and the mocked local registration → verification-link → login → organization chooser flow. The new auth case exposed and fixed stale success state that kept the login form hidden when navigating from registration to login.
+- Browser suite passed: **5 tests** in Chromium (26.5 seconds). Web typecheck, ESLint, and production build passed; build prerendered 17 public routes (498.66 kB main JS bundle). This verifies browser behavior only; live account persistence/email delivery, contact persistence, authenticated API workflows, full accessibility, and other role workspaces are not covered. CI now installs Chromium and runs `npm run test:e2e` after the web production build.
 
 ## Opt-in workspace email notifications (19 November 2026)
 

@@ -63,3 +63,84 @@ test('role preview renders without horizontal overflow on a small phone', async 
   const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth)
   expect(pageWidth, 'student dashboard preview overflows at 320px').toBeLessThanOrEqual(320)
 })
+
+test('local account verification link leads back to a working sign-in flow', async ({ page }) => {
+  let verified = false
+  let signedIn = false
+  const account = {
+    id: 42,
+    name: 'Browser Test User',
+    email: 'browser-test@example.com',
+    email_verified_at: '2026-11-19T12:00:00.000Z',
+    is_platform_admin: false,
+  }
+  const membership = {
+    membership_id: 72,
+    role: 'admin',
+    organization: {
+      id: 18,
+      name: 'Browser Test School',
+      slug: 'browser-test-school',
+      type: 'school',
+      status: 'active',
+      timezone: 'Asia/Kolkata',
+    },
+  }
+
+  await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
+  await page.route('**/api/v1/me', route => route.fulfill({
+    status: signedIn ? 200 : 401,
+    contentType: 'application/json',
+    body: JSON.stringify(signedIn ? { data: account } : { message: 'Unauthenticated.' }),
+  }))
+  await page.route('**/api/v1/organizations?per_page=100', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: [membership], preferred_organization_id: null, meta: { current_page: 1, last_page: 1, per_page: 100, total: 1 } }),
+  }))
+  await page.route('**/api/v1/auth/register', route => route.fulfill({
+    status: 202,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      status: 'verification_required',
+      verification_url: 'http://127.0.0.1:8002/api/v1/auth/verify-email/42/test-hash?expires=1795093200&signature=test-signature',
+    }),
+  }))
+  await page.context().route('**/api/v1/auth/verify-email/**', async route => {
+    verified = true
+    await route.fulfill({ status: 200, contentType: 'text/html', body: '<main>Email address verified. You can now sign in.</main>' })
+  })
+  await page.route('**/api/v1/auth/login', route => {
+    if (!verified) {
+      return route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ status: 'email_verification_required', message: 'Verify your email address before signing in.' }) })
+    }
+
+    signedIn = true
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: account }) })
+  })
+
+  await page.goto('/register')
+  await page.getByRole('textbox', { name: 'Full name' }).fill(account.name)
+  await page.getByRole('textbox', { name: 'Email address' }).fill(account.email)
+  await page.getByLabel('Password', { exact: true }).fill('LocalBrowserPass123')
+  await page.getByRole('textbox', { name: 'Organization name' }).fill(membership.organization.name)
+  await page.getByLabel('Organization type').selectOption('school')
+  await page.getByRole('textbox', { name: 'Confirm password' }).fill('LocalBrowserPass123')
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await expect(page.getByRole('heading', { name: 'You’re all set.' })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Verify email to unlock sign-in/ })).toBeVisible()
+
+  const verificationTab = page.context().waitForEvent('page')
+  await page.getByRole('link', { name: /Verify email to unlock sign-in/ }).click()
+  const verifiedPage = await verificationTab
+  await expect(verifiedPage.locator('body')).toContainText('Email address verified. You can now sign in.')
+  expect(verified).toBe(true)
+
+  await page.getByRole('link', { name: 'Log in', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Email address' }).fill(account.email)
+  await page.getByLabel('Password', { exact: true }).fill('LocalBrowserPass123')
+  await page.getByRole('button', { name: 'Log in' }).click()
+  await expect(page).toHaveURL(/\/select-organization$/)
+  await expect(page.getByRole('heading', { name: 'Choose your workspace' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Browser Test School/ })).toBeVisible()
+})

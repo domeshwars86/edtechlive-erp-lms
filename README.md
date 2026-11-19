@@ -59,7 +59,7 @@ npm run build
 npm run test:e2e
 ```
 
-The Playwright suite starts its own Vite server on port 4188 and uses Chromium. Install the browser once with `npx playwright install chromium` before running it locally; CI installs Chromium automatically. Contact-form API calls are mocked in this browser suite, so it does not verify a live account or enquiry submission.
+The Playwright suite starts its own Vite server on port 4188 and uses Chromium. Install the browser once with `npx playwright install chromium` before running it locally; CI installs Chromium automatically. Contact-form and account API responses are mocked, so the suite verifies browser behavior but does not verify live account persistence, email delivery, or enquiry submission.
 
 ## Technology
 

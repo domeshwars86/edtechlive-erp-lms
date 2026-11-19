@@ -34,6 +34,13 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const formRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
+    setBusy(false)
+    setError('')
+    setMessage('')
+    setVerificationUrl('')
+  }, [mode])
+
+  useEffect(() => {
     if (mode !== 'organization') return
     if (!loading && !user) navigate('/login', { replace: true })
     if (user) {
