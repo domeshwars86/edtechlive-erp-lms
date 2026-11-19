@@ -6,7 +6,7 @@ import { ApiError, api, type OrganizationListResponse, type OrganizationMembersh
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset' | 'organization'
 const localMailHint = import.meta.env.DEV
-  ? ' Local development password reset links are written to apps/api/storage/logs/laravel.log.'
+  ? ' Local verification and password-reset links appear here when available.'
   : ''
 
 const workspaceForRole: Record<OrganizationMembership['role'], string> = {
@@ -30,6 +30,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [verificationUrl, setVerificationUrl] = useState('')
+  const [passwordResetUrl, setPasswordResetUrl] = useState('')
   const [organizations, setOrganizations] = useState<OrganizationMembership[]>([])
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -38,6 +39,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     setError('')
     setMessage('')
     setVerificationUrl('')
+    setPasswordResetUrl('')
   }, [mode])
 
   useEffect(() => {
@@ -59,6 +61,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     setError('')
     setMessage('')
     setVerificationUrl('')
+    setPasswordResetUrl('')
 
     try {
       if (mode === 'login') {
@@ -76,8 +79,11 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
           : `If this address can be registered, check your email for a verification link.${localMailHint}`)
         form.reset()
       } else if (mode === 'forgot') {
-        await api.post('/api/v1/auth/forgot-password', { email: values.get('email') })
-        setMessage(`If an account exists for that email, password reset instructions have been sent.${localMailHint}`)
+        const result = await api.post<{ reset_url?: string }>('/api/v1/auth/forgot-password', { email: values.get('email') })
+        setPasswordResetUrl(result.reset_url ?? '')
+        setMessage(result.reset_url
+          ? 'Your local password reset link is ready. Open it below to choose a new password.'
+          : `If an account exists for that email, password reset instructions have been sent.${localMailHint}`)
       } else if (mode === 'reset') {
         await api.post('/api/v1/auth/reset-password', {
           email: values.get('email'), token: new URLSearchParams(location.search).get('token'),
@@ -153,8 +159,9 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       {error && <div className="auth-error" role="alert">{error}{mode === 'login' && error.includes('Verify your email') && <button type="button" disabled={busy} onClick={resendVerification}>Send a new verification link</button>}</div>}
       <button className="button button-primary" type="submit" disabled={busy}>{busy ? <><LoaderCircle className="spin" /> Working…</> : <>{ { login: 'Log in', register: 'Create account', forgot: 'Send reset link', reset: 'Reset password' }[mode]} <ArrowUpRight size={16} /></>}</button>
     </>}
-    {message && <div className="auth-success"><Check />{verificationUrl ? 'Email verification is required before sign-in. Use the action below first.' : mode === 'register' ? 'Email verification is required before you can sign in.' : 'The request was sent securely.'}</div>}
+    {message && <div className="auth-success"><Check />{verificationUrl ? 'Email verification is required before sign-in. Use the action below first.' : passwordResetUrl ? 'A local reset link is ready below.' : mode === 'register' ? 'Email verification is required before you can sign in.' : 'The request was sent securely.'}</div>}
     {verificationUrl && <div className="local-verification-link"><p>Step 1: Verify your email address.</p><a href={verificationUrl} target="_blank" rel="noreferrer">Verify email to unlock sign-in <ArrowUpRight size={16} /></a><small>Step 2: Return to this page and log in. This development link expires in 60 minutes.</small></div>}
+    {passwordResetUrl && <div className="local-verification-link"><p>Open your local reset link to choose a new password.</p><a href={passwordResetUrl}>Reset your password <ArrowUpRight size={16} /></a><small>This local reset link expires in 60 minutes.</small></div>}
     {error && !message && mode !== 'login' && <div className="auth-error" role="alert">{error}</div>}
     <div className="auth-links">{mode === 'login' && <><Link to="/forgot-password">Forgot password?</Link><span>New here? <Link to="/register">Create an account</Link></span></>}{mode === 'register' && <span>Already have an account? <Link to="/login">Log in</Link></span>}{mode === 'forgot' && <Link to="/login">Back to log in</Link>}{mode === 'reset' && <Link to="/login">Back to log in</Link>}</div>
     <small className="auth-demo-note"><ShieldCheck size={13} />Your account requests are sent to the edTechLive API.</small>

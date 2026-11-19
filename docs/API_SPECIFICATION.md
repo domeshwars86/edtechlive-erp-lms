@@ -93,7 +93,7 @@ Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return co
 | `POST /api/v1/auth/logout` | Sanctum authenticated | Deletes the current bearer token or invalidates the browser session. |
 | `POST /api/v1/auth/email/verification-notification` | Public, throttled | Sends a verification message when an unverified account exists; response does not reveal account existence. Under `APP_ENV=local`, an existing unverified account also receives a short-lived signed `verification_url`; other environments omit it. |
 | `GET /api/v1/auth/verify-email/{id}/{hash}` | Signed, throttled | Validates the expiring signed URL and marks the matching user email as verified. |
-| `POST /api/v1/auth/forgot-password` | Public, throttled | Sends password reset instructions when an account exists; response is generic. Link is built for `FRONTEND_URL/reset-password`. |
+| `POST /api/v1/auth/forgot-password` | Public, throttled | Sends password reset instructions when an account exists; response message is generic. Link is built for `FRONTEND_URL/reset-password`. Only under `APP_ENV=local`, the response also contains a clickable `reset_url` for an eligible account; other environments do not return reset tokens. |
 | `POST /api/v1/auth/reset-password` | Public, throttled | Accepts email, reset token, and confirmed password; consumes the reset token and revokes existing API tokens. |
 | `GET /api/v1/me` | Sanctum authenticated | Returns current user's ID, name, email, verification timestamp and whether their email is allowlisted for platform operations; omits credentials. |
 | `GET /api/v1/organizations` | Sanctum authenticated and verified | Returns paginated active organization memberships for the current user only, including role and basic organization details, plus `preferred_organization_id` when that organization is still active and accessible. `per_page` is bounded to 1–100. |
@@ -168,6 +168,6 @@ Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return co
 | `GET /api/v1/organizations/{organization}/timetable` | Admin, management, independent educator, or linked teacher | Lists paginated weekly entries with optional session, section, and weekday filters; teachers only see their own entries. |
 | `POST/PATCH /api/v1/organizations/{organization}/timetable` | Same roles | Creates or updates a section/subject slot, optional assigned teacher/room/HTTPS meeting link, and rejects active section, teacher, or room conflicts. |
 
-Browser clients use Sanctum's stateful session flow with `/sanctum/csrf-cookie`; configure `SANCTUM_STATEFUL_DOMAINS`, `CORS_ALLOWED_ORIGINS`, and `FRONTEND_URL` for each environment. Native clients request a token by including `device_name` on login. Email delivery must be configured for verification and reset links to reach users.
+Browser clients use Sanctum's stateful session flow with `/sanctum/csrf-cookie`; configure `SANCTUM_STATEFUL_DOMAINS`, `CORS_ALLOWED_ORIGINS`, and `FRONTEND_URL` for each environment. Native clients request a token by including `device_name` on login. Local development can use the in-app verification and reset links; production email delivery must be configured for these links to reach users.
 
 Document schemas, error codes, scopes and OpenAPI contracts alongside implementation; do not advertise proposed endpoints as available.

@@ -51,7 +51,7 @@ The production container recipe is `apps/api/Dockerfile` (build context: `apps/a
 - `POST /api/v1/auth/login` — verified accounts only. Uses a first-party session by default or issues a 30-day token when `device_name` is supplied.
 - `POST /api/v1/auth/logout` — revokes the current token or ends the browser session.
 - `POST /api/v1/auth/email/verification-notification` and `GET /api/v1/auth/verify-email/{id}/{hash}` — throttled resend and signed, expiring verification.
-- `POST /api/v1/auth/forgot-password` and `POST /api/v1/auth/reset-password` — generic reset-link response and token-based reset. Reset links go to `FRONTEND_URL/reset-password`.
+- `POST /api/v1/auth/forgot-password` and `POST /api/v1/auth/reset-password` — generic reset-link response and token-based reset. Reset links go to `FRONTEND_URL/reset-password`; under `APP_ENV=local`, a clickable reset URL is returned only for an eligible account so local browser development does not depend on email delivery. Other environments never return the token.
 - `GET /api/v1/me` — Sanctum-authenticated current-user summary.
 - `GET /api/v1/platform/overview` — verified platform operators explicitly allowlisted in `PLATFORM_ADMIN_EMAILS` receive aggregate organization/user/educator counts and recently created organization metadata. This allowlist is independent from `ENQUIRY_ADMIN_EMAILS`.
 - `GET /api/v1/platform/organizations?q={search}&status={status}` — the same allowlist can read a paginated organization directory with active roster counts.

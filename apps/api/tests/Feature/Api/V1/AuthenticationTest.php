@@ -155,7 +155,7 @@ class AuthenticationTest extends TestCase
         $user = User::factory()->create(['email' => 'asha@example.com']);
 
         $this->postJson('/api/v1/auth/forgot-password', ['email' => 'asha@example.com'])
-            ->assertAccepted();
+            ->assertAccepted()->assertJsonMissingPath('reset_url');
 
         Notification::assertSentTo($user, ResetPassword::class);
         $notification = Notification::sent($user, ResetPassword::class)->first();
@@ -169,6 +169,34 @@ class AuthenticationTest extends TestCase
         ])->assertOk();
 
         $this->assertTrue(password_verify('NewLearningPass456', $user->fresh()->password));
+    }
+
+    public function test_local_password_reset_returns_a_clickable_link_and_resets_without_sending_email(): void
+    {
+        Notification::fake();
+        config(['app.env' => 'local', 'app.frontend_url' => 'http://127.0.0.1:4178']);
+        $user = User::factory()->create(['email' => 'asha@example.com']);
+
+        $response = $this->postJson('/api/v1/auth/forgot-password', ['email' => 'asha@example.com'])
+            ->assertAccepted()
+            ->assertJsonPath('message', 'If an account exists for that address, password reset instructions have been sent.')
+            ->assertJsonStructure(['reset_url']);
+
+        $resetUrl = $response->json('reset_url');
+        $this->assertStringStartsWith('http://127.0.0.1:4178/reset-password?', $resetUrl);
+        parse_str((string) parse_url($resetUrl, PHP_URL_QUERY), $query);
+        $this->assertSame('asha@example.com', $query['email'] ?? null);
+        $this->assertIsString($query['token'] ?? null);
+        Notification::assertNothingSent();
+
+        $this->postJson('/api/v1/auth/reset-password', [
+            'email' => 'asha@example.com',
+            'token' => $query['token'],
+            'password' => 'NewLocalPassword123',
+            'password_confirmation' => 'NewLocalPassword123',
+        ])->assertOk();
+
+        $this->assertTrue(password_verify('NewLocalPassword123', $user->fresh()->password));
     }
 
     public function test_organization_detail_is_only_visible_to_an_active_member(): void

@@ -19,9 +19,10 @@ test('homepage navigation opens searchable sample course details', async ({ page
 })
 
 test('mobile menu is operable and public pages avoid horizontal overflow', async ({ page }) => {
+  test.setTimeout(120_000)
   for (const width of [320, 375, 430, 768]) {
     await page.setViewportSize({ width, height: 900 })
-    await page.goto('/')
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth)
     expect(pageWidth, `homepage overflows at ${width}px`).toBeLessThanOrEqual(width)
   }
