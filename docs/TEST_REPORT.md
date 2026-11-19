@@ -8,6 +8,11 @@
 - Full Laravel suite passed (**149 tests / 1,215 assertions**) on in-memory SQLite; `vendor/bin/pint --test`, web typecheck, ESLint, and production build passed (14 prerendered routes; 493.63 kB main bundle). Tests cover feature-off behavior, verified opt-in filtering, announcement targeting, queue outcomes, opt-out cancellation, preference validation, and recipient scoping.
 - No email provider was configured and no real email was sent. Delivery remains disabled by default pending an approved transport and persistent queue worker. PostgreSQL and deployed queue verification remain open.
 
+## Role dashboard workflow connections (19 November 2026)
+
+- Teacher Submissions now opens the existing API-backed assignment submission and grading workflow; Question bank opens the course-scoped quiz/question-bank manager. Student Lessons & notes opens enrolled lessons, and parent Notices shows a paginated membership-scoped inbox with read receipts.
+- Web typecheck, ESLint, and production build passed. The build prerendered 14 public routes and split the inbox into a 3.19 kB JavaScript chunk plus 1.47 kB CSS. No authenticated browser interaction was run; API authorization and read-receipt behavior remain covered by the Laravel suite.
+
 ## Manual WhatsApp announcement sharing (19 November 2026)
 
 - Authorized announcement managers can enter a phone number with country code and open WhatsApp with the selected announcement title and body prefilled. The number and message remain in the browser; staff review and send directly in WhatsApp.
