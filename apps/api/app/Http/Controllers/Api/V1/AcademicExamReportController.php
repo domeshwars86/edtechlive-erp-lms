@@ -14,6 +14,74 @@ class AcademicExamReportController
 {
     public function __construct(private readonly OrganizationAccess $access) {}
 
+    public function sections(Request $request, int $organization): JsonResponse
+    {
+        $membership = $this->access->membership($request, $organization);
+        abort_unless(in_array($membership->role, [OrganizationRole::Admin, OrganizationRole::Management, OrganizationRole::IndependentEducator, OrganizationRole::Teacher], true), 403);
+        $filters = $request->validate([
+            'session_id' => ['sometimes', 'integer', Rule::exists('academic_sessions', 'id')->where('organization_id', $organization)],
+        ]);
+
+        $query = DB::table('academic_exam_results as results')
+            ->join('academic_exam_papers as papers', 'papers.id', '=', 'results.academic_exam_paper_id')
+            ->join('academic_exams as exams', 'exams.id', '=', 'papers.academic_exam_id')
+            ->join('academic_sessions as sessions', 'sessions.id', '=', 'exams.academic_session_id')
+            ->join('academic_sections as sections', 'sections.id', '=', 'papers.academic_section_id')
+            ->join('academic_classes as classes', 'classes.id', '=', 'sections.academic_class_id')
+            ->where('results.organization_id', $organization)
+            ->where('papers.organization_id', $organization)
+            ->where('exams.organization_id', $organization)
+            ->where('sessions.organization_id', $organization)
+            ->where('sections.organization_id', $organization)
+            ->where('classes.organization_id', $organization)
+            ->where('exams.status', 'published');
+
+        if (isset($filters['session_id'])) {
+            $query->where('exams.academic_session_id', $filters['session_id']);
+        }
+
+        if ($membership->role === OrganizationRole::Teacher) {
+            $teacher = Teacher::query()->where('organization_id', $organization)->where('user_id', $request->user()->id)->where('status', 'active')->firstOrFail();
+            $query->whereExists(fn ($assignments) => $assignments->selectRaw('1')->from('teaching_assignments')
+                ->whereColumn('teaching_assignments.organization_id', 'papers.organization_id')
+                ->whereColumn('teaching_assignments.academic_session_id', 'exams.academic_session_id')
+                ->whereColumn('teaching_assignments.academic_section_id', 'papers.academic_section_id')
+                ->whereColumn('teaching_assignments.subject_id', 'papers.subject_id')
+                ->where('teaching_assignments.teacher_id', $teacher->id));
+        }
+
+        $sections = $query->select([
+            'exams.id as exam_id', 'exams.title as exam_title', 'sessions.name as session_name',
+            'classes.name as class_name', 'sections.id as section_id', 'sections.name as section_name',
+        ])
+            ->selectRaw('COUNT(DISTINCT papers.id) as paper_count')
+            ->selectRaw('COUNT(DISTINCT papers.subject_id) as subject_count')
+            ->selectRaw('COUNT(DISTINCT results.student_id) as student_count')
+            ->selectRaw('COUNT(results.id) as result_count')
+            ->selectRaw("SUM(CASE WHEN results.outcome = 'graded' THEN 1 ELSE 0 END) as graded_count")
+            ->selectRaw("SUM(CASE WHEN results.outcome = 'absent' THEN 1 ELSE 0 END) as absent_count")
+            ->selectRaw("SUM(CASE WHEN results.outcome = 'excused' THEN 1 ELSE 0 END) as excused_count")
+            ->selectRaw('AVG(CASE WHEN results.outcome = \'graded\' THEN results.score * 100.0 / NULLIF(papers.max_marks, 0) ELSE NULL END) as average_percent')
+            ->groupBy('exams.id', 'exams.title', 'sessions.name', 'classes.name', 'sections.id', 'sections.name')
+            ->orderByDesc('exams.starts_on')->orderBy('classes.name')->orderBy('sections.name')
+            ->limit(500)->get();
+
+        return response()->json(['data' => $sections->map(fn ($section): array => [
+            'exam_id' => (int) $section->exam_id,
+            'exam' => $section->exam_title,
+            'session' => $section->session_name,
+            'class_section' => $section->class_name.' · '.$section->section_name,
+            'paper_count' => (int) $section->paper_count,
+            'subject_count' => (int) $section->subject_count,
+            'student_count' => (int) $section->student_count,
+            'result_count' => (int) $section->result_count,
+            'graded_count' => (int) $section->graded_count,
+            'absent_count' => (int) $section->absent_count,
+            'excused_count' => (int) $section->excused_count,
+            'average_percent' => $section->average_percent === null ? null : round((float) $section->average_percent, 1),
+        ])->values()]);
+    }
+
     public function index(Request $request, int $organization): JsonResponse
     {
         $membership = $this->access->membership($request, $organization);

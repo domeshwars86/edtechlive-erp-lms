@@ -168,7 +168,57 @@ class AcademicExamTest extends TestCase
         $this->postJson("{$base}/exams/{$examId}/publish")->assertOk();
         Sanctum::actingAs($workspace['teacherUser']);
         $this->getJson("{$base}/reports/exams")->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.subject', 'Mathematics');
+        $this->getJson("{$base}/reports/exams/sections")->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.class_section', 'Grade 8 · A')->assertJsonPath('data.0.paper_count', 1)
+            ->assertJsonPath('data.0.subject_count', 1)->assertJsonPath('data.0.average_percent', 79);
         $this->postJson("{$base}/exams/{$examId}/publish")->assertForbidden();
+    }
+
+    public function test_section_exam_report_aggregates_normalized_subject_scores_without_student_identity(): void
+    {
+        $workspace = $this->workspace();
+        Sanctum::actingAs($workspace['admin']);
+        $base = "/api/v1/organizations/{$workspace['organization']->id}";
+        [$examId, $mathPaperId] = $this->createExam($base, $workspace);
+        $start = CarbonImmutable::now('Asia/Kolkata')->toDateString();
+        $science = Subject::query()->create(['organization_id' => $workspace['organization']->id, 'name' => 'Science', 'code' => 'SCI', 'is_active' => true]);
+        $sciencePaperId = $this->postJson("{$base}/exams/{$examId}/papers", [
+            'academic_section_id' => $workspace['section']->id, 'subject_id' => $science->id,
+            'exam_on' => $start, 'max_marks' => '20.00',
+        ])->assertCreated()->json('data.id');
+        $otherSectionPaperId = $this->postJson("{$base}/exams/{$examId}/papers", [
+            'academic_section_id' => $workspace['otherSection']->id, 'subject_id' => $workspace['subject']->id,
+            'exam_on' => $start, 'max_marks' => '100.00',
+        ])->assertCreated()->json('data.id');
+
+        $this->putJson("{$base}/exam-papers/{$mathPaperId}/results", ['records' => [
+            ['student_id' => $workspace['student']->id, 'outcome' => 'graded', 'score' => '40.00'],
+            ['student_id' => $workspace['secondStudent']->id, 'outcome' => 'absent', 'score' => null],
+        ]])->assertOk();
+        $this->putJson("{$base}/exam-papers/{$sciencePaperId}/results", ['records' => [
+            ['student_id' => $workspace['student']->id, 'outcome' => 'graded', 'score' => '18.00'],
+            ['student_id' => $workspace['secondStudent']->id, 'outcome' => 'graded', 'score' => '12.00'],
+        ]])->assertOk();
+        $this->putJson("{$base}/exam-papers/{$otherSectionPaperId}/results", ['records' => [
+            ['student_id' => $workspace['otherSectionStudent']->id, 'outcome' => 'graded', 'score' => '50.00'],
+        ]])->assertOk();
+        $this->postJson("{$base}/exams/{$examId}/publish")->assertOk();
+
+        $response = $this->getJson("{$base}/reports/exams/sections?session_id={$workspace['session']->id}")
+            ->assertOk()->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.exam', 'Term 1 examinations')
+            ->assertJsonPath('data.0.class_section', 'Grade 8 · A')
+            ->assertJsonPath('data.0.paper_count', 2)->assertJsonPath('data.0.subject_count', 2)
+            ->assertJsonPath('data.0.student_count', 2)->assertJsonPath('data.0.result_count', 4)
+            ->assertJsonPath('data.0.graded_count', 3)->assertJsonPath('data.0.absent_count', 1)
+            ->assertJsonPath('data.0.average_percent', 76.7)
+            ->assertJsonPath('data.1.class_section', 'Grade 8 · B')
+            ->assertJsonPath('data.1.paper_count', 1)->assertJsonPath('data.1.average_percent', 50);
+        $this->assertStringNotContainsString('Learner One', $response->getContent());
+        $this->assertStringNotContainsString('S-1', $response->getContent());
+
+        Sanctum::actingAs($workspace['studentUser']);
+        $this->getJson("{$base}/reports/exams/sections")->assertForbidden();
     }
 
     private function createExam(string $base, array $workspace): array
