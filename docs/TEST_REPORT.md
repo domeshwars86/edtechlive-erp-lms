@@ -6,6 +6,7 @@
 
 - Added API-backed edit forms for academic sessions, sections, and subjects alongside the existing class editor. The forms reuse the authorized tenant PATCH routes, keep archive/restore and current-session controls intact, and support cancel/reset and API error feedback. Session end dates are constrained to start dates by the browser input.
 - Added focused Laravel regression coverage for all three edit endpoints. `php artisan test --filter=AcademicMasterTest` passed (10 tests / 84 assertions). The full Laravel suite passed (159 tests / 1,351 assertions); web typecheck, ESLint, and production build passed, with 17 prerendered public routes. The full serial Chromium suite passed (14 tests / 2.4 minutes), including live registration, verification, sign-in, password reset and re-login; Admin permission grants; delegated Management read-only access; seven dashboard previews; and 19 responsive routes. An initial full browser run had a post-reset sign-in failure; the auth test passed in isolation and the complete serial rerun passed.
+- The full Laravel suite also passed on a fresh disposable PostgreSQL 17 cluster (**159 tests / 1,351 assertions**); all API migrations applied. The cluster ran on a dedicated loopback port and was stopped and removed after the check. The installed PostgreSQL service and its databases were not used.
 
 ## Tenant-scoped membership capabilities (19 November 2026)
 
