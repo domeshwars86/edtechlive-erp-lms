@@ -11,6 +11,7 @@ type MasterRecord = {
   id: number
   name: string
   code?: string | null
+  description?: string | null
   starts_on?: string
   ends_on?: string
   is_current?: boolean
@@ -43,6 +44,7 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
   const [branches, setBranches] = useState<MasterRecord[]>([])
   const [classId, setClassId] = useState('')
   const [editingClassId, setEditingClassId] = useState<number | null>(null)
+  const [editingRecordId, setEditingRecordId] = useState<number | null>(null)
   const [fields, setFields] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -99,26 +101,33 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
     setMessage('')
     try {
       if (tab === 'sessions') {
-        await api.post(`${base}/academic-sessions`, {
+        const payload = {
           name: fields.name, starts_on: fields.starts_on, ends_on: fields.ends_on,
           is_current: fields.is_current === 'on',
-        })
+        }
+        if (editingRecordId === null) await api.post(`${base}/academic-sessions`, payload)
+        else await api.patch(`${base}/academic-sessions/${editingRecordId}`, payload)
       } else if (tab === 'classes') {
         const payload = { name: fields.name, code: fields.code || null, organization_branch_id: fields.organization_branch_id ? Number(fields.organization_branch_id) : null }
         if (editingClassId === null) await api.post(`${base}/classes`, payload)
         else await api.patch(`${base}/classes/${editingClassId}`, payload)
       } else if (tab === 'subjects') {
-        await api.post(`${base}/subjects`, { name: fields.name, code: fields.code || null, description: fields.description || null })
+        const payload = { name: fields.name, code: fields.code || null, description: fields.description || null }
+        if (editingRecordId === null) await api.post(`${base}/subjects`, payload)
+        else await api.patch(`${base}/subjects/${editingRecordId}`, payload)
       } else {
-        await api.post(`${base}/classes/${classId}/sections`, {
+        const payload = {
           name: fields.name, academic_session_id: fields.academic_session_id ? Number(fields.academic_session_id) : null,
           capacity: fields.capacity ? Number(fields.capacity) : null,
-        })
+        }
+        if (editingRecordId === null) await api.post(`${base}/classes/${classId}/sections`, payload)
+        else await api.patch(`${base}/sections/${editingRecordId}`, payload)
       }
       setFields({})
       setEditingClassId(null)
+      setEditingRecordId(null)
       const singularLabel = tab === 'sessions' ? 'Academic session' : tab === 'classes' ? 'Class' : tab === 'subjects' ? 'Subject' : 'Section'
-      setMessage(`${singularLabel} ${tab === 'classes' && editingClassId !== null ? 'updated' : 'saved'}.`)
+      setMessage(`${singularLabel} ${editingClassId !== null || editingRecordId !== null ? 'updated' : 'saved'}.`)
       if (tab === 'sections') {
         const result = await api.get<ListResponse>(`${base}/classes/${classId}/sections`)
         setSections(result.data)
@@ -132,16 +141,27 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
     }
   }
 
-  function editClass(record: MasterRecord) {
-    setTab('classes')
-    setEditingClassId(record.id)
-    setFields({
-      name: record.name,
-      code: record.code ?? '',
-      organization_branch_id: record.organization_branch_id ? String(record.organization_branch_id) : '',
-    })
+  function editRecord(record: MasterRecord) {
+    if (tab === 'classes') setEditingClassId(record.id)
+    else setEditingRecordId(record.id)
+    if (tab === 'sessions') {
+      setFields({ name: record.name, starts_on: record.starts_on ?? '', ends_on: record.ends_on ?? '', is_current: record.is_current ? 'on' : '' })
+    } else if (tab === 'classes') {
+      setFields({ name: record.name, code: record.code ?? '', organization_branch_id: record.organization_branch_id ? String(record.organization_branch_id) : '' })
+    } else if (tab === 'subjects') {
+      setFields({ name: record.name, code: record.code ?? '', description: record.description ?? '' })
+    } else {
+      setFields({ name: record.name, academic_session_id: record.academic_session_id ? String(record.academic_session_id) : '', capacity: record.capacity ? String(record.capacity) : '' })
+    }
     setError('')
     setMessage('')
+  }
+
+  function cancelEdit() {
+    setEditingClassId(null)
+    setEditingRecordId(null)
+    setFields({})
+    setError('')
   }
 
   async function toggleActive(record: MasterRecord) {
@@ -165,15 +185,15 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
 
   return <section className="dash-panel dash-masters-panel">
     <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ACADEMIC SETUP</span><h2>Academic master entries</h2><p className="dash-record-subtitle">These records belong to your selected organization.</p></div><button className="dash-icon-button" onClick={() => void loadMasters()} aria-label="Refresh academic records"><RefreshCw size={16} /></button></div>
-    <div className="master-tabs" role="tablist" aria-label="Academic record type">{(['sessions', 'classes', 'subjects', 'sections', 'batches', 'branches', 'fee_categories'] as MasterTab[]).map(item => <button key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'selected' : ''} onClick={() => { setTab(item); if (item !== 'classes') { setEditingClassId(null); setFields({}) } }}>{labels[item]}</button>)}</div>
+    <div className="master-tabs" role="tablist" aria-label="Academic record type">{(['sessions', 'classes', 'subjects', 'sections', 'batches', 'branches', 'fee_categories'] as MasterTab[]).map(item => <button key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'selected' : ''} onClick={() => { setTab(item); cancelEdit() }}>{labels[item]}</button>)}</div>
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
     {message && <div className="master-feedback master-success" role="status"><Check size={16} />{message}</div>}
     {tab === 'batches' || tab === 'branches' || tab === 'fee_categories' ? <Suspense fallback={<p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading {labels[tab].toLowerCase()}…</p>}>{tab === 'batches' ? <BatchManager organizationId={organizationId} sessions={sessions} classes={classes} /> : tab === 'branches' ? <BranchManager organizationId={organizationId} /> : <FeeCategoryManager organizationId={organizationId} />}</Suspense> : <div className="master-content">
       <form className="master-form" onSubmit={createRecord}>
-        <h3><Plus size={17} />{tab === 'classes' && editingClassId !== null ? 'Edit class' : `Add ${labels[tab].toLowerCase().replace(/s$/, '')}`}</h3>
+        <h3><Plus size={17} />{editingClassId !== null || editingRecordId !== null ? `Edit ${tab === 'sessions' ? 'academic session' : tab === 'classes' ? 'class' : tab === 'subjects' ? 'subject' : 'section'}` : `Add ${labels[tab].toLowerCase().replace(/s$/, '')}`}</h3>
         {tab === 'sessions' && <>
           <label>Session name<input required maxLength={120} value={fields.name ?? ''} onChange={e => setField('name', e.target.value)} placeholder="2026–2027" /></label>
-          <div className="master-form-row"><label>Starts on<input required type="date" value={fields.starts_on ?? ''} onChange={e => setField('starts_on', e.target.value)} /></label><label>Ends on<input required type="date" value={fields.ends_on ?? ''} onChange={e => setField('ends_on', e.target.value)} /></label></div>
+          <div className="master-form-row"><label>Starts on<input required type="date" value={fields.starts_on ?? ''} onChange={e => setField('starts_on', e.target.value)} /></label><label>Ends on<input required type="date" min={fields.starts_on || undefined} value={fields.ends_on ?? ''} onChange={e => setField('ends_on', e.target.value)} /></label></div>
           <label className="master-checkbox"><input type="checkbox" checked={fields.is_current === 'on'} onChange={e => setField('is_current', e.target.checked ? 'on' : '')} />Set as current session</label>
         </>}
         {(tab === 'classes' || tab === 'subjects') && <>
@@ -183,16 +203,16 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
           {tab === 'subjects' && <label>Description <span>(optional)</span><textarea maxLength={2000} value={fields.description ?? ''} onChange={e => setField('description', e.target.value)} rows={3} /> </label>}
         </>}
         {tab === 'sections' && <>
-          <label>Class<select required value={classId} onChange={e => setClassId(e.target.value)}><option value="">Select class</option>{classes.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          {editingRecordId === null && <label>Class<select required value={classId} onChange={e => setClassId(e.target.value)}><option value="">Select class</option>{classes.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
           <label>Section name<input required maxLength={80} value={fields.name ?? ''} onChange={e => setField('name', e.target.value)} placeholder="A" /></label>
           <label>Academic session<select value={fields.academic_session_id ?? ''} onChange={e => setField('academic_session_id', e.target.value)}><option value="">Not assigned</option>{sessions.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           <label>Capacity <span>(optional)</span><input type="number" min="1" max="65535" value={fields.capacity ?? ''} onChange={e => setField('capacity', e.target.value)} /></label>
         </>}
-        <div className="master-form-actions"><button className="master-submit" disabled={saving || (tab === 'sections' && !classId)}>{saving ? <><LoaderCircle className="master-spin" size={16} />Saving…</> : <><Plus size={16} />{tab === 'classes' && editingClassId !== null ? 'Update class' : 'Save record'}</>}</button>{tab === 'classes' && editingClassId !== null && <button type="button" className="master-record-action" onClick={() => { setEditingClassId(null); setFields({}) }}>Cancel</button>}</div>
+        <div className="master-form-actions"><button className="master-submit" disabled={saving || (tab === 'sections' && !classId)}>{saving ? <><LoaderCircle className="master-spin" size={16} />Saving…</> : <><Plus size={16} />{editingClassId !== null || editingRecordId !== null ? 'Update record' : 'Save record'}</>}</button>{(editingClassId !== null || editingRecordId !== null) && <button type="button" className="master-record-action" onClick={cancelEdit}>Cancel</button>}</div>
       </form>
       <div className="master-list"><div className="master-list-heading"><div><h3>{labels[tab]}</h3><span>{records.length} record{records.length === 1 ? '' : 's'}</span></div></div>
         {tab === 'sections' && <label className="master-class-filter"><UsersRound size={15} /><select aria-label="Filter sections by class" value={classId} onChange={e => setClassId(e.target.value)}><option value="">Choose a class</option>{classes.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
-        {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading records…</p> : records.length === 0 ? <p className="master-empty"><BookOpen size={18} />No {labels[tab].toLowerCase()} yet. Add the first record to get started.</p> : <ul>{records.map(record => <li key={record.id}><span className="master-record-icon">{tab === 'sessions' ? <CalendarDays size={17} /> : tab === 'classes' ? <UsersRound size={17} /> : <BookOpen size={17} />}</span><span className="master-record-main"><b>{record.name}</b><small>{tab === 'sessions' ? `${record.starts_on} – ${record.ends_on}${record.is_current ? ' · Current' : ''}` : tab === 'sections' ? `${record.academic_session?.name ?? 'No session'}${record.capacity ? ` · capacity ${record.capacity}` : ''}` : `${record.code || 'No code'}${tab === 'classes' && record.branch ? ` · ${record.branch.name}` : ''}`}</small></span><span className={`master-status ${record.is_active ? 'active' : ''}`}>{record.is_active ? 'Active' : 'Archived'}</span>{tab === 'classes' && <button className="master-record-action" onClick={() => editClass(record)}>Edit</button>}<button className="master-record-action" onClick={() => void toggleActive(record)}>{tab === 'sessions' && !record.is_current ? 'Make current' : record.is_active ? 'Archive' : 'Restore'}</button></li>)}</ul>}
+        {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading records…</p> : records.length === 0 ? <p className="master-empty"><BookOpen size={18} />No {labels[tab].toLowerCase()} yet. Add the first record to get started.</p> : <ul>{records.map(record => <li key={record.id}><span className="master-record-icon">{tab === 'sessions' ? <CalendarDays size={17} /> : tab === 'classes' ? <UsersRound size={17} /> : <BookOpen size={17} />}</span><span className="master-record-main"><b>{record.name}</b><small>{tab === 'sessions' ? `${record.starts_on} – ${record.ends_on}${record.is_current ? ' · Current' : ''}` : tab === 'sections' ? `${record.academic_session?.name ?? 'No session'}${record.capacity ? ` · capacity ${record.capacity}` : ''}` : `${record.code || 'No code'}${tab === 'classes' && record.branch ? ` · ${record.branch.name}` : ''}`}</small></span><span className={`master-status ${record.is_active ? 'active' : ''}`}>{record.is_active ? 'Active' : 'Archived'}</span><button className="master-record-action" onClick={() => editRecord(record)}>Edit</button><button className="master-record-action" onClick={() => void toggleActive(record)}>{tab === 'sessions' && !record.is_current ? 'Make current' : record.is_active ? 'Archive' : 'Restore'}</button></li>)}</ul>}
       </div>
     </div>}
   </section>

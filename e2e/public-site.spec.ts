@@ -323,6 +323,72 @@ test('delegated management sees read-only member access without audit permission
   await expect(page.getByRole('button', { name: 'Your account' })).toBeDisabled()
 })
 
+test('organization administrators can grant membership permissions with required read access', async ({ page }) => {
+  let signedIn = false
+  let grantedPermissions: string[] = []
+  const account = { id: 84, name: 'Workspace Administrator', email: 'admin@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', is_platform_admin: false }
+  const membership = {
+    membership_id: 92,
+    role: 'admin',
+    organization: { id: 18, name: 'Browser Test School', slug: 'browser-test-school', type: 'school', status: 'active', timezone: 'Asia/Kolkata' },
+  }
+  const administrator = {
+    id: 92, user: { id: account.id, name: account.name, email: account.email }, role: 'admin', status: 'active', accepted_at: '2026-11-19T12:00:00.000Z',
+    permissions: { effective: ['organization.memberships.audit', 'organization.memberships.manage', 'organization.memberships.read'], overrides: [], editable: false },
+  }
+  const manager = {
+    id: 93, user: { id: 85, name: 'School Manager', email: 'school-manager@example.test' }, role: 'management', status: 'active', accepted_at: '2026-11-19T12:00:00.000Z',
+    permissions: { effective: ['organization.memberships.read', ...grantedPermissions], overrides: [...grantedPermissions], editable: true },
+  }
+  const permissionCatalog = [
+    { key: 'organization.memberships.read', label: 'View members', description: 'View organization membership records and their status.' },
+    { key: 'organization.memberships.manage', label: 'Manage members', description: 'Change eligible member roles and suspend or restore membership access.' },
+    { key: 'organization.memberships.audit', label: 'View access audit', description: 'View membership role, status, and permission change history.' },
+  ]
+
+  await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
+  await page.route('**/api/v1/me', route => route.fulfill({
+    status: signedIn ? 200 : 401,
+    contentType: 'application/json',
+    body: JSON.stringify(signedIn ? { data: account } : { message: 'Unauthenticated.' }),
+  }))
+  await page.route('**/api/v1/auth/login', route => {
+    signedIn = true
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: account }) })
+  })
+  await page.route('**/api/v1/organizations?per_page=100', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: [membership], preferred_organization_id: null, meta: { current_page: 1, last_page: 1, per_page: 100, total: 1 } }),
+  }))
+  await page.route('**/api/v1/me/organization', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: membership }) }))
+  await page.route('**/api/v1/organizations/18/invitations*', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { total: 0 } }) }))
+  await page.route('**/api/v1/organizations/18/students*', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { total: 0 } }) }))
+  await page.route('**/api/v1/organizations/18/memberships**', route => {
+    if (route.request().method() === 'PATCH') {
+      const payload = route.request().postDataJSON() as { permissions?: string[] }
+      grantedPermissions = payload.permissions ?? []
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { ...manager, permissions: { effective: grantedPermissions, overrides: grantedPermissions, editable: true } } }) })
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [administrator, manager], permission_catalog: permissionCatalog, can_manage_memberships: true, can_manage_permissions: true, meta: { current_page: 1, last_page: 1, total: 2 } }) })
+  })
+  await page.route('**/api/v1/organizations/18/membership-access-audit**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { current_page: 1, last_page: 1, total: 0 } }) }))
+
+  await page.goto('/login')
+  await page.getByRole('textbox', { name: 'Email address' }).fill(account.email)
+  await page.getByLabel('Password', { exact: true }).fill('LocalBrowserPass123')
+  await page.getByRole('button', { name: 'Log in' }).click()
+  await page.getByRole('button', { name: /Browser Test School/ }).click()
+  await page.getByRole('button', { name: 'Invitations', exact: true }).click()
+  await page.getByRole('tab', { name: 'Members & roles' }).click()
+  await page.getByRole('row', { name: /school-manager@example\.test/ }).getByRole('button', { name: 'Edit' }).click()
+  await page.getByRole('checkbox', { name: /Manage members/ }).check()
+  await expect(page.getByRole('checkbox', { name: /^View members/ })).toBeChecked()
+  await page.getByRole('button', { name: 'Save permissions' }).click()
+  await expect(page.getByText('Access updated for School Manager.')).toBeVisible()
+  expect(grantedPermissions).toEqual(expect.arrayContaining(['organization.memberships.read', 'organization.memberships.manage']))
+})
+
 test('all seven dashboard previews fit narrow and desktop viewports', async ({ page }) => {
   test.setTimeout(120_000)
   const roles = ['super-admin', 'admin', 'management', 'teacher', 'student', 'parent', 'educator']

@@ -2,10 +2,15 @@
 
 **Updated:** 19 November 2026
 
+## Academic master edit forms (19 November 2026)
+
+- Added API-backed edit forms for academic sessions, sections, and subjects alongside the existing class editor. The forms reuse the authorized tenant PATCH routes, keep archive/restore and current-session controls intact, and support cancel/reset and API error feedback. Session end dates are constrained to start dates by the browser input.
+- Added focused Laravel regression coverage for all three edit endpoints. `php artisan test --filter=AcademicMasterTest` passed (10 tests / 84 assertions). The full Laravel suite passed (159 tests / 1,351 assertions); web typecheck, ESLint, and production build passed, with 17 prerendered public routes. The full serial Chromium suite passed (14 tests / 2.4 minutes), including live registration, verification, sign-in, password reset and re-login; Admin permission grants; delegated Management read-only access; seven dashboard previews; and 19 responsive routes. An initial full browser run had a post-reset sign-in failure; the auth test passed in isolation and the complete serial rerun passed.
+
 ## Tenant-scoped membership capabilities (19 November 2026)
 
 - Added membership read/manage/audit capability overrides for eligible active memberships, Admin and Independent Educator grant authority, Management read defaults, role-rank limits for delegated managers, implied member-list read when manage/audit is granted, and audited permission before/after values. The responsive dashboard exposes Members & roles to accounts whose active workspace grants membership read and shows an authorization message when audit access is absent.
-- Full Laravel suite passed on in-memory SQLite (**158 tests / 1,337 assertions**); the focused membership suite passed (**8 tests / 82 assertions**). Pint, web typecheck, ESLint, and production build passed; the build prerendered 17 public routes. Full Playwright Chromium passed **13 tests in 3.0 minutes** with one worker and the separate preview stopped. Coverage includes real registration, verification and sign-in; Admin access to Members & roles; delegated Management read-only access without audit permission; notification preference persistence; all seven dashboard previews; and 19 route widths. No PostgreSQL or production deployment check was performed.
+- Full Laravel suite passed on in-memory SQLite (**159 tests / 1,351 assertions**); the focused membership suite passed (**8 tests / 82 assertions**). Pint, web typecheck, ESLint, and production build passed; the build prerendered 17 public routes. Full Playwright Chromium passed **14 tests in 2.4 minutes** with one worker and the separate preview stopped. Coverage includes real registration, verification, sign-in, password reset and re-login; Admin membership permission grants; delegated Management read-only access without audit permission; notification preference persistence; all seven dashboard previews; and 19 route widths. No PostgreSQL or production deployment check was performed.
 
 ## Public course discovery (19 November 2026)
 

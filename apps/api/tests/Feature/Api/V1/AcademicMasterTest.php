@@ -71,6 +71,34 @@ class AcademicMasterTest extends TestCase
         $this->assertDatabaseCount('academic_sessions', 2);
     }
 
+    public function test_admin_can_update_sessions_sections_and_subjects(): void
+    {
+        [$user, $organization] = $this->workspace();
+        Sanctum::actingAs($user);
+        $base = "/api/v1/organizations/{$organization->id}";
+        $sessionId = $this->postJson("{$base}/academic-sessions", [
+            'name' => '2026–2027', 'starts_on' => '2026-06-01', 'ends_on' => '2027-05-31',
+        ])->assertCreated()->json('data.id');
+        $classId = $this->postJson("{$base}/classes", ['name' => 'Grade 8'])->assertCreated()->json('data.id');
+        $sectionId = $this->postJson("{$base}/classes/{$classId}/sections", [
+            'name' => 'A', 'academic_session_id' => $sessionId, 'capacity' => 30,
+        ])->assertCreated()->json('data.id');
+        $subjectId = $this->postJson("{$base}/subjects", [
+            'name' => 'Mathematics', 'code' => 'MATH', 'description' => 'Core subject',
+        ])->assertCreated()->json('data.id');
+
+        $this->patchJson("{$base}/academic-sessions/{$sessionId}", [
+            'name' => '2026–2027 session', 'starts_on' => '2026-07-01', 'ends_on' => '2027-06-30', 'is_current' => true,
+        ])->assertOk()->assertJsonPath('data.name', '2026–2027 session')->assertJsonPath('data.is_current', true);
+        $this->patchJson("{$base}/sections/{$sectionId}", [
+            'name' => 'B', 'academic_session_id' => null, 'capacity' => 36,
+        ])->assertOk()->assertJsonPath('data.name', 'B')->assertJsonPath('data.capacity', 36);
+        $this->patchJson("{$base}/subjects/{$subjectId}", [
+            'name' => 'Advanced Mathematics', 'code' => 'AMATH', 'description' => 'Updated description',
+        ])->assertOk()->assertJsonPath('data.name', 'Advanced Mathematics')
+            ->assertJsonPath('data.code', 'AMATH')->assertJsonPath('data.description', 'Updated description');
+    }
+
     public function test_members_cannot_read_or_write_another_tenant_masters(): void
     {
         [$user] = $this->workspace();
