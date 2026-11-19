@@ -43,12 +43,51 @@ class AttendanceTest extends TestCase
             'marked_by' => $user->id,
         ]);
 
-        $this->putJson($endpoint, array_replace_recursive($payload, ['records' => [['student_id' => $student->id, 'status' => 'late', 'note' => null]]]))
+        $this->putJson($endpoint, array_replace_recursive($payload, ['records' => [['student_id' => $student->id, 'status' => 'late', 'note' => null, 'correction_reason' => 'Teacher confirmed the original mark was incorrect.']]]))
             ->assertOk()->assertJsonPath('saved', 1);
         $this->assertDatabaseCount('attendance_records', 1);
+        $this->assertDatabaseHas('attendance_corrections', [
+            'organization_id' => $organization->id,
+            'actor_user_id' => $user->id,
+            'previous_status' => 'present',
+            'status' => 'late',
+            'reason' => 'Teacher confirmed the original mark was incorrect.',
+        ]);
         $this->getJson("{$endpoint}?section_id={$section->id}&date=2026-11-18")
             ->assertOk()->assertJsonPath('data.0.status', 'late')->assertJsonPath('data.0.note', null)
             ->assertJsonPath('context.session.id', $section->academic_session_id);
+        $this->getJson("{$endpoint}/corrections?section_id={$section->id}&date=2026-11-18")
+            ->assertOk()->assertJsonPath('data.0.student.name', $student->name)
+            ->assertJsonPath('data.0.actor', $user->name)
+            ->assertJsonPath('data.0.previous_status', 'present')->assertJsonPath('data.0.reason', 'Teacher confirmed the original mark was incorrect.');
+    }
+
+    public function test_saved_attendance_cannot_be_changed_without_a_correction_reason(): void
+    {
+        [$user, $organization, $section, $student] = $this->classroom();
+        Sanctum::actingAs($user);
+        $endpoint = "/api/v1/organizations/{$organization->id}/attendance";
+        $this->putJson($endpoint, [
+            'section_id' => $section->id,
+            'date' => '2026-11-18',
+            'records' => [['student_id' => $student->id, 'status' => 'present', 'note' => 'On time']],
+        ])->assertOk();
+
+        $this->putJson($endpoint, [
+            'section_id' => $section->id,
+            'date' => '2026-11-18',
+            'records' => [['student_id' => $student->id, 'status' => 'absent', 'note' => null]],
+        ])->assertUnprocessable()->assertJsonValidationErrors('records.0.correction_reason');
+
+        $this->assertDatabaseHas('attendance_records', ['student_id' => $student->id, 'status' => 'present', 'note' => 'On time']);
+        $this->assertDatabaseCount('attendance_corrections', 0);
+
+        $this->putJson($endpoint, [
+            'section_id' => $section->id,
+            'date' => '2026-11-18',
+            'records' => [['student_id' => $student->id, 'status' => 'present', 'note' => 'On time']],
+        ])->assertOk();
+        $this->assertDatabaseCount('attendance_corrections', 0);
     }
 
     public function test_user_cannot_access_another_tenants_attendance(): void
@@ -93,6 +132,7 @@ class AttendanceTest extends TestCase
             'date' => '2026-11-18',
             'records' => [['student_id' => $student->id, 'status' => 'present']],
         ])->assertOk();
+        $this->getJson("{$endpoint}/corrections?section_id={$section->id}&date=2026-11-18")->assertOk();
 
         $unassignedSection = AcademicSection::query()->create([
             'organization_id' => $organization->id,
@@ -101,6 +141,7 @@ class AttendanceTest extends TestCase
             'name' => 'B',
         ]);
         $this->getJson("{$endpoint}?section_id={$unassignedSection->id}&date=2026-11-18")->assertForbidden();
+        $this->getJson("{$endpoint}/corrections?section_id={$unassignedSection->id}&date=2026-11-18")->assertForbidden();
     }
 
     public function test_attendance_requires_students_enrolled_in_the_selected_section_and_session(): void

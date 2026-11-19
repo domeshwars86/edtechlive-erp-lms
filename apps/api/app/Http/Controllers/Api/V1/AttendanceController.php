@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\OrganizationRole;
 use App\Models\AcademicSection;
+use App\Models\AttendanceCorrection;
 use App\Models\AttendanceRecord;
 use App\Models\Student;
 use App\Models\Teacher;
@@ -79,6 +80,7 @@ class AttendanceController
             'records.*.student_id' => ['required', 'integer', 'distinct', Rule::exists('students', 'id')->where('organization_id', $organization)],
             'records.*.status' => ['required', Rule::in(['present', 'absent', 'late', 'excused'])],
             'records.*.note' => ['nullable', 'string', 'max:500'],
+            'records.*.correction_reason' => ['nullable', 'string', 'max:500'],
         ]);
         $section = $this->sectionForDate($organization, (int) $data['section_id'], $data['date']);
         $this->assertAssignedTeacher($teacher, $organization, $section->id, (int) $section->academic_session_id);
@@ -95,27 +97,98 @@ class AttendanceController
             throw ValidationException::withMessages(['records' => ['Every student must be active and enrolled in the selected section and academic session.']]);
         }
 
-        $now = now();
-        $rows = collect($data['records'])->map(fn (array $record): array => [
-            'organization_id' => $organization,
-            'academic_section_id' => $section->id,
-            'academic_session_id' => $section->academic_session_id,
-            'student_id' => $record['student_id'],
-            'attendance_date' => $data['date'],
-            'status' => $record['status'],
-            'note' => $record['note'] ?? null,
-            'marked_by' => $request->user()->id,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ])->all();
+        DB::transaction(function () use ($data, $organization, $request, $section, $studentIds): void {
+            $existing = AttendanceRecord::query()->where('organization_id', $organization)
+                ->where('academic_section_id', $section->id)
+                ->where('attendance_date', $data['date'])
+                ->whereIn('student_id', $studentIds)
+                ->lockForUpdate()->get()->keyBy('student_id');
 
-        DB::transaction(fn () => AttendanceRecord::query()->upsert(
-            $rows,
-            ['organization_id', 'academic_section_id', 'student_id', 'attendance_date'],
-            ['academic_session_id', 'status', 'note', 'marked_by', 'updated_at'],
-        ));
+            foreach ($data['records'] as $index => $record) {
+                $previous = $existing->get((int) $record['student_id']);
+                $nextNote = $record['note'] ?? null;
+                if ($previous === null || ($previous->status === $record['status'] && $previous->note === $nextNote)) {
+                    continue;
+                }
 
-        return response()->json(['message' => 'Attendance saved.', 'saved' => count($rows)]);
+                $reason = trim((string) ($record['correction_reason'] ?? ''));
+                if ($reason === '') {
+                    throw ValidationException::withMessages([
+                        "records.{$index}.correction_reason" => ['Explain why a previously saved attendance mark is changing.'],
+                    ]);
+                }
+
+                AttendanceCorrection::query()->create([
+                    'organization_id' => $organization,
+                    'attendance_record_id' => $previous->id,
+                    'actor_user_id' => $request->user()->id,
+                    'previous_status' => $previous->status,
+                    'status' => $record['status'],
+                    'previous_note' => $previous->note,
+                    'note' => $nextNote,
+                    'reason' => $reason,
+                ]);
+            }
+
+            $now = now();
+            $rows = collect($data['records'])->map(fn (array $record): array => [
+                'organization_id' => $organization,
+                'academic_section_id' => $section->id,
+                'academic_session_id' => $section->academic_session_id,
+                'student_id' => $record['student_id'],
+                'attendance_date' => $data['date'],
+                'status' => $record['status'],
+                'note' => $record['note'] ?? null,
+                'marked_by' => $request->user()->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])->all();
+
+            AttendanceRecord::query()->upsert(
+                $rows,
+                ['organization_id', 'academic_section_id', 'student_id', 'attendance_date'],
+                ['academic_session_id', 'status', 'note', 'marked_by', 'updated_at'],
+            );
+        });
+
+        return response()->json(['message' => 'Attendance saved.', 'saved' => count($data['records'])]);
+    }
+
+    public function corrections(Request $request, int $organization): JsonResponse
+    {
+        $teacher = $this->authorizeAttendance($request, $organization);
+        $filters = $request->validate([
+            'section_id' => ['required', 'integer', Rule::exists('academic_sections', 'id')->where('organization_id', $organization)],
+            'date' => ['required', 'date_format:Y-m-d'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+        ]);
+        $section = $this->sectionForDate($organization, (int) $filters['section_id'], $filters['date']);
+        $this->assertAssignedTeacher($teacher, $organization, $section->id, (int) $section->academic_session_id);
+        $corrections = AttendanceCorrection::query()->where('organization_id', $organization)
+            ->whereHas('record', fn ($query) => $query->where('academic_section_id', $section->id)
+                ->where('attendance_date', $filters['date']))
+            ->with(['record.student:id,name,admission_number', 'actor:id,name'])
+            ->orderByDesc('id')->paginate(min(max($request->integer('per_page', 25), 1), 100));
+
+        return response()->json([
+            'data' => $corrections->getCollection()->map(fn (AttendanceCorrection $correction): array => [
+                'id' => $correction->id,
+                'student' => $correction->record?->student?->only(['id', 'name', 'admission_number']),
+                'actor' => $correction->actor?->name,
+                'previous_status' => $correction->previous_status,
+                'status' => $correction->status,
+                'previous_note' => $correction->previous_note,
+                'note' => $correction->note,
+                'reason' => $correction->reason,
+                'created_at' => $correction->created_at?->toISOString(),
+            ])->values(),
+            'meta' => [
+                'current_page' => $corrections->currentPage(),
+                'last_page' => $corrections->lastPage(),
+                'total' => $corrections->total(),
+            ],
+        ]);
     }
 
     private function authorizeAttendance(Request $request, int $organization, bool $write = false): ?Teacher

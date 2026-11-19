@@ -179,6 +179,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('/teaching-assignments', [TeachingAssignmentController::class, 'store']);
                 Route::delete('/teaching-assignments/{record}', [TeachingAssignmentController::class, 'destroy'])->whereNumber('record');
                 Route::get('/attendance', [AttendanceController::class, 'index']);
+                Route::get('/attendance/corrections', [AttendanceController::class, 'corrections']);
                 Route::put('/attendance', [AttendanceController::class, 'store']);
                 Route::get('/reports/assessments', [AssessmentReportController::class, 'index']);
                 Route::get('/reports/exams/sections', [AcademicExamReportController::class, 'sections']);

@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { AlertCircle, Check, ChevronLeft, ChevronRight, ClipboardCheck, LoaderCircle, RefreshCw, Save } from 'lucide-react'
 import { api } from '../lib/api'
+import './attendance-corrections.css'
 
 type AttendanceStatus = '' | 'present' | 'absent' | 'late' | 'excused'
 type Section = { id: number; name: string; academic_session_id: number | null; is_active?: boolean; academic_session?: { id: number; name: string } | null; academic_class?: { id: number; name: string } | null }
-type StudentRow = { id: number; name: string; admission_number: string; status: AttendanceStatus; note: string | null }
+type StudentRow = { id: number; name: string; admission_number: string; status: AttendanceStatus; note: string | null; originalStatus?: AttendanceStatus; originalNote?: string | null; correctionReason?: string }
+type AttendanceCorrection = { id: number; student: { id: number; name: string; admission_number: string | null } | null; actor: string | null; previous_status: string; status: string; previous_note: string | null; note: string | null; reason: string; created_at: string }
 type PageResponse = {
   data: StudentRow[]
   context: { section: { id: number; name: string }; class: { id: number; name: string }; session: { id: number; name: string }; date: string }
@@ -25,6 +27,7 @@ export default function AttendanceRegister({ organizationId, sectionsOverride, i
   const [date, setDate] = useState(localToday)
   const [page, setPage] = useState(1)
   const [rows, setRows] = useState<StudentRow[]>([])
+  const [corrections, setCorrections] = useState<AttendanceCorrection[]>([])
   const [meta, setMeta] = useState<PageResponse['meta']>({ current_page: 1, last_page: 1, per_page: 100, total: 0 })
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -65,11 +68,16 @@ export default function AttendanceRegister({ organizationId, sectionsOverride, i
     setMessage('')
     try {
       const query = new URLSearchParams({ section_id: sectionId, date, page: String(page), per_page: '100' })
-      const result = await api.get<PageResponse>(`${base}/attendance?${query}`)
-      setRows(result.data.map(row => ({ ...row, status: row.status ?? '', note: row.note ?? '' })))
+      const [result, correctionResult] = await Promise.all([
+        api.get<PageResponse>(`${base}/attendance?${query}`),
+        api.get<ListResponse<AttendanceCorrection>>(`${base}/attendance/corrections?${new URLSearchParams({ section_id: sectionId, date, per_page: '100' })}`),
+      ])
+      setRows(result.data.map(row => ({ ...row, status: row.status ?? '', note: row.note ?? '', originalStatus: row.status ?? '', originalNote: row.note ?? '', correctionReason: '' })))
       setMeta(result.meta)
+      setCorrections(correctionResult.data)
     } catch (reason) {
       setRows([])
+      setCorrections([])
       setError(reason instanceof Error ? reason.message : 'Could not load this attendance register.')
     } finally {
       setLoading(false)
@@ -87,10 +95,19 @@ export default function AttendanceRegister({ organizationId, sectionsOverride, i
     setRows(current => current.map(row => row.id === id ? { ...row, [field]: value } : row))
   }
 
+  function hasSavedChange(row: StudentRow) {
+    return row.originalStatus !== undefined && row.originalStatus !== ''
+      && (row.status !== row.originalStatus || (row.note ?? '') !== (row.originalNote ?? ''))
+  }
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (rows.some(row => !row.status)) {
       setError('Mark every student on this page before saving the register.')
+      return
+    }
+    if (rows.some(row => hasSavedChange(row) && !row.correctionReason?.trim())) {
+      setError('Add a reason for each change to a previously saved attendance record.')
       return
     }
     setSaving(true)
@@ -99,7 +116,7 @@ export default function AttendanceRegister({ organizationId, sectionsOverride, i
     try {
       const result = await api.put<{ message: string; saved: number }>(`${base}/attendance`, {
         section_id: Number(sectionId), date,
-        records: rows.map(row => ({ student_id: row.id, status: row.status, note: row.note || null })),
+        records: rows.map(row => ({ student_id: row.id, status: row.status, note: row.note || null, correction_reason: hasSavedChange(row) ? row.correctionReason?.trim() : null })),
       })
       setMessage(`${result.saved} attendance record${result.saved === 1 ? '' : 's'} saved for this page.`)
       await loadAttendance()
@@ -117,10 +134,15 @@ export default function AttendanceRegister({ organizationId, sectionsOverride, i
     {message && <div className="master-feedback master-success" role="status"><Check size={16} />{message}</div>}
     <div className="attendance-summary"><span><b>{meta.total}</b> active students</span><span><i className="attendance-dot present" />Present <b>{counts.present}</b></span><span><i className="attendance-dot absent" />Absent <b>{counts.absent}</b></span><span><i className="attendance-dot late" />Late <b>{counts.late}</b></span><span><i className="attendance-dot excused" />Excused <b>{counts.excused}</b></span></div>
     <form onSubmit={save}>
-      <div className="dash-table-scroll attendance-table"><table><thead><tr><th>STUDENT</th><th>ADMISSION NO.</th><th>STATUS</th><th>NOTE</th></tr></thead><tbody>{rows.map(row => <tr key={row.id}><td><b>{row.name}</b></td><td>{row.admission_number}</td><td><select aria-label={`Attendance status for ${row.name}`} required value={row.status} onChange={event => updateRow(row.id, 'status', event.target.value as AttendanceStatus)}><option value="">Mark attendance</option><option value="present">Present</option><option value="absent">Absent</option><option value="late">Late</option><option value="excused">Excused</option></select></td><td><input aria-label={`Attendance note for ${row.name}`} maxLength={500} value={row.note ?? ''} onChange={event => updateRow(row.id, 'note', event.target.value)} placeholder="Optional" /></td></tr>)}</tbody></table></div>
+      <div className="dash-table-scroll attendance-table"><table><thead><tr><th>STUDENT</th><th>ADMISSION NO.</th><th>STATUS</th><th>NOTE</th><th>CORRECTION REASON</th></tr></thead><tbody>{rows.map(row => <tr key={row.id}><td><b>{row.name}</b></td><td>{row.admission_number}</td><td><select aria-label={`Attendance status for ${row.name}`} required value={row.status} onChange={event => updateRow(row.id, 'status', event.target.value as AttendanceStatus)}><option value="">Mark attendance</option><option value="present">Present</option><option value="absent">Absent</option><option value="late">Late</option><option value="excused">Excused</option></select></td><td><input aria-label={`Attendance note for ${row.name}`} maxLength={500} value={row.note ?? ''} onChange={event => updateRow(row.id, 'note', event.target.value)} placeholder="Optional" /></td><td>{hasSavedChange(row) ? <input aria-label={`Correction reason for ${row.name}`} maxLength={500} required value={row.correctionReason ?? ''} onChange={event => setRows(current => current.map(item => item.id === row.id ? { ...item, correctionReason: event.target.value } : item))} placeholder="Why is this record changing?" /> : row.originalStatus ? <span>—</span> : <span>New mark</span>}</td></tr>)}</tbody></table></div>
       {!loading && sectionId && rows.length === 0 && <p className="master-empty"><ClipboardCheck size={18} />No active students are assigned to this section and session.</p>}
       {loading && <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading attendance…</p>}
       <div className="attendance-footer"><span>Page {meta.current_page} of {meta.last_page} · {meta.total} student{meta.total === 1 ? '' : 's'}</span><div><button type="button" disabled={page <= 1 || loading} onClick={() => setPage(current => current - 1)}><ChevronLeft size={14} />Previous</button><button type="button" disabled={page >= meta.last_page || loading} onClick={() => setPage(current => current + 1)}>Next<ChevronRight size={14} /></button><button className="master-submit" disabled={saving || loading || rows.length === 0}><Save size={15} />{saving ? 'Saving…' : 'Save this page'}</button></div></div>
     </form>
+    <section className="attendance-corrections" aria-labelledby="attendance-corrections-title">
+      <h3 id="attendance-corrections-title">Correction history</h3>
+      {corrections.length ? <ol>{corrections.map(item => <li key={item.id}><b>{item.student?.name ?? 'Student'}</b><span>{item.previous_status} → {item.status}{item.previous_note || item.note ? ` · Note: ${item.previous_note || '—'} → ${item.note || '—'}` : ''}</span><span>Reason: {item.reason}</span><small>{item.actor ?? 'Staff'} · {new Date(item.created_at).toLocaleString()}</small></li>)}</ol> : <p>No attendance corrections have been recorded for this date.</p>}
+      {corrections.length === 100 ? <small>Showing the 100 most recent corrections for this date.</small> : null}
+    </section>
   </section>
 }

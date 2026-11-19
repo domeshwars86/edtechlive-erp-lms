@@ -2,6 +2,11 @@
 
 **Updated:** 19 November 2026
 
+## Attendance correction history (19 November 2026)
+
+- Attendance entries now require an explanation when staff change a previously saved status or note. The API stores a tenant-scoped append-only audit entry with actor, before/after values and reason in the same transaction as the edit. A section/date history endpoint enforces the existing role and teacher-assignment scopes; the web register prompts for a reason and displays the correction history.
+- Full Laravel suite passed (**169 tests / 1,480 assertions**) on in-memory SQLite; the focused Attendance suite passed (**8 tests / 47 assertions**). The new correction route was verified in Chromium against the running local preview (**1 test**). Web typecheck, ESLint, production build (17 prerendered routes), Playwright TypeScript check, and Pint passed. PostgreSQL validation for this new migration remains open.
+
 ## Google Meet room creation (19 November 2026)
 
 - Focused Google OAuth/Meet integration checks passed (**5 tests / 39 assertions**) with mocked Google token, userinfo, revocation and Meet endpoints. They cover role denial, short-lived one-time OAuth state, encrypted credentials, refresh, room creation, disconnect and unconfigured behavior.
