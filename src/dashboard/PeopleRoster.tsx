@@ -17,6 +17,10 @@ type Person = {
   academic_session?: { id: number; name: string } | null
   organization_branch_id?: number | null
   branch?: { id: number; name: string; code?: string | null } | null
+  academic_class_id?: number | null
+  academic_section_id?: number | null
+  academic_session_id?: number | null
+  enrolled_on?: string | null
 }
 type RosterResponse = { data: Person[]; meta: { total: number } }
 type MasterList = { data: { id: number; name: string; code?: string | null; academic_session_id?: number | null; organization_branch_id?: number | null; branch?: { id: number; name: string } | null }[] }
@@ -31,6 +35,7 @@ export default function PeopleRoster({ organizationId, kind }: Props) {
   const [branches, setBranches] = useState<MasterList['data']>([])
   const [sections, setSections] = useState<MasterList['data']>([])
   const [fields, setFields] = useState<Record<string, string>>({})
+  const [editingPerson, setEditingPerson] = useState<Person | null>(null)
   const [search, setSearch] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
   const [loading, setLoading] = useState(true)
@@ -124,15 +129,33 @@ export default function PeopleRoster({ organizationId, kind }: Props) {
           organization_branch_id: fields.organization_branch_id ? Number(fields.organization_branch_id) : null,
         }
     try {
-      await api.post(base, body)
+      if (editingPerson) await api.patch(`${base}/${editingPerson.id}`, body)
+      else await api.post(base, body)
       setFields({})
-      setMessage(`${isStudent ? 'Student' : 'Teacher'} added to the organization roster.`)
-      await load('')
+      setEditingPerson(null)
+      setMessage(`${isStudent ? 'Student' : 'Teacher'} ${editingPerson ? 'updated in' : 'added to'} the organization roster.`)
+      await load('', branchFilter)
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : reason instanceof Error ? reason.message : 'Could not save the record.')
     } finally {
       setSaving(false)
     }
+  }
+
+  function editPerson(person: Person) {
+    setEditingPerson(person)
+    setError('')
+    setMessage('')
+    setFields({
+      name: person.name,
+      identifier: isStudent ? person.admission_number ?? '' : person.employee_number ?? '',
+      email: person.email ?? '', phone: person.phone ?? '', specialization: person.specialization ?? '',
+      enrolled_on: person.enrolled_on?.slice(0, 10) ?? '',
+      academic_class_id: person.academic_class_id ? String(person.academic_class_id) : '',
+      academic_section_id: person.academic_section_id ? String(person.academic_section_id) : '',
+      academic_session_id: person.academic_session_id ? String(person.academic_session_id) : '',
+      organization_branch_id: person.organization_branch_id ? String(person.organization_branch_id) : '',
+    })
   }
 
   async function toggleStatus(person: Person) {
@@ -178,25 +201,25 @@ export default function PeopleRoster({ organizationId, kind }: Props) {
     {message && <div className="master-feedback master-success" role="status"><Check size={16} />{message}</div>}
     <div className="master-content">
       <form className="master-form" onSubmit={submit}>
-        <h3>{isStudent ? <UsersRound size={17} /> : <GraduationCap size={17} />}Add {isStudent ? 'student' : 'teacher'}</h3>
+        <h3>{isStudent ? <UsersRound size={17} /> : <GraduationCap size={17} />}{editingPerson ? 'Edit' : 'Add'} {isStudent ? 'student' : 'teacher'}</h3>
         <label>Full name<input required maxLength={120} value={fields.name ?? ''} onChange={e => setFields(current => ({ ...current, name: e.target.value }))} /></label>
         <label>{isStudent ? 'Admission number' : 'Employee number'}{!isStudent && <span>(optional)</span>}<input required={isStudent} maxLength={40} value={fields.identifier ?? ''} onChange={e => setFields(current => ({ ...current, identifier: e.target.value }))} /></label>
         <label>Email address <span>(optional)</span><input type="email" maxLength={254} value={fields.email ?? ''} onChange={e => setFields(current => ({ ...current, email: e.target.value }))} /></label>
         <label>Phone <span>(optional)</span><input type="tel" pattern="[+0-9() .-]{7,24}" maxLength={24} value={fields.phone ?? ''} onChange={e => setFields(current => ({ ...current, phone: e.target.value }))} /></label>
         {isStudent ? <label>Enrollment date <span>(optional)</span><input type="date" value={fields.enrolled_on ?? ''} onChange={e => setFields(current => ({ ...current, enrolled_on: e.target.value }))} /></label> : <label>Specialization <span>(optional)</span><input maxLength={120} value={fields.specialization ?? ''} onChange={e => setFields(current => ({ ...current, specialization: e.target.value }))} /></label>}
         {isStudent && <>
-          <label>Branch <span>(optional)</span><select value={fields.organization_branch_id ?? ''} onChange={e => setFields(current => { const selectedClass = classes.find(item => String(item.id) === current.academic_class_id); const selectedBranch = e.target.value; const conflict = selectedClass?.organization_branch_id && selectedBranch && String(selectedClass.organization_branch_id) !== selectedBranch; return { ...current, organization_branch_id: selectedBranch, ...(conflict ? { academic_class_id: '', academic_section_id: '' } : {}) } })}><option value="">Organization-wide</option>{branches.map(item => <option key={item.id} value={item.id}>{item.name}{item.code ? ` · ${item.code}` : ''}</option>)}</select></label>
+          <label>Branch <span>(optional)</span><select value={fields.organization_branch_id ?? ''} onChange={e => setFields(current => { const selectedClass = classes.find(item => String(item.id) === current.academic_class_id); const selectedBranch = e.target.value; const conflict = selectedClass?.organization_branch_id && selectedBranch && String(selectedClass.organization_branch_id) !== selectedBranch; return { ...current, organization_branch_id: selectedBranch, ...(conflict ? { academic_class_id: '', academic_section_id: '' } : {}) } })}><option value="">Organization-wide</option>{editingPerson?.branch && !branches.some(item => item.id === editingPerson.organization_branch_id) && <option value={editingPerson.organization_branch_id ?? ''} disabled>{editingPerson.branch.name} (inactive)</option>}{branches.map(item => <option key={item.id} value={item.id}>{item.name}{item.code ? ` · ${item.code}` : ''}</option>)}</select></label>
           <label>Class <span>(optional)</span><select value={fields.academic_class_id ?? ''} onChange={e => { const selected = classes.find(item => String(item.id) === e.target.value); setFields(current => ({ ...current, academic_class_id: e.target.value, academic_section_id: '', organization_branch_id: selected?.organization_branch_id ? String(selected.organization_branch_id) : current.organization_branch_id ?? '' })) }}><option value="">Not assigned</option>{classes.filter(item => !fields.organization_branch_id || !item.organization_branch_id || String(item.organization_branch_id) === fields.organization_branch_id).map(item => <option key={item.id} value={item.id}>{item.name}{item.branch ? ` · ${item.branch.name}` : ''}</option>)}</select></label>
           <label>Section <span>(optional)</span><select disabled={!fields.academic_class_id} value={fields.academic_section_id ?? ''} onChange={e => { const selected = sections.find(item => String(item.id) === e.target.value); setFields(current => ({ ...current, academic_section_id: e.target.value, academic_session_id: selected?.academic_session_id ? String(selected.academic_session_id) : current.academic_session_id ?? '' })) }}><option value="">Not assigned</option>{sections.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           <label>Academic session <span>(optional)</span><select value={fields.academic_session_id ?? ''} onChange={e => setFields(current => ({ ...current, academic_session_id: e.target.value }))}><option value="">Not assigned</option>{sessions.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         </>}
-        {!isStudent && <label>Branch <span>(optional)</span><select value={fields.organization_branch_id ?? ''} onChange={e => setFields(current => ({ ...current, organization_branch_id: e.target.value }))}><option value="">Organization-wide</option>{branches.map(item => <option key={item.id} value={item.id}>{item.name}{item.code ? ` · ${item.code}` : ''}</option>)}</select></label>}
-        <button className="master-submit" disabled={saving}>{saving ? <><LoaderCircle className="master-spin" size={16} />Saving…</> : <><Plus size={16} />Save record</>}</button>
+        {!isStudent && <label>Branch <span>(optional)</span><select value={fields.organization_branch_id ?? ''} onChange={e => setFields(current => ({ ...current, organization_branch_id: e.target.value }))}><option value="">Organization-wide</option>{editingPerson?.branch && !branches.some(item => item.id === editingPerson.organization_branch_id) && <option value={editingPerson.organization_branch_id ?? ''} disabled>{editingPerson.branch.name} (inactive)</option>}{branches.map(item => <option key={item.id} value={item.id}>{item.name}{item.code ? ` · ${item.code}` : ''}</option>)}</select></label>}
+        <div className="master-form-actions"><button className="master-submit" disabled={saving}>{saving ? <><LoaderCircle className="master-spin" size={16} />Saving…</> : <><Plus size={16} />{editingPerson ? 'Update record' : 'Save record'}</>}</button>{editingPerson && <button type="button" className="master-record-action" onClick={() => { setEditingPerson(null); setFields({}) }}>Cancel</button>}</div>
       </form>
       <div className="master-list">
         <div className="master-list-heading"><div><h3>{isStudent ? 'Student roster' : 'Teaching staff'}</h3><span>{records.length} record{records.length === 1 ? '' : 's'} on this page</span></div></div>
         <form className="roster-search" onSubmit={event => { event.preventDefault(); void load(search, branchFilter) }}><label><Search size={15} /><input aria-label={`Search ${kind}`} value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${isStudent ? 'name, email, or admission number' : 'name, email, or employee number'}`} /></label><label><span className="sr-only">Filter by branch</span><select aria-label="Filter roster by branch" value={branchFilter} onChange={e => { setBranchFilter(e.target.value); void load(search, e.target.value) }}><option value="">All branches</option>{branches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label><button>Search</button></form>
-        {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading roster…</p> : records.length === 0 ? <p className="master-empty"><UsersRound size={18} />No {kind} found. Add a record or change the search.</p> : <ul>{records.map(person => <li key={person.id}><span className="master-record-icon">{isStudent ? <UsersRound size={17} /> : <GraduationCap size={17} />}</span><span className="master-record-main"><b>{person.name}</b><small>{isStudent ? person.admission_number : person.employee_number || 'No employee number'}{person.email ? ` · ${person.email}` : ''}{person.branch ? ` · ${person.branch.name}` : ''}{person.academic_class ? ` · ${person.academic_class.name}` : ''}{person.academic_section ? ` · Section ${person.academic_section.name}` : ''}{person.academic_session ? ` · ${person.academic_session.name}` : ''}</small></span><span className={`master-status ${person.status === 'active' ? 'active' : ''}`}>{person.status.replace('_', ' ')}</span>{isStudent && <button className="master-record-action" onClick={() => { setGuardianStudentId(person.id); setError(''); setMessage('') }}>Parents</button>}<button className="master-record-action" onClick={() => void toggleStatus(person)}>{person.status === 'active' ? 'Deactivate' : 'Activate'}</button></li>)}</ul>}
+        {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading roster…</p> : records.length === 0 ? <p className="master-empty"><UsersRound size={18} />No {kind} found. Add a record or change the search.</p> : <ul>{records.map(person => <li key={person.id}><span className="master-record-icon">{isStudent ? <UsersRound size={17} /> : <GraduationCap size={17} />}</span><span className="master-record-main"><b>{person.name}</b><small>{isStudent ? person.admission_number : person.employee_number || 'No employee number'}{person.email ? ` · ${person.email}` : ''}{person.branch ? ` · ${person.branch.name}` : ''}{person.academic_class ? ` · ${person.academic_class.name}` : ''}{person.academic_section ? ` · Section ${person.academic_section.name}` : ''}{person.academic_session ? ` · ${person.academic_session.name}` : ''}</small></span><span className={`master-status ${person.status === 'active' ? 'active' : ''}`}>{person.status.replace('_', ' ')}</span>{isStudent && <button className="master-record-action" onClick={() => { setGuardianStudentId(person.id); setError(''); setMessage('') }}>Parents</button>}<button className="master-record-action" onClick={() => editPerson(person)}>Edit</button><button className="master-record-action" onClick={() => void toggleStatus(person)}>{person.status === 'active' ? 'Deactivate' : 'Activate'}</button></li>)}</ul>}
         {isStudent && guardianStudentId !== null && <section className="guardian-manager"><header><div><h3>Parent access · {records.find(person => person.id === guardianStudentId)?.name ?? 'Student'}</h3><p>Only active, verified parent accounts in this organization can be linked.</p></div><button className="master-record-action" onClick={() => { setGuardianStudentId(null); setGuardianLinks([]) }}>Close</button></header><form className="guardian-link-form" onSubmit={event => void linkGuardian(event)}><label>Parent account<select required value={guardianUserId} onChange={event => setGuardianUserId(event.target.value)}><option value="">Choose a parent account</option>{parentAccounts.filter(parent => !guardianLinks.some(link => link.guardian_user_id === parent.id)).map(parent => <option key={parent.id} value={parent.id}>{parent.name} · {parent.email}</option>)}</select></label><label>Relationship<select value={guardianRelationship} onChange={event => setGuardianRelationship(event.target.value)}><option value="parent">Parent</option><option value="guardian">Guardian</option><option value="other">Other caregiver</option></select></label><label className="guardian-primary-option"><input type="checkbox" checked={guardianPrimary} onChange={event => setGuardianPrimary(event.target.checked)} /> Set as primary contact</label><button className="master-submit" disabled={guardianSaving || !guardianUserId}>{guardianSaving ? 'Saving…' : 'Link parent'}</button></form>{guardianLinks.length ? <ul>{guardianLinks.map(link => <li key={link.guardian_user_id}><span><b>{link.name}</b><small>{link.email} · {link.relationship}{link.is_primary ? ' · Primary' : ''}</small></span><button className="master-record-action" disabled={guardianSaving} onClick={() => void unlinkGuardian(link)}>Remove access</button></li>)}</ul> : <p className="master-empty">No parent accounts are linked.</p>}</section>}
       </div>
     </div>
