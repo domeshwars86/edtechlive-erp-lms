@@ -11,6 +11,7 @@
 ## Role dashboard workflow connections (19 November 2026)
 
 - Teacher Submissions now opens the existing API-backed assignment submission and grading workflow; Question bank opens the course-scoped quiz/question-bank manager. Student Lessons & notes opens enrolled lessons, and parent Notices shows a paginated membership-scoped inbox with read receipts.
+- Management Attendance now opens the existing organization-scoped attendance report. Removed the static teacher submission badge instead of implying an unverified count.
 - Web typecheck, ESLint, and production build passed. The build prerendered 14 public routes and split the inbox into a 3.19 kB JavaScript chunk plus 1.47 kB CSS. No authenticated browser interaction was run; API authorization and read-receipt behavior remain covered by the Laravel suite.
 
 ## Manual WhatsApp announcement sharing (19 November 2026)
