@@ -13,7 +13,7 @@
 
 ## Mobile meeting scheduling (19 November 2026)
 
-- Added schedule forms for Admin, Management, Independent Educator and assigned Teacher accounts. Managers may create management or class meetings; teachers are limited to their assigned class sections. Device-local start/end times are converted to UTC, and server-side checks continue to enforce assignment, organization, HTTPS URL, time range and overlap constraints. Mobile TypeScript check passed; Android JavaScript export bundled 564 modules (1.7 MB). Native interaction and live provider link opening were not exercised.
+- Added schedule forms for Admin, Management, Independent Educator and assigned Teacher accounts. Managers may create management or class meetings; teachers are limited to their assigned class sections. Managers and meeting-owning teachers can cancel after confirming. Device-local start/end times are converted to UTC, and server-side checks enforce assignment, organization, HTTPS URL, time range, overlap and cancellation authorization. Mobile TypeScript check passed; Android JavaScript export bundled 564 modules (1.7 MB). Native interaction and live provider link opening were not exercised.
 
 ## Platform user account controls (19 November 2026)
 

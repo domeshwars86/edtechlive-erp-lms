@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
 import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type ExamSectionSummary, type ExamSeriesComparison, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type SchoolExam, type SchoolExamMark, type SchoolExamPaper, type StudentAttendance, type StudentProgress, type StudyMaterial, type TeachingAssignment } from './src/api'
 
@@ -9,7 +9,7 @@ const roleNames: Record<OrganizationMembership['role'], string> = {
   admin: 'Administrator', management: 'Management', teacher: 'Teacher', student: 'Student', parent: 'Parent / guardian', independent_educator: 'Independent educator',
 }
 type MobileNotice = { id: string; type: string; title: string; body: string; read_at: string | null; created_at: string | null }
-type MobileMeeting = { id: number; kind: 'class' | 'management'; title: string; description: string | null; starts_at: string; ends_at: string; meeting_url: string; status: 'scheduled' | 'cancelled'; section: { id: number; name: string; class: string | null } | null; course: { id: number; title: string } | null }
+type MobileMeeting = { id: number; kind: 'class' | 'management'; title: string; description: string | null; starts_at: string; ends_at: string; meeting_url: string; status: 'scheduled' | 'cancelled'; section: { id: number; name: string; class: string | null } | null; course: { id: number; title: string } | null; creator: { id: number; name: string } | null }
 type MobileRecording = { id: number; title: string; description: string | null; external_url: string | null; download_url: string | null; status: 'draft' | 'published' | 'withdrawn' }
 type MobileMeetingSection = { id: number; name: string; academic_session_id: number; academic_class: { name: string } }
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused'
@@ -493,6 +493,17 @@ export default function App() {
     finally { setBusy(false) }
   }
 
+  async function cancelMobileMeeting(meeting: MobileMeeting) {
+    if (!active || !token) return
+    setBusy(true); setError(''); setSuccess('')
+    try {
+      const response = await mobileApi.patch<{ data: MobileMeeting }>(`/api/v1/organizations/${active.organization.id}/meetings/${meeting.id}`, token, { status: 'cancelled' })
+      setMeetings(current => current.map(item => item.id === response.data.id ? response.data : item))
+      setSuccess('Meeting cancelled.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not cancel this meeting.') }
+    finally { setBusy(false) }
+  }
+
   async function saveAccountProfile() {
     if (!token) return
     if (newPassword && newPassword !== passwordConfirmation) {
@@ -659,7 +670,8 @@ export default function App() {
           const now = Date.now()
           const isLive = startsAt <= now && new Date(item.ends_at).getTime() >= now
           const recordings = meetingRecordings[item.id] ?? []
-          return <View key={item.id} style={styles.noticeCard}><Text style={styles.courseTitle}>{item.title}</Text><Text style={styles.courseMeta}>{new Date(item.starts_at).toLocaleString()} · {item.course?.title ?? ([item.section?.class, item.section?.name].filter(Boolean).join(' · ') || 'Meeting')}</Text>{isLive ? <Pressable onPress={() => void Linking.openURL(item.meeting_url)}><Text style={styles.link}>Join meeting</Text></Pressable> : startsAt > now ? <Text style={styles.courseMeta}>Upcoming</Text> : <Text style={styles.courseMeta}>Class ended</Text>}{recordings.map(recording => <Pressable key={recording.id} onPress={() => void openMeetingRecording(item.id, recording)} disabled={busy} accessibilityRole="link"><Text style={styles.link}>{busy ? 'Preparing secure link…' : `Open recording: ${recording.title}`}</Text></Pressable>)}</View>
+          const canCancel = ['admin', 'management', 'independent_educator'].includes(active.role) || (active.role === 'teacher' && item.creator?.id === user.id)
+          return <View key={item.id} style={styles.noticeCard}><Text style={styles.courseTitle}>{item.title}</Text><Text style={styles.courseMeta}>{new Date(item.starts_at).toLocaleString()} · {item.course?.title ?? ([item.section?.class, item.section?.name].filter(Boolean).join(' · ') || 'Meeting')}</Text>{isLive ? <Pressable onPress={() => void Linking.openURL(item.meeting_url)}><Text style={styles.link}>Join meeting</Text></Pressable> : startsAt > now ? <Text style={styles.courseMeta}>Upcoming</Text> : <Text style={styles.courseMeta}>Class ended</Text>}{canCancel ? <Pressable disabled={busy} onPress={() => Alert.alert('Cancel meeting?', `Cancel “${item.title}” for this workspace?`, [{ text: 'Keep meeting', style: 'cancel' }, { text: 'Cancel meeting', style: 'destructive', onPress: () => void cancelMobileMeeting(item) }])} accessibilityRole="button"><Text style={styles.link}>Cancel meeting</Text></Pressable> : null}{recordings.map(recording => <Pressable key={recording.id} onPress={() => void openMeetingRecording(item.id, recording)} disabled={busy} accessibilityRole="link"><Text style={styles.link}>{busy ? 'Preparing secure link…' : `Open recording: ${recording.title}`}</Text></Pressable>)}</View>
         })}
         {!meetings.some(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000) ? <Empty text="No recent or upcoming meetings are available." /> : null}
         <Text style={styles.sectionTitle}>Recent updates</Text>
