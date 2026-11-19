@@ -4,7 +4,7 @@
 
 ## Keyboard navigation landmarks (20 November 2026)
 
-- Added visible-on-focus skip links before the public header, account form and dashboard sidebar; each link focuses its main landmark. Course detail content uses a section container rather than a nested `main` landmark. TypeScript, ESLint, and the production build passed; the complete public-site Chromium spec passed (**16 tests in 1.6 minutes**), including first-tab focus, fragment navigation, target focus and exactly one main landmark on public, account and dashboard shells.
+- Added visible-on-focus skip links before the public header, account form and dashboard sidebar; each link focuses its main landmark. Course detail content uses a section container rather than a nested `main` landmark. Dashboard sidebar buttons announce the selected section with `aria-current`. TypeScript, ESLint, and the production build passed; the complete public-site Chromium spec passed (**16 tests in 2.0 minutes**), including first-tab focus, fragment navigation, target focus, active-section announcement and exactly one main landmark on public, account and dashboard shells.
 
 ## Canonical sitemap build handling (20 November 2026)
 

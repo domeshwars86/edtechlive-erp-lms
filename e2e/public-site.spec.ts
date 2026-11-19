@@ -21,6 +21,13 @@ test('dashboard preview offers keyboard skip navigation', async ({ page }) => {
   await expect(page).toHaveURL(/#dashboard-main$/)
   await expect(page.getByRole('main')).toHaveCount(1)
   await expect(page.locator('#dashboard-main')).toBeFocused()
+  const overviewLink = page.getByRole('button', { name: 'Overview' })
+  await expect(overviewLink).toHaveAttribute('aria-current', 'page')
+  const studentsLink = page.getByRole('button', { name: 'Students', exact: true })
+  await studentsLink.click()
+  await expect(page.getByRole('heading', { name: 'Students', level: 1 })).toBeVisible()
+  await expect(studentsLink).toHaveAttribute('aria-current', 'page')
+  await expect(overviewLink).not.toHaveAttribute('aria-current', 'page')
 })
 
 test('account pages expose keyboard skip navigation to the sign-in form', async ({ page }) => {
