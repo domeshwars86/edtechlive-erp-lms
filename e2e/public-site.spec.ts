@@ -309,6 +309,7 @@ test('login page lets an unverified account request and use an in-page verificat
 })
 
 test('delegated management sees read-only member access without audit permission', async ({ page }) => {
+  const expectConnected = expect.configure({ timeout: 60_000 })
   let signedIn = false
   const account = { id: 74, name: 'Workspace Manager', email: 'manager@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', is_platform_admin: false }
   const membership = {
@@ -395,11 +396,11 @@ test('delegated management sees read-only member access without audit permission
   const inboxNav = page.getByRole('button', { name: 'Inbox', exact: true })
   await expect(inboxNav).toBeVisible()
   await inboxNav.click()
-  await expect(page.getByRole('heading', { name: 'Notices' })).toBeVisible()
-  await expect(page.getByText('Updated school calendar')).toBeVisible()
-  await expect(page.getByText('1 unread.')).toBeVisible()
+  await expectConnected(page.getByRole('heading', { name: 'Notices', level: 2 })).toBeVisible()
+  await expectConnected(page.getByText('Updated school calendar')).toBeVisible()
+  await expectConnected(page.getByText('1 unread.')).toBeVisible()
   await page.getByRole('button', { name: 'Mark read' }).click()
-  await expect(page.getByText('0 unread.')).toBeVisible()
+  await expectConnected(page.getByText('0 unread.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Mark read' })).toHaveCount(0)
 })
 

@@ -31,7 +31,7 @@ The planned system is a public React web experience, role-based web application,
 
 ## Current website acceptance
 
-All defined public routes render; navigation adapts to small screens; public course listings use privacy-filtered API responses; consented enquiries persist and report notification status; sample course/pricing content is labelled; legal pages show draft status; and unavailable routes show a useful 404. The serial Chromium suite passes **16 tests**, including public catalog and enquiry flows, local account verification/sign-in, management inbox read receipts, keyboard skip navigation, dashboard previews and 320px/1440px route-overflow checks. TypeScript, ESLint and the production build pass. The full Laravel suite passes on in-memory SQLite and disposable PostgreSQL 17; persistent production-shaped database, hosted PostgreSQL 16 CI and production deployment verification remain open.
+All defined public routes render; navigation adapts to small screens; public course listings use privacy-filtered API responses; consented enquiries persist and report notification status; sample course/pricing content is labelled; legal pages show draft status; and unavailable routes show a useful 404. The serial Chromium suite passes **22 tests**, including public catalog and enquiry flows, local account verification/sign-in, management inbox read receipts, keyboard skip navigation, dashboard previews, Google Meet scheduling, attendance correction and 320px/1440px route-overflow checks. TypeScript, ESLint and the production build pass. The full Laravel suite passes on in-memory SQLite and disposable PostgreSQL 17; persistent production-shaped database, hosted PostgreSQL 16 CI and production deployment verification remain open.
 
 ## Open questions
 

@@ -17,8 +17,8 @@ test('local signup verifies in place and then allows sign-in', async ({ page }) 
   await page.getByRole('textbox', { name: 'Confirm password' }).fill(password)
   await page.getByRole('button', { name: 'Create account' }).click()
 
-  await expect(page.getByRole('heading', { name: 'You’re all set.' })).toBeVisible()
-  await expect(page.getByText('Your local account is ready. Use the button below to verify it—no email inbox is needed.')).toBeVisible()
+  await expectBackend(page.getByRole('heading', { name: 'You’re all set.' })).toBeVisible()
+  await expectBackend(page.getByText('Your local account is ready. Use the button below to verify it—no email inbox is needed.')).toBeVisible()
   await page.getByRole('button', { name: /Verify email to unlock sign-in/ }).click()
   await expect(page.getByRole('status')).toContainText('Email verified. You can log in now.')
 

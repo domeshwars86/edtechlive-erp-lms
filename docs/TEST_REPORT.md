@@ -12,7 +12,7 @@
 
 ## Full public-site Chromium regression after verification UX change (20 November 2026)
 
-- The complete serial Playwright public-site suite passed **16 tests in 3.0 minutes**. This includes the updated mocked registration and resend-verification flows, public course discovery and enquiry, member permissions, the Management inbox/read receipt, keyboard skip navigation, seven dashboard viewport checks, and route overflow checks at 320px and 1440px.
+- The complete serial Playwright Chromium suite passed **22 tests in 4.9 minutes**. It covers real local registration/verification/sign-in/password recovery, mocked registration and resend flows, public course discovery and enquiry, Admin membership permissions, delegated Management member access and the notification inbox/read receipt, teacher exam reports, Google Meet scheduling, attendance correction, platform account status, keyboard skip navigation, seven dashboard viewport checks, and route overflow checks at 320px and 1440px. Two initial failures exposed a cold-stack wait that was too short and a test clicking the separate announcements page; the wait and target were corrected, the affected tests passed independently, then all 22 passed together.
 
 ## Organization notification inbox (20 November 2026)
 
