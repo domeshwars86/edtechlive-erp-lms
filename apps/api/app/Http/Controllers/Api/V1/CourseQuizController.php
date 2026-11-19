@@ -179,6 +179,10 @@ class CourseQuizController
 
     public function attempts(Request $request, int $organization, int $quiz): JsonResponse
     {
+        $filters = $request->validate([
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
         $membership = $this->access->membership($request, $organization);
         $record = CourseQuiz::query()->where('organization_id', $organization)->with('course')->findOrFail($quiz);
         $student = $this->authorizeCourseRead($request, $membership->role, $organization, $record->course);
@@ -186,12 +190,25 @@ class CourseQuizController
         if ($student) {
             $query->where('student_id', $student->id);
         }
-        $attempts = $query->orderByDesc('submitted_at')->get();
+        $attempts = $query->orderByDesc('submitted_at')->orderByDesc('id')->paginate(
+            min(max($filters['per_page'] ?? 20, 1), 100),
+            ['*'],
+            'page',
+            max($filters['page'] ?? 1, 1),
+        );
 
-        return response()->json(['data' => $attempts->map(fn (QuizAttempt $attempt): array => [
-            ...$this->attemptData($attempt),
-            'student' => $student ? null : $attempt->student->only(['id', 'name', 'admission_number']),
-        ])->values()]);
+        return response()->json([
+            'data' => $attempts->getCollection()->map(fn (QuizAttempt $attempt): array => [
+                ...$this->attemptData($attempt),
+                'student' => $student ? null : $attempt->student->only(['id', 'name', 'admission_number']),
+            ])->values(),
+            'meta' => [
+                'current_page' => $attempts->currentPage(),
+                'last_page' => $attempts->lastPage(),
+                'per_page' => $attempts->perPage(),
+                'total' => $attempts->total(),
+            ],
+        ]);
     }
 
     private function authorizeCourseRead(Request $request, OrganizationRole $role, int $organization, Course $course): ?Student

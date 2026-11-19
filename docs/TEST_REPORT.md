@@ -331,3 +331,9 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Full Laravel suite: **115 tests / 847 assertions** passed on in-memory SQLite. Focused platform suite: **5 tests / 56 assertions**. `vendor/bin/pint --test`, web typecheck, ESLint, and production build passed; the build prerendered 14 public routes with a 487.00 kB main JavaScript bundle.
 - The sandboxed PHP runtime could not read workspace paths for PHPUnit bootstrap checks; tests were run with local filesystem access. No production database was changed.
 - PostgreSQL 17 revalidation passed the full current suite: **115 tests / 847 assertions**. All migrations, including the platform audit table, applied successfully. The server was bound to loopback on a dedicated port, then stopped; only the disposable system-temp cluster and log were removed. Hosted PostgreSQL 16 CI remains pending.
+
+## Paginated quiz result history (19 November 2026)
+
+- `GET /quizzes/{quiz}/attempts` now returns stable newest-first pages (default 20, maximum 100) with current/last page and total metadata. Student access remains limited to the student's own submitted attempts; teachers/managers see roster identities only for courses they can access. The web quiz workspace provides page navigation.
+- Regression tests cover page boundaries, total counts, staff identity visibility, student privacy, and invalid page sizes. Full Laravel suite: **116 tests / 867 assertions** passed on in-memory SQLite and disposable PostgreSQL 17; Pint passed.
+- Root typecheck, ESLint, and production build passed. The build prerendered 14 routes with a 488.12 kB main JavaScript bundle. No migration was required.

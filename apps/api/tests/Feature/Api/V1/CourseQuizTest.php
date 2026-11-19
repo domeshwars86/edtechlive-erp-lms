@@ -7,8 +7,10 @@ use App\Enums\OrganizationRole;
 use App\Enums\OrganizationType;
 use App\Models\Course;
 use App\Models\CourseEnrollment;
+use App\Models\CourseQuiz;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
+use App\Models\QuizAttempt;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\User;
@@ -62,7 +64,10 @@ class CourseQuizTest extends TestCase
             ->assertJsonPath('data.0.student.name', 'Learner One')->assertJsonPath('data.0.score', '2.00');
 
         Sanctum::actingAs($admin);
-        $this->getJson("{$base}/quizzes/{$quizId}/attempts")->assertOk()->assertJsonPath('meta', null);
+        $this->getJson("{$base}/quizzes/{$quizId}/attempts")->assertOk()
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.last_page', 1)
+            ->assertJsonPath('meta.total', 1);
     }
 
     public function test_quiz_publication_requires_a_question_and_students_must_be_enrolled(): void
@@ -88,6 +93,67 @@ class CourseQuizTest extends TestCase
         ]);
         Sanctum::actingAs($otherUser);
         $this->postJson("{$base}/quizzes/{$readyQuiz}/attempts")->assertNotFound();
+    }
+
+    public function test_submitted_attempt_history_is_paginated_without_cross_student_results(): void
+    {
+        [$admin, $teacherUser, $studentUser, $organization, $course] = $this->classroom();
+        $base = "/api/v1/organizations/{$organization->id}";
+        $student = Student::query()->where('user_id', $studentUser->id)->firstOrFail();
+        $students = [$student];
+        for ($number = 2; $number <= 5; $number++) {
+            $learnerUser = User::factory()->create();
+            OrganizationMembership::query()->create([
+                'organization_id' => $organization->id, 'user_id' => $learnerUser->id,
+                'role' => OrganizationRole::Student, 'status' => MembershipStatus::Active, 'accepted_at' => now(),
+            ]);
+            $learner = Student::query()->create([
+                'organization_id' => $organization->id, 'user_id' => $learnerUser->id,
+                'name' => "Learner {$number}", 'admission_number' => "S-10{$number}", 'status' => 'active',
+            ]);
+            CourseEnrollment::query()->create([
+                'organization_id' => $organization->id, 'course_id' => $course->id, 'student_id' => $learner->id,
+                'enrolled_by' => $admin->id, 'status' => 'active',
+            ]);
+            $students[] = $learner;
+        }
+        $quiz = CourseQuiz::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id, 'created_by' => $teacherUser->id,
+            'title' => 'History pagination', 'status' => 'published', 'max_attempts' => 5,
+        ]);
+        foreach ($students as $studentIndex => $learner) {
+            for ($number = 1; $number <= 5; $number++) {
+                $submittedAt = now()->subDays(30)->addMinutes(($studentIndex * 5) + $number);
+                QuizAttempt::query()->create([
+                    'organization_id' => $organization->id, 'quiz_id' => $quiz->id, 'student_id' => $learner->id,
+                    'attempt_number' => $number, 'answers' => [], 'score' => '1.00', 'max_score' => '1.00',
+                    'started_at' => $submittedAt, 'submitted_at' => $submittedAt,
+                ]);
+            }
+        }
+
+        Sanctum::actingAs($teacherUser);
+        $this->getJson("{$base}/quizzes/{$quiz->id}/attempts?per_page=10&page=2")
+            ->assertOk()->assertJsonCount(10, 'data')
+            ->assertJsonPath('data.0.attempt_number', 5)
+            ->assertJsonPath('data.0.student.name', 'Learner 3')
+            ->assertJsonPath('meta.current_page', 2)
+            ->assertJsonPath('meta.last_page', 3)
+            ->assertJsonPath('meta.total', 25);
+        $this->getJson("{$base}/quizzes/{$quiz->id}/attempts?per_page=101")
+            ->assertUnprocessable()->assertJsonValidationErrors('per_page');
+
+        Sanctum::actingAs($studentUser);
+        $this->getJson("{$base}/quizzes/{$quiz->id}/attempts?per_page=2&page=3")
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.student', null)
+            ->assertJsonPath('meta.total', 5);
+
+        Sanctum::actingAs($admin);
+        $this->getJson("{$base}/quizzes/{$quiz->id}/attempts?per_page=10&page=3")
+            ->assertOk()->assertJsonCount(5, 'data')
+            ->assertJsonPath('data.0.attempt_number', 5)
+            ->assertJsonPath('meta.current_page', 3);
     }
 
     private function classroom(): array
