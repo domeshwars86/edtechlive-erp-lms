@@ -5,8 +5,8 @@
 ## Board-style exam paper sections (19 November 2026)
 
 - Exam papers now accept up to 20 optional named sections. The API enforces that section maximums add up to the paper maximum and that every graded learner has each section score, each within its cap, summing to the saved total. Assigned-teacher scope and published-result locks apply to section marks as they do to the paper.
-- The web exam workspace supports section setup, per-section teacher mark entry, and family/student published score breakdowns. API coverage checks the valid workflow, missing sections, out-of-range section scores, mismatched totals, and family output.
-- Full Laravel suite passed on in-memory SQLite (**127 tests / 1,017 assertions**); Pint, web typecheck, ESLint, and production build passed (14 routes prerendered; 478.51 kB main bundle). Local SQLite setup completed. PostgreSQL 17 needs a follow-up migration/test run for the new tables.
+- The web exam workspace supports section setup, per-section teacher mark entry, and published student/family score breakdowns. Identity-free published reports and CSV exports include per-part averages and graded counts. API coverage checks the valid workflow, missing sections, out-of-range section scores, mismatched totals, published family output and aggregate section analytics.
+- Full Laravel suite passed on in-memory SQLite (**127 tests / 1,021 assertions**); Pint, web typecheck, ESLint, and production build passed (14 routes prerendered; 478.51 kB main bundle). The local SQLite migration is applied. PostgreSQL 17 still needs a migration/test run for the new tables.
 
 ## PostgreSQL compatibility recheck (19 November 2026)
 

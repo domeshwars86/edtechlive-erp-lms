@@ -55,6 +55,19 @@ class AcademicExamReportController
             ->groupBy('papers.id', 'exams.id', 'exams.title', 'sessions.name', 'classes.name', 'sections.name', 'subjects.name', 'papers.exam_on', 'papers.max_marks')
             ->orderByDesc('exams.starts_on')->orderBy('classes.name')->orderBy('sections.name')->orderBy('subjects.name')
             ->limit(500)->get();
+        $sectionReports = collect();
+        if ($papers->isNotEmpty()) {
+            $sectionReports = DB::table('academic_exam_section_results as section_results')
+                ->join('academic_exam_results as results', 'results.id', '=', 'section_results.academic_exam_result_id')
+                ->join('academic_exam_paper_sections as paper_sections', 'paper_sections.id', '=', 'section_results.academic_exam_paper_section_id')
+                ->where('section_results.organization_id', $organization)
+                ->whereIn('results.academic_exam_paper_id', $papers->pluck('paper_id'))
+                ->where('results.outcome', 'graded')
+                ->select(['results.academic_exam_paper_id as paper_id', 'paper_sections.id as section_id', 'paper_sections.title', 'paper_sections.max_marks'])
+                ->selectRaw('COUNT(section_results.id) as graded_count, AVG(section_results.score) as average_score')
+                ->groupBy('results.academic_exam_paper_id', 'paper_sections.id', 'paper_sections.title', 'paper_sections.max_marks')
+                ->orderBy('paper_sections.id')->get()->groupBy('paper_id');
+        }
 
         return response()->json(['data' => $papers->map(fn ($paper): array => [
             'paper_id' => (int) $paper->paper_id,
@@ -71,6 +84,13 @@ class AcademicExamReportController
             'excused_count' => (int) $paper->excused_count,
             'average_score' => $paper->average_score === null ? null : number_format((float) $paper->average_score, 2, '.', ''),
             'average_percent' => $paper->average_score === null ? null : round((float) $paper->average_score / (float) $paper->max_marks * 100, 1),
+            'paper_sections' => $sectionReports->get($paper->paper_id, collect())->map(fn ($section): array => [
+                'title' => $section->title,
+                'max_marks' => number_format((float) $section->max_marks, 2, '.', ''),
+                'graded_count' => (int) $section->graded_count,
+                'average_score' => number_format((float) $section->average_score, 2, '.', ''),
+                'average_percent' => round((float) $section->average_score / (float) $section->max_marks * 100, 1),
+            ])->values(),
         ])->values()]);
     }
 }

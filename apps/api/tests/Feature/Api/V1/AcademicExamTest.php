@@ -128,6 +128,10 @@ class AcademicExamTest extends TestCase
             ]],
         ]])->assertOk();
         $this->postJson("{$base}/exams/{$examId}/publish")->assertOk();
+        $this->getJson("{$base}/reports/exams?session_id={$workspace['session']->id}")->assertOk()
+            ->assertJsonPath('data.0.paper_sections.0.title', 'Part A · Multiple choice')
+            ->assertJsonPath('data.0.paper_sections.0.average_score', '15.00')
+            ->assertJsonPath('data.0.paper_sections.0.average_percent', 75);
 
         Sanctum::actingAs($workspace['studentUser']);
         $this->getJson("{$base}/my/student/results")->assertOk()
