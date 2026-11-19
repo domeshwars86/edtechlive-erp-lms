@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { AlertCircle, BookOpen, CalendarDays, Check, LoaderCircle, Plus, RefreshCw, UsersRound } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
-import BatchManager from './BatchManager'
-import BranchManager from './BranchManager'
+
+const BatchManager = lazy(() => import('./BatchManager'))
+const BranchManager = lazy(() => import('./BranchManager'))
+const FeeCategoryManager = lazy(() => import('./FeeCategoryManager'))
 
 type MasterRecord = {
   id: number
@@ -17,7 +19,7 @@ type MasterRecord = {
   academic_session?: { id: number; name: string } | null
   capacity?: number | null
 }
-type MasterTab = 'sessions' | 'classes' | 'subjects' | 'sections' | 'batches' | 'branches'
+type MasterTab = 'sessions' | 'classes' | 'subjects' | 'sections' | 'batches' | 'branches' | 'fee_categories'
 type ListResponse = { data: MasterRecord[] }
 
 const labels: Record<MasterTab, string> = {
@@ -27,6 +29,7 @@ const labels: Record<MasterTab, string> = {
   sections: 'Sections',
   batches: 'Batches',
   branches: 'Branches',
+  fee_categories: 'Fee categories',
 }
 
 export default function AcademicMasters({ organizationId }: { organizationId: number }) {
@@ -77,7 +80,7 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
     return () => { cancelled = true }
   }, [base, classId, tab])
 
-  const records = useMemo(() => tab === 'batches' || tab === 'branches' ? [] : ({ sessions, classes, subjects, sections })[tab], [classes, sections, sessions, subjects, tab])
+  const records = useMemo(() => tab === 'batches' || tab === 'branches' || tab === 'fee_categories' ? [] : ({ sessions, classes, subjects, sections })[tab], [classes, sections, sessions, subjects, tab])
 
   function setField(name: string, value: string) {
     setFields(current => ({ ...current, [name]: value }))
@@ -141,10 +144,10 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
 
   return <section className="dash-panel dash-masters-panel">
     <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ACADEMIC SETUP</span><h2>Academic master entries</h2><p className="dash-record-subtitle">These records belong to your selected organization.</p></div><button className="dash-icon-button" onClick={() => void loadMasters()} aria-label="Refresh academic records"><RefreshCw size={16} /></button></div>
-    <div className="master-tabs" role="tablist" aria-label="Academic record type">{(['sessions', 'classes', 'subjects', 'sections', 'batches', 'branches'] as MasterTab[]).map(item => <button key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'selected' : ''} onClick={() => setTab(item)}>{labels[item]}</button>)}</div>
+    <div className="master-tabs" role="tablist" aria-label="Academic record type">{(['sessions', 'classes', 'subjects', 'sections', 'batches', 'branches', 'fee_categories'] as MasterTab[]).map(item => <button key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'selected' : ''} onClick={() => setTab(item)}>{labels[item]}</button>)}</div>
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
     {message && <div className="master-feedback master-success" role="status"><Check size={16} />{message}</div>}
-    {tab === 'batches' ? <BatchManager organizationId={organizationId} sessions={sessions} classes={classes} /> : tab === 'branches' ? <BranchManager organizationId={organizationId} /> : <div className="master-content">
+    {tab === 'batches' || tab === 'branches' || tab === 'fee_categories' ? <Suspense fallback={<p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading {labels[tab].toLowerCase()}…</p>}>{tab === 'batches' ? <BatchManager organizationId={organizationId} sessions={sessions} classes={classes} /> : tab === 'branches' ? <BranchManager organizationId={organizationId} /> : <FeeCategoryManager organizationId={organizationId} />}</Suspense> : <div className="master-content">
       <form className="master-form" onSubmit={createRecord}>
         <h3><Plus size={17} />Add {labels[tab].toLowerCase().replace(/s$/, '')}</h3>
         {tab === 'sessions' && <>

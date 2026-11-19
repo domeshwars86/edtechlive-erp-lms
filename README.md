@@ -10,7 +10,7 @@ An education ERP and learning platform for institutions, independent educators, 
 - Responsive role dashboards at `/workspace/:role`: `super-admin`, `admin`, `management`, `teacher`, `student`, `parent`, `educator`.
 - Course search and education-level filtering work locally.
 - Contact form saves consented enquiries to a throttled API. An authenticated platform inbox filters and tracks status for allowlisted operators; optional email requires `ENQUIRY_RECIPIENT` and a configured mail transport.
-- Fee records are persisted by organization; authorized staff can create receivables and record already-received partial/final payments, while students and linked parents have read-only access. No payment is initiated by the app.
+- Fee records and categories are persisted by organization; authorized staff can manage categories, create receivables and record already-received partial/final payments, while students and linked parents have read-only access. No payment is initiated by the app.
 - Class and management meetings can be scheduled with scoped HTTPS links; provider room creation and reminders are not connected yet.
 - Login, organization registration, email verification, forgot/reset password, session persistence and organization selection use Laravel API endpoints. Browser sessions use Sanctum cookies; native clients can request API tokens.
 - Example course listings and prices are not real offers. Paid plans are disabled.

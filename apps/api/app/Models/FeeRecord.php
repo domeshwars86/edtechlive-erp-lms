@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FeeRecord extends Model
 {
-    protected $fillable = ['organization_id', 'student_id', 'academic_session_id', 'title', 'amount', 'due_on', 'status', 'created_by'];
+    protected $fillable = ['organization_id', 'student_id', 'academic_session_id', 'fee_category_id', 'title', 'amount', 'due_on', 'status', 'created_by'];
 
     protected function casts(): array
     {
@@ -18,6 +18,11 @@ class FeeRecord extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
+    }
+
+    public function feeCategory(): BelongsTo
+    {
+        return $this->belongsTo(FeeCategory::class);
     }
 
     public function payments(): HasMany

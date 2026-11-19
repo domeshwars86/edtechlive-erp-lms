@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\V1\DashboardActivityController;
 use App\Http\Controllers\Api\V1\DashboardSummaryController;
 use App\Http\Controllers\Api\V1\EnrollmentReportController;
 use App\Http\Controllers\Api\V1\FamilyController;
+use App\Http\Controllers\Api\V1\FeeCategoryController;
 use App\Http\Controllers\Api\V1\FeeRecordController;
 use App\Http\Controllers\Api\V1\FinanceExpenseController;
 use App\Http\Controllers\Api\V1\FinanceReportController;
@@ -141,6 +142,9 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/branches', [OrganizationBranchController::class, 'index']);
                 Route::post('/branches', [OrganizationBranchController::class, 'store']);
                 Route::patch('/branches/{record}', [OrganizationBranchController::class, 'update'])->whereNumber('record');
+                Route::get('/fee-categories', [FeeCategoryController::class, 'index']);
+                Route::post('/fee-categories', [FeeCategoryController::class, 'store']);
+                Route::patch('/fee-categories/{record}', [FeeCategoryController::class, 'update'])->whereNumber('record');
                 Route::get('/subjects', [AcademicMasterController::class, 'subjects']);
                 Route::post('/subjects', [AcademicMasterController::class, 'storeSubject']);
                 Route::patch('/subjects/{record}', [AcademicMasterController::class, 'updateSubject'])->whereNumber('record');

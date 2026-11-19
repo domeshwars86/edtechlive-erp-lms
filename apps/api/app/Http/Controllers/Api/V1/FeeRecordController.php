@@ -22,7 +22,7 @@ class FeeRecordController
     public function index(Request $request, int $organization): JsonResponse
     {
         $membership = $this->access->membership($request, $organization);
-        $query = FeeRecord::query()->where('organization_id', $organization)->with(['student:id,name,admission_number', 'payments']);
+        $query = FeeRecord::query()->where('organization_id', $organization)->with(['student:id,name,admission_number', 'feeCategory:id,name,code', 'payments']);
 
         if ($membership->role === OrganizationRole::Student) {
             $student = $this->studentProfile($request, $organization);
@@ -65,6 +65,7 @@ class FeeRecordController
         $data = $request->validate([
             'student_id' => ['required', 'integer', Rule::exists('students', 'id')->where('organization_id', $organization)->where('status', 'active')],
             'academic_session_id' => ['nullable', 'integer', Rule::exists('academic_sessions', 'id')->where('organization_id', $organization)],
+            'fee_category_id' => ['nullable', 'integer', Rule::exists('fee_categories', 'id')->where('organization_id', $organization)->where('is_active', true)],
             'title' => ['required', 'string', 'min:2', 'max:160'],
             'amount' => ['required', 'numeric', 'min:0.01', 'max:99999999.99', 'decimal:0,2'],
             'due_on' => ['nullable', 'date_format:Y-m-d'],
@@ -77,7 +78,7 @@ class FeeRecordController
         ]);
         $this->notifier->feeIssued($record, $request->user()->id);
 
-        return response()->json(['data' => $this->feeData($record->load(['student:id,name,admission_number', 'payments']))], 201);
+        return response()->json(['data' => $this->feeData($record->load(['student:id,name,admission_number', 'feeCategory:id,name,code', 'payments']))], 201);
     }
 
     public function payment(Request $request, int $organization, int $fee): JsonResponse
@@ -112,7 +113,7 @@ class FeeRecordController
             ]);
             $record->update(['status' => $paidCents + $amountCents === $totalCents ? 'paid' : 'partial']);
 
-            return $record->refresh()->load(['student:id,name,admission_number', 'payments']);
+            return $record->refresh()->load(['student:id,name,admission_number', 'feeCategory:id,name,code', 'payments']);
         });
         $this->notifier->feePaymentRecorded($record, $request->user()->id, number_format((int) round((float) $data['amount'] * 100) / 100, 2, '.', ''));
 
@@ -128,6 +129,7 @@ class FeeRecordController
             'id' => $record->id,
             'student' => $record->student?->only(['id', 'name', 'admission_number']),
             'title' => $record->title,
+            'category' => $record->feeCategory?->only(['id', 'name', 'code']),
             'amount' => number_format($amountCents / 100, 2, '.', ''),
             'paid_amount' => number_format($paidCents / 100, 2, '.', ''),
             'balance' => number_format(max(0, $amountCents - $paidCents) / 100, 2, '.', ''),
