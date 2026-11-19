@@ -77,6 +77,13 @@ export default function App() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [verificationNeeded, setVerificationNeeded] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
+  const [profileName, setProfileName] = useState('')
+  const [profileEmail, setProfileEmail] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [passwordConfirmation, setPasswordConfirmation] = useState('')
+  const [verificationUrl, setVerificationUrl] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -436,13 +443,47 @@ export default function App() {
     finally { setBusy(false) }
   }
 
+  async function saveAccountProfile() {
+    if (!token) return
+    if (newPassword && newPassword !== passwordConfirmation) {
+      setError('The new password and confirmation do not match.')
+      return
+    }
+    setBusy(true); setError(''); setSuccess(''); setVerificationUrl('')
+    try {
+      const response = await mobileApi.patch<{ data: ApiUser; email_changed: boolean; password_changed: boolean; verification_url?: string }>('/api/v1/me/profile', token, {
+        name: profileName.trim(), email: profileEmail.trim(), current_password: currentPassword,
+        ...(newPassword ? { password: newPassword, password_confirmation: passwordConfirmation } : {}),
+      })
+      setUser(response.data)
+      setProfileName(response.data.name); setProfileEmail(response.data.email)
+      setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation('')
+      setVerificationUrl(response.verification_url ?? '')
+      setSuccess(response.email_changed
+        ? 'Email updated. Verify the new address before using your workspace again.'
+        : response.password_changed ? 'Account details and password updated. Other app sessions were signed out.' : 'Account details updated.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not update account details.') }
+    finally { setBusy(false) }
+  }
+
+  async function refreshVerificationStatus() {
+    if (!token) return
+    setBusy(true); setError(''); setSuccess('')
+    try {
+      const response = await mobileApi.get<{ data: ApiUser }>('/api/v1/me', token)
+      setUser(response.data)
+      setSuccess(response.data.email_verified_at ? 'Your email is verified. You can continue using your workspace.' : 'Email verification is still pending. Open the verification link first.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not refresh account status.') }
+    finally { setBusy(false) }
+  }
+
   async function signOut() {
     const current = token
     setBusy(true)
     try { if (current) await mobileApi.post('/api/v1/auth/logout', current) }
     catch { /* Local credentials must still be removed if the API is offline. */ }
     await SecureStore.deleteItemAsync(TOKEN_KEY); await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
-    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setExamSectionSummaries([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
+    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setExamSectionSummaries([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setAccountOpen(false); setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation(''); setVerificationUrl(''); setBusy(false)
   }
 
   if (busy && !user) return <Splash />
@@ -450,11 +491,24 @@ export default function App() {
   if (!active) return <OrganizationPicker user={user} memberships={memberships} busy={busy} error={error} onChoose={membership => void chooseOrganization(membership)} onSignOut={() => void signOut()} />
 
   return <View style={styles.screen}><StatusBar barStyle="dark-content" backgroundColor="#f4f7fc" />
-    <View style={styles.topBar}><View style={{ flex: 1 }}><Text style={styles.brand}>edTechLive</Text><Text style={styles.orgName}>{active.organization.name}</Text></View><Pressable onPress={() => { setActive(null); setSelectedCourse(null) }} style={styles.topAction}><Text style={styles.topActionText}>Switch</Text></Pressable><Pressable onPress={() => void signOut()} style={styles.topAction}><Text style={styles.topActionText}>Sign out</Text></Pressable></View>
+    <View style={styles.topBar}><View style={{ flex: 1 }}><Text style={styles.brand}>edTechLive</Text><Text style={styles.orgName}>{active.organization.name}</Text></View><Pressable onPress={() => { setAccountOpen(true); setProfileName(user.name); setProfileEmail(user.email); setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation(''); setError(''); setSuccess(''); setVerificationUrl('') }} style={styles.topAction}><Text style={styles.topActionText}>Account</Text></Pressable><Pressable onPress={() => { setAccountOpen(false); setActive(null); setSelectedCourse(null) }} style={styles.topAction}><Text style={styles.topActionText}>Switch</Text></Pressable><Pressable onPress={() => void signOut()} style={styles.topAction}><Text style={styles.topActionText}>Sign out</Text></Pressable></View>
     <ScrollView contentContainerStyle={styles.content}>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {success ? <Text style={styles.success}>{success}</Text> : null}
-      {attendanceSection ? <>
+      {accountOpen ? <>
+        <Pressable onPress={() => { setAccountOpen(false); setVerificationUrl(''); setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation('') }}><Text style={styles.backLink}>‹  Dashboard</Text></Pressable>
+        <Text style={styles.pageTitle}>Account profile</Text>
+        <Text style={styles.subtitle}>Update your account details on all your edTechLive devices.</Text>
+        <View style={styles.infoCard}><Text style={styles.courseTitle}>Email status</Text><Text style={styles.courseMeta}>{user.email_verified_at ? 'Verified' : 'Verification required'}</Text></View>
+        <Text style={styles.inputLabel}>Full name</Text><TextInput autoComplete="name" value={profileName} onChangeText={setProfileName} maxLength={120} style={styles.input} editable={!busy} accessibilityLabel="Full name" />
+        <Text style={styles.inputLabel}>Email address</Text><TextInput autoCapitalize="none" autoComplete="email" keyboardType="email-address" value={profileEmail} onChangeText={setProfileEmail} maxLength={254} style={styles.input} editable={!busy} accessibilityLabel="Email address" />
+        <Text style={styles.inputLabel}>Current password</Text><TextInput autoComplete="current-password" secureTextEntry value={currentPassword} onChangeText={setCurrentPassword} style={styles.input} editable={!busy} accessibilityLabel="Current password" />
+        <Text style={styles.inputLabel}>New password (optional)</Text><TextInput autoComplete="new-password" secureTextEntry value={newPassword} onChangeText={setNewPassword} maxLength={160} placeholder="At least 12 characters, with letters and numbers" style={styles.input} editable={!busy} accessibilityLabel="New password" />
+        <Text style={styles.inputLabel}>Confirm new password</Text><TextInput autoComplete="new-password" secureTextEntry value={passwordConfirmation} onChangeText={setPasswordConfirmation} maxLength={160} style={styles.input} editable={!busy} accessibilityLabel="Confirm new password" />
+        <Text style={styles.courseMeta}>Your current password confirms each update. A changed email must be verified again. Password changes sign out your other app devices.</Text>
+        <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void saveAccountProfile()} disabled={busy || !profileName.trim() || !profileEmail.trim() || !currentPassword}><Text style={styles.primaryButtonText}>{busy ? 'Saving…' : 'Save account details'}</Text></Pressable>
+        {verificationUrl ? <View style={styles.activityCard}><Text style={styles.courseMeta}>Open the development verification link, then check your account status again.</Text><Pressable onPress={() => void Linking.openURL(verificationUrl)}><Text style={styles.link}>Verify email address</Text></Pressable><Pressable onPress={() => void refreshVerificationStatus()} disabled={busy}><Text style={styles.link}>Refresh verification status</Text></Pressable></View> : null}
+      </> : attendanceSection ? <>
         <Pressable onPress={() => { setAttendanceSection(null); setAttendanceStudents([]) }}><Text style={styles.backLink}>‹  Dashboard</Text></Pressable>
         <Text style={styles.pageTitle}>Take attendance</Text>
         <Text style={styles.subtitle}>{attendanceSection.academic_section.academic_class.name} · {attendanceSection.academic_section.name} · {attendanceSection.subject.name}</Text>
