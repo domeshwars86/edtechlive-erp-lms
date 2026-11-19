@@ -78,7 +78,7 @@ Route::prefix('v1')->group(function (): void {
     Route::get('/integrations/google-meet/callback', [GoogleMeetController::class, 'callback'])
         ->middleware('throttle:20,1')->name('api.v1.integrations.google-meet.callback');
 
-    Route::middleware(['auth:sanctum', 'verified'])->group(function (): void {
+    Route::middleware(['auth:sanctum', 'account.active', 'verified'])->group(function (): void {
         Route::get('/enquiries', [ContactEnquiryController::class, 'index'])->name('api.v1.enquiries.index');
         Route::patch('/enquiries/{enquiry}', [ContactEnquiryController::class, 'update'])
             ->whereNumber('enquiry')->name('api.v1.enquiries.update');
@@ -105,7 +105,10 @@ Route::prefix('v1')->group(function (): void {
             ->middleware('throttle:api-auth-register');
     });
 
-    Route::middleware('auth:sanctum')->group(function (): void {
+    Route::post('/auth/logout', [AuthenticatedSessionController::class, 'destroy'])
+        ->middleware('auth:sanctum')->name('api.v1.auth.logout');
+
+    Route::middleware(['auth:sanctum', 'account.active'])->group(function (): void {
         Route::get('/me', MeController::class)->name('api.v1.me');
         Route::get('/me/notification-preferences', [NotificationPreferencesController::class, 'show'])->name('api.v1.me.notification-preferences.show');
         Route::patch('/me/notification-preferences', [NotificationPreferencesController::class, 'update'])->name('api.v1.me.notification-preferences.update');
@@ -114,8 +117,7 @@ Route::prefix('v1')->group(function (): void {
         Route::patch('/platform/organizations/{organization}', [PlatformOrganizationController::class, 'update'])->whereNumber('organization')->middleware('verified');
         Route::get('/platform/audit-events', [PlatformAuditEventController::class, 'index'])->middleware('verified');
         Route::get('/platform/users', [PlatformUserController::class, 'index'])->middleware('verified');
-        Route::post('/auth/logout', [AuthenticatedSessionController::class, 'destroy'])->name('api.v1.auth.logout');
-
+        Route::patch('/platform/users/{user}', [PlatformUserController::class, 'update'])->whereNumber('user')->middleware('verified');
         Route::middleware('verified')->group(function (): void {
             Route::get('/organizations', [OrganizationController::class, 'index'])->name('api.v1.organizations.index');
             Route::patch('/me/organization', [OrganizationController::class, 'select'])->name('api.v1.organizations.select');

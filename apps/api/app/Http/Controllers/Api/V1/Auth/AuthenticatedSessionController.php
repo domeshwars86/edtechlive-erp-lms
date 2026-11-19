@@ -22,6 +22,13 @@ class AuthenticatedSessionController
             throw new AuthenticationException('The provided credentials are incorrect.');
         }
 
+        if ($user->platform_status === 'suspended') {
+            return response()->json([
+                'message' => 'This account is suspended. Contact platform support for assistance.',
+                'status' => 'account_suspended',
+            ], 403);
+        }
+
         if (! $user->hasVerifiedEmail()) {
             return response()->json([
                 'message' => 'Verify your email address before signing in.',

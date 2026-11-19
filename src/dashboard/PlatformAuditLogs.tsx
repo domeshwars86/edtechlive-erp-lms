@@ -7,8 +7,8 @@ type AuditEvent = {
   organization_name: string
   action: string
   reason: string
-  before: { status?: string } | null
-  after: { status?: string } | null
+  before: { status?: string; user_id?: number; email?: string } | null
+  after: { status?: string; user_id?: number; email?: string } | null
   actor: { name: string; email: string } | null
   created_at: string | null
 }
@@ -43,11 +43,14 @@ export default function PlatformAuditLogs() {
   useEffect(() => { void load(page) }, [load, page])
 
   return <section className="dash-panel dash-masters-panel platform-audit-workspace" aria-labelledby="platform-audit-title">
-    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">PLATFORM OPERATIONS</span><h2 id="platform-audit-title"><History size={17} />Organization status audit</h2><p className="dash-record-subtitle">This log currently covers organization suspensions and reactivations, including the operator and recorded reason.</p></div><button className="dash-icon-button" type="button" onClick={() => { setRefreshing(true); void load(page) }} disabled={refreshing || loading} aria-label="Refresh audit history"><RefreshCw size={16} /></button></div>
+    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">PLATFORM OPERATIONS</span><h2 id="platform-audit-title"><History size={17} />Platform status audit</h2><p className="dash-record-subtitle">Organization and user account suspensions or reactivations, with operator, reason, and before/after status.</p></div><button className="dash-icon-button" type="button" onClick={() => { setRefreshing(true); void load(page) }} disabled={refreshing || loading} aria-label="Refresh audit history"><RefreshCw size={16} /></button></div>
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
     {loading && events.length === 0 ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading organization status history…</p> : events.length ? <>
-      <div className="dash-table-scroll"><table><thead><tr><th>WHEN</th><th>ORGANIZATION</th><th>CHANGE</th><th>OPERATOR</th><th>REASON</th></tr></thead><tbody>{events.map(event => <tr key={event.id}><td>{event.created_at ? new Date(event.created_at).toLocaleString() : '—'}</td><td><b>{event.organization_name}</b></td><td>{event.before?.status ?? '—'} → {event.after?.status ?? event.action}</td><td>{event.actor ? <><b>{event.actor.name}</b><small className="platform-org-slug">{event.actor.email}</small></> : 'Deleted account'}</td><td>{event.reason}</td></tr>)}</tbody></table></div>
+      <div className="dash-table-scroll"><table><thead><tr><th>WHEN</th><th>ORGANIZATION / ACCOUNT</th><th>CHANGE</th><th>OPERATOR</th><th>REASON</th></tr></thead><tbody>{events.map(event => {
+        const accountEmail = event.action === 'user.status_changed' ? event.before?.email ?? event.after?.email : null
+        return <tr key={event.id}><td>{event.created_at ? new Date(event.created_at).toLocaleString() : '—'}</td><td><b>{accountEmail ?? event.organization_name}</b>{accountEmail ? <small className="platform-org-slug">Account #{event.before?.user_id ?? event.after?.user_id}</small> : null}</td><td>{event.before?.status ?? '—'} → {event.after?.status ?? event.action}</td><td>{event.actor ? <><b>{event.actor.name}</b><small className="platform-org-slug">{event.actor.email}</small></> : 'Deleted account'}</td><td>{event.reason}</td></tr>
+      })}</tbody></table></div>
       <div className="platform-directory-pagination"><span>{total} status change{total === 1 ? '' : 's'} · Page {page} of {lastPage}</span><button className="master-action" type="button" disabled={loading || page <= 1} onClick={() => setPage(current => current - 1)}>Previous</button><button className="master-action" type="button" disabled={loading || page >= lastPage} onClick={() => setPage(current => current + 1)}>Next</button></div>
-    </> : !error && <p className="master-empty"><History size={18} />No organization status changes have been recorded.</p>}
+    </> : !error && <p className="master-empty"><History size={18} />No platform status changes have been recorded.</p>}
   </section>
 }

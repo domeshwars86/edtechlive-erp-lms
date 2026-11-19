@@ -102,6 +102,20 @@ class AuthenticationTest extends TestCase
         $this->withToken($token)->getJson('/api/v1/me')->assertUnauthorized();
     }
 
+    public function test_suspended_platform_account_cannot_sign_in(): void
+    {
+        User::factory()->create([
+            'email' => 'suspended@example.com',
+            'password' => 'LearningPass123',
+            'platform_status' => 'suspended',
+        ]);
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => 'suspended@example.com',
+            'password' => 'LearningPass123',
+        ])->assertForbidden()->assertJsonPath('status', 'account_suspended');
+    }
+
     public function test_local_registration_and_resend_responses_expose_a_clickable_verification_link(): void
     {
         Notification::fake();

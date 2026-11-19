@@ -144,11 +144,56 @@ class PlatformOverviewTest extends TestCase
             ->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.email', 'teacher@example.com')
             ->assertJsonPath('data.0.active_organizations', 1)
+            ->assertJsonPath('data.0.platform_status', 'active')
+            ->assertJsonPath('data.0.status_change_allowed', true)
             ->assertJsonPath('meta.total', 1)
             ->assertJsonMissingPath('data.0.password');
         $this->getJson('/api/v1/platform/users?email_verified=false')
             ->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.email', 'pending-parent@example.com');
+    }
+
+    public function test_platform_operator_can_reasonably_suspend_and_restore_user_accounts(): void
+    {
+        Config::set('services.platform.admin_emails', ['operator@example.com', 'second-operator@example.com']);
+        $operator = User::factory()->create(['email' => 'operator@example.com']);
+        $secondOperator = User::factory()->create(['email' => 'second-operator@example.com']);
+        $member = User::factory()->create(['email' => 'learner@example.com']);
+        Sanctum::actingAs($operator);
+
+        $this->patchJson("/api/v1/platform/users/{$member->id}", ['status' => 'suspended', 'reason' => 'Repeated account abuse reports'])
+            ->assertOk()->assertJsonPath('data.platform_status', 'suspended');
+        $this->assertDatabaseHas('platform_audit_events', [
+            'actor_user_id' => $operator->id,
+            'action' => 'user.status_changed',
+            'organization_name' => 'Platform accounts',
+            'reason' => 'Repeated account abuse reports',
+        ]);
+        $this->assertDatabaseHas('platform_audit_events', [
+            'action' => 'user.status_changed',
+            'before->status' => 'active',
+            'after->status' => 'suspended',
+        ]);
+        $this->getJson('/api/v1/platform/users?status=suspended')->assertOk()
+            ->assertJsonPath('data.0.email', 'learner@example.com');
+
+        Sanctum::actingAs($member->fresh());
+        $this->getJson('/api/v1/me')->assertForbidden()->assertJsonPath('status', 'account_suspended');
+        $this->postJson('/api/v1/auth/logout')->assertOk();
+
+        Sanctum::actingAs($operator);
+        $this->patchJson("/api/v1/platform/users/{$member->id}", ['status' => 'active', 'reason' => '        '])
+            ->assertUnprocessable()->assertJsonValidationErrors('reason');
+        $this->patchJson("/api/v1/platform/users/{$operator->id}", ['status' => 'suspended', 'reason' => 'Self suspension request'])
+            ->assertStatus(409);
+        $this->patchJson("/api/v1/platform/users/{$secondOperator->id}", ['status' => 'suspended', 'reason' => 'Operator suspension request'])
+            ->assertStatus(409);
+        $this->patchJson("/api/v1/platform/users/{$member->id}", ['status' => 'active', 'reason' => 'Appeal review completed'])
+            ->assertOk()->assertJsonPath('data.platform_status', 'active');
+        $this->assertDatabaseCount('platform_audit_events', 2);
+
+        Sanctum::actingAs($member->fresh());
+        $this->getJson('/api/v1/me')->assertOk();
     }
 
     private function organization(string $name, string $slug, string $status): Organization

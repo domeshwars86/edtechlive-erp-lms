@@ -2,6 +2,11 @@
 
 **Updated:** 19 November 2026
 
+## Platform user account controls (19 November 2026)
+
+- The verified platform operator can filter accounts by global status and suspend/reactivate ordinary accounts with a required reason. The change is audited with actor, target, reason and before/after status. The endpoint blocks self-changes and all allowlisted operator targets; suspended users cannot sign in or call authenticated APIs. The paginated audit UI now displays account changes beside organization status events.
+- Focused platform tests passed (**6 tests / 76 assertions**) and auth tests passed (**9 tests / 59 assertions**). Full Laravel suite passed (**171 tests / 1,502 assertions**) on in-memory SQLite. The platform-account Chromium flow passed (**1 test in 5.9 seconds**) against the local preview with API calls mocked; it verified reason submission, status refresh, and account/reason display in audit history. Web typecheck, ESLint, production build (17 prerendered routes), Playwright TypeScript check, and Pint passed. `npm run setup:local` safely applied the new migration to ignored local SQLite. PostgreSQL validation remains open.
+
 ## Attendance correction history (19 November 2026)
 
 - Attendance entries now require an explanation when staff change a previously saved status or note. The API stores a tenant-scoped append-only audit entry with actor, before/after values and reason in the same transaction as the edit. A section/date history endpoint enforces the existing role and teacher-assignment scopes; the web register prompts for a reason and displays the correction history.
