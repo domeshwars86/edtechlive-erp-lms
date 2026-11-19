@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
-import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type ExamSectionSummary, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type SchoolExam, type SchoolExamMark, type SchoolExamPaper, type StudentAttendance, type StudentProgress, type StudyMaterial, type TeachingAssignment } from './src/api'
+import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type ExamSectionSummary, type ExamSeriesComparison, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type SchoolExam, type SchoolExamMark, type SchoolExamPaper, type StudentAttendance, type StudentProgress, type StudyMaterial, type TeachingAssignment } from './src/api'
 
 const TOKEN_KEY = 'edtechlive.mobile.token'
 const ORGANIZATION_KEY = 'edtechlive.mobile.organization'
@@ -51,6 +51,7 @@ export default function App() {
   const [attendanceReport, setAttendanceReport] = useState<MobileAttendanceReport | null>(null)
   const [courseProgressReport, setCourseProgressReport] = useState<MobileCourseProgressReport | null>(null)
   const [examSectionSummaries, setExamSectionSummaries] = useState<ExamSectionSummary[]>([])
+  const [examSeriesComparisons, setExamSeriesComparisons] = useState<ExamSeriesComparison[]>([])
   const [financeReport, setFinanceReport] = useState<MobileFinanceReport | null>(null)
   const [teacherExams, setTeacherExams] = useState<SchoolExam[]>([])
   const [selectedExamPaper, setSelectedExamPaper] = useState<{ exam: SchoolExam; paper: SchoolExamPaper } | null>(null)
@@ -106,7 +107,7 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setExamSectionSummaries([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
+    setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
@@ -142,6 +143,9 @@ export default function App() {
         .then(result => { if (!cancelled) setTeachingAssignments(result.data) }))
       tasks.push(mobileApi.get<{ data: SchoolExam[] }>(`${base}/exams`, token)
         .then(result => { if (!cancelled) setTeacherExams(result.data) }))
+      tasks.push(mobileApi.get<{ data: ExamSeriesComparison[] }>(`${base}/reports/exams/comparisons`, token)
+        .then(result => { if (!cancelled) setExamSeriesComparisons(result.data) })
+        .catch(() => { if (!cancelled) setExamSeriesComparisons([]) }))
     }
     if (active.role === 'independent_educator') {
       tasks.push(mobileApi.get<{ data: MobileFinanceReport }>(`${base}/reports/finance`, token)
@@ -155,14 +159,16 @@ export default function App() {
         mobileApi.get<{ data: MobileAttendanceReport }>(`${base}/reports/attendance?from=${today}&to=${today}`, token),
         mobileApi.get<MobileCourseProgressReport>(`${base}/reports/course-progress`, token),
         mobileApi.get<{ data: ExamSectionSummary[] }>(`${base}/reports/exams/sections`, token),
+        mobileApi.get<{ data: ExamSeriesComparison[] }>(`${base}/reports/exams/comparisons`, token).catch(() => ({ data: [] as ExamSeriesComparison[] })),
         mobileApi.get<{ data: MobileFinanceReport }>(`${base}/reports/finance`, token),
-      ]).then(([studentResult, teacherResult, attendanceResult, progressResult, examResult, financeResult]) => {
+      ]).then(([studentResult, teacherResult, attendanceResult, progressResult, examResult, comparisonResult, financeResult]) => {
         if (!cancelled) {
           setRosterStudents(studentResult.data); setRosterStudentTotal(studentResult.meta.total)
           setRosterTeachers(teacherResult.data); setRosterTeacherTotal(teacherResult.meta.total)
           setAttendanceReport(attendanceResult.data)
           setCourseProgressReport(progressResult)
           setExamSectionSummaries(examResult.data)
+          setExamSeriesComparisons(comparisonResult.data)
           setFinanceReport(financeResult.data)
         }
       }))
@@ -515,6 +521,8 @@ export default function App() {
           {courseProgressReport ? <>{courseProgressReport.summary.courses ? <View style={styles.infoCard}><Text style={styles.courseTitle}>{courseProgressReport.summary.average_percent}% average completion</Text><Text style={styles.courseMeta}>{courseProgressReport.summary.courses} published courses · {courseProgressReport.summary.learners} active course enrollments</Text></View> : null}{courseProgressReport.data.slice(0, 5).map(course => <View style={styles.recordCard} key={course.course_id}><Text style={styles.courseTitle}>{course.title}</Text><Text style={styles.courseMeta}>{course.average_percent}% average · {course.completed_learners}/{course.learners} learners completed · {course.lessons} lessons</Text></View>)}{courseProgressReport.summary.courses === 0 ? <Empty text="No published courses are available to report." /> : null}</> : <Empty text={busy ? 'Loading course progress report…' : 'No course progress report is available.'} />}
           <Text style={styles.sectionTitle}>Examination performance</Text>
           {examSectionSummaries.length ? examSectionSummaries.slice(0, 5).map(item => <View style={styles.recordCard} key={`${item.exam_id}-${item.class_section}`}><Text style={styles.courseTitle}>{item.exam} · {item.class_section}</Text><Text style={styles.courseMeta}>{item.session} · {item.paper_count} papers · {item.subject_count} subjects · {item.student_count} learners</Text><Text style={styles.courseMeta}>{item.average_percent === null ? 'No graded marks' : `${item.average_percent}% average graded result`} · {item.graded_count} graded · {item.absent_count} absent · {item.excused_count} excused</Text></View>) : <Empty text="No published school examination results are available." />}
+          <Text style={styles.sectionTitle}>Exam series progress</Text>
+          <ExamSeriesHistory items={examSeriesComparisons} emptyText="No published exams are available in a named series." />
         </> : null}
         {['admin', 'management', 'independent_educator'].includes(active.role) ? <FinanceSnapshot report={financeReport} busy={busy} /> : null}
         <Text style={styles.sectionTitle}>Recent and upcoming classes</Text>
@@ -566,6 +574,8 @@ export default function App() {
               </Pressable>)}
               {!exam.papers.length ? <Text style={styles.courseMeta}>No assigned papers.</Text> : null}
             </View>) : <Empty text={busy ? 'Loading assigned exam papers…' : 'No school exam papers are assigned to your classes.'} />}
+            <Text style={styles.sectionTitle}>Exam series progress</Text>
+            <ExamSeriesHistory items={examSeriesComparisons} emptyText="No published exams in a named series are assigned to your subjects." />
             {selectedExamPaper ? <View style={styles.infoCard}>
               <Text style={styles.courseTitle}>{selectedExamPaper.exam.title} · {selectedExamPaper.paper.section} · {selectedExamPaper.paper.subject}</Text>
               <Text style={styles.courseMeta}>{selectedExamPaper.exam.status === 'published' ? 'Published results are read-only.' : `Mark the active roster. Maximum ${selectedExamPaper.paper.max_marks}. Managers publish after every learner has an outcome.`}</Text>
@@ -626,6 +636,24 @@ function summaryCards(summary: DashboardSummary, role: OrganizationMembership['r
     { label: 'Classes today', value: String(summary.classes_today ?? 0) },
     { label: 'Attendance today', value: rate((summary.attendance_today as { rate?: number | null } | undefined)?.rate) },
   ]
+}
+
+function ExamSeriesHistory({ items, emptyText }: { items: ExamSeriesComparison[]; emptyText: string }) {
+  if (!items.length) return <Empty text={emptyText} />
+
+  return <>{items.slice(0, 5).map(item => {
+    const change = item.change_percentage_points
+    const comparison = change === null
+      ? 'Baseline or no previous graded average'
+      : `${change > 0 ? '+' : ''}${change} percentage points${item.previous_exam ? ` vs ${item.previous_exam}` : ''}`
+
+    return <View style={styles.recordCard} key={`${item.exam_id}-${item.class_section}-${item.subject}`}>
+      <Text style={styles.courseTitle}>{item.series} · {item.exam}</Text>
+      <Text style={styles.courseMeta}>{item.session} · {item.class_section} · {item.subject}</Text>
+      <Text style={styles.courseMeta}>{item.average_percent === null ? 'No graded marks' : `${item.average_percent}% normalized average`} · {item.graded_count} graded · {item.absent_count} absent · {item.excused_count} excused</Text>
+      <Text style={styles.resultText}>{comparison}</Text>
+    </View>
+  })}</>
 }
 
 function FinanceSnapshot({ report, busy }: { report: MobileFinanceReport | null; busy: boolean }) {
