@@ -2,6 +2,10 @@
 
 **Updated:** 19 November 2026
 
+## Browser signup verification and sign-in (19 November 2026)
+
+- The isolated Chromium integration flow passed (**1 test in 1.5 minutes**): create an account, open the local signed verification link, sign in, select the new workspace, reset the password, and sign in again. Playwright uses a temporary SQLite database that is removed after the run.
+
 ## Manual receipt idempotency (19 November 2026)
 
 - Fee receipt POSTs now require a tenant-scoped `Idempotency-Key`. An additive migration adds a unique `(organization_id, idempotency_key)` index and stores a SHA-256 fingerprint of the fee and validated payment payload. Exact retries return the current persisted fee result without another payment notification; a key reused for different payment details or a different fee returns 409.
