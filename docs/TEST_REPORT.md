@@ -20,7 +20,7 @@
 
 ## Stable notification pagination and mobile load-more (20 November 2026)
 
-- Notification feeds now use stable newest-first ordering by creation timestamp and ID, so marking an item read cannot move it across paginated results. A regression test compares the second page before and after a first-page read receipt. Mobile now fetches notices in pages of ten, appends additional pages without duplicate IDs, exposes read/unread state to assistive technology, and offers a loading-aware “Load more updates” control. `php artisan test --filter=NotificationTest` passed **8 tests / 48 assertions**, Pint passed for the touched API files, `apps/mobile` TypeScript typecheck passed, and `npx expo export --platform android` produced the Android JS bundle (**1.7 MB; 564 modules**). Native-device behavior remains a separate gate.
+- Notification feeds now use stable newest-first ordering by creation timestamp and ID, so marking an item read cannot move it across paginated results. A regression test compares the second page before and after a first-page read receipt. Mobile now fetches notices in pages of ten, appends additional pages without duplicate IDs, exposes read/unread state to assistive technology, offers a loading-aware “Load more updates” control, and ignores late read/page responses after switching users or organizations. `php artisan test --filter=NotificationTest` passed **8 tests / 48 assertions**, Pint passed for the touched API files, `apps/mobile` TypeScript typecheck passed, and `npx expo export --platform android` produced the Android JS bundle (**1.7 MB; 564 modules**). Native-device behavior remains a separate gate.
 
 ## Keyboard navigation landmarks (20 November 2026)
 

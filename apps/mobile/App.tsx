@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
 import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type ExamSectionSummary, type ExamSeriesComparison, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type SchoolExam, type SchoolExamMark, type SchoolExamPaper, type StudentAttendance, type StudentProgress, type StudyMaterial, type TeachingAssignment } from './src/api'
@@ -36,6 +36,7 @@ export default function App() {
   const [user, setUser] = useState<ApiUser | null>(null)
   const [memberships, setMemberships] = useState<OrganizationMembership[]>([])
   const [active, setActive] = useState<OrganizationMembership | null>(null)
+  const workspaceContextRef = useRef<string | null>(null)
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [notices, setNotices] = useState<MobileNotice[]>([])
   const [noticePage, setNoticePage] = useState(1)
@@ -113,7 +114,10 @@ export default function App() {
         const selection = organizationList.data.find(item => item.organization.id === organizationList.preferred_organization_id)
           ?? organizationList.data.find(item => String(item.organization.id) === remembered)
           ?? (organizationList.data.length === 1 ? organizationList.data[0] : null)
-        if (selection) setActive(selection)
+        if (selection) {
+          workspaceContextRef.current = `${me.data.id}:${selection.organization.id}`
+          setActive(selection)
+        }
       } catch {
         await SecureStore.deleteItemAsync(TOKEN_KEY)
         await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
@@ -249,8 +253,8 @@ export default function App() {
       await SecureStore.setItemAsync(TOKEN_KEY, result.token)
       setToken(result.token); setUser(result.data); setMemberships(organizationList.data)
       const preferred = organizationList.data.find(item => item.organization.id === organizationList.preferred_organization_id)
-      if (preferred) await chooseOrganization(preferred, result.token)
-      else if (organizationList.data.length === 1) await chooseOrganization(organizationList.data[0], result.token)
+      if (preferred) await chooseOrganization(preferred, result.token, result.data.id)
+      else if (organizationList.data.length === 1) await chooseOrganization(organizationList.data[0], result.token, result.data.id)
       setPassword('')
     } catch (reason) {
       if (reason instanceof ApiError && reason.code === 'email_verification_required') {
@@ -270,9 +274,10 @@ export default function App() {
     finally { setBusy(false) }
   }
 
-  async function chooseOrganization(membership: OrganizationMembership, currentToken = token) {
+  async function chooseOrganization(membership: OrganizationMembership, currentToken = token, accountId = user?.id) {
     if (currentToken) await mobileApi.patch<{ data: OrganizationMembership }>('/api/v1/me/organization', currentToken, { organization_id: membership.organization.id })
     await SecureStore.setItemAsync(ORGANIZATION_KEY, String(membership.organization.id))
+    workspaceContextRef.current = accountId === undefined ? null : `${accountId}:${membership.organization.id}`
     setActive(membership); setError(''); setMeetingKind('class'); setMeetingSectionId(''); setMeetingFormOpen(false)
     if (currentToken) setToken(currentToken)
   }
@@ -434,22 +439,30 @@ export default function App() {
 
   async function markNoticeRead(notice: MobileNotice) {
     if (!active || !token || notice.read_at) return
+    const organizationId = active.organization.id
+    const workspaceContext = workspaceContextRef.current
     try {
-      await mobileApi.post(`/api/v1/organizations/${active.organization.id}/notifications/${notice.id}/read`, token)
+      await mobileApi.post(`/api/v1/organizations/${organizationId}/notifications/${notice.id}/read`, token)
+      if (workspaceContextRef.current !== workspaceContext) return
       setNotices(items => items.map(item => item.id === notice.id ? { ...item, read_at: new Date().toISOString() } : item))
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not update this notification.') }
+    } catch (reason) {
+      if (workspaceContextRef.current === workspaceContext) setError(reason instanceof Error ? reason.message : 'Could not update this notification.')
+    }
   }
 
   async function loadMoreNotices() {
     if (!active || !token || noticeLoading || noticePage >= noticeLastPage) return
+    const organizationId = active.organization.id
+    const workspaceContext = workspaceContextRef.current
     setNoticeLoading(true)
     setError('')
     try {
       const nextPage = noticePage + 1
       const result = await mobileApi.get<{ data: MobileNotice[]; meta: { current_page: number; last_page: number } }>(
-        `/api/v1/organizations/${active.organization.id}/notifications?per_page=10&page=${nextPage}`,
+        `/api/v1/organizations/${organizationId}/notifications?per_page=10&page=${nextPage}`,
         token,
       )
+      if (workspaceContextRef.current !== workspaceContext) return
       setNotices(current => {
         const knownIds = new Set(current.map(item => item.id))
         return [...current, ...result.data.filter(item => !knownIds.has(item.id))]
@@ -457,9 +470,9 @@ export default function App() {
       setNoticePage(result.meta.current_page)
       setNoticeLastPage(result.meta.last_page)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not load more updates.')
+      if (workspaceContextRef.current === workspaceContext) setError(reason instanceof Error ? reason.message : 'Could not load more updates.')
     } finally {
-      setNoticeLoading(false)
+      if (workspaceContextRef.current === workspaceContext) setNoticeLoading(false)
     }
   }
 
@@ -570,6 +583,7 @@ export default function App() {
     try { if (current) await mobileApi.post('/api/v1/auth/logout', current) }
     catch { /* Local credentials must still be removed if the API is offline. */ }
     await SecureStore.deleteItemAsync(TOKEN_KEY); await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
+    workspaceContextRef.current = null
     setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setNoticePage(1); setNoticeLastPage(1); setNoticeLoading(false); setMeetings([]); setMeetingSections([]); setMeetingFormOpen(false); setMeetingKind('class'); setMeetingSectionId(''); setMeetingTitle(''); setMeetingDescription(''); setMeetingUrl(''); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setExamSectionSummaries([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setAccountOpen(false); setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation(''); setVerificationUrl(''); setBusy(false)
   }
 
@@ -582,7 +596,7 @@ export default function App() {
     : meetingSections
 
   return <View style={styles.screen}><StatusBar barStyle="dark-content" backgroundColor="#f4f7fc" />
-    <View style={styles.topBar}><View style={{ flex: 1 }}><Text style={styles.brand}>edTechLive</Text><Text style={styles.orgName}>{active.organization.name}</Text></View><Pressable onPress={() => { setAccountOpen(true); setProfileName(user.name); setProfileEmail(user.email); setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation(''); setError(''); setSuccess(''); setVerificationUrl('') }} style={styles.topAction}><Text style={styles.topActionText}>Account</Text></Pressable><Pressable onPress={() => { setAccountOpen(false); setActive(null); setSelectedCourse(null) }} style={styles.topAction}><Text style={styles.topActionText}>Switch</Text></Pressable><Pressable onPress={() => void signOut()} style={styles.topAction}><Text style={styles.topActionText}>Sign out</Text></Pressable></View>
+    <View style={styles.topBar}><View style={{ flex: 1 }}><Text style={styles.brand}>edTechLive</Text><Text style={styles.orgName}>{active.organization.name}</Text></View><Pressable onPress={() => { setAccountOpen(true); setProfileName(user.name); setProfileEmail(user.email); setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation(''); setError(''); setSuccess(''); setVerificationUrl('') }} style={styles.topAction}><Text style={styles.topActionText}>Account</Text></Pressable><Pressable onPress={() => { workspaceContextRef.current = null; setAccountOpen(false); setActive(null); setSelectedCourse(null) }} style={styles.topAction}><Text style={styles.topActionText}>Switch</Text></Pressable><Pressable onPress={() => void signOut()} style={styles.topAction}><Text style={styles.topActionText}>Sign out</Text></Pressable></View>
     <ScrollView contentContainerStyle={styles.content}>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {success ? <Text style={styles.success}>{success}</Text> : null}
