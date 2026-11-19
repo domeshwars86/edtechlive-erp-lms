@@ -9,8 +9,10 @@ use App\Models\Student;
 use App\Models\StudentGuardian;
 use App\Services\OrganizationAccess;
 use App\Services\OrganizationNotifier;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -85,39 +87,117 @@ class FeeRecordController
     {
         $membership = $this->access->membership($request, $organization, true);
         $this->assertManager($membership->role);
+        $idempotencyKey = $request->header('Idempotency-Key');
+        if (! is_string($idempotencyKey) || preg_match('/\A[A-Za-z0-9._~-]{16,128}\z/', $idempotencyKey) !== 1) {
+            throw ValidationException::withMessages(['Idempotency-Key' => ['Provide an Idempotency-Key header containing 16–128 letters, digits, dots, underscores, tildes, or hyphens.']]);
+        }
         $data = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01', 'max:99999999.99', 'decimal:0,2'],
             'method' => ['required', Rule::in(['cash', 'bank_transfer', 'upi', 'other'])],
             'reference' => ['nullable', 'string', 'max:120'],
             'received_at' => ['sometimes', 'date', 'before_or_equal:now'],
         ]);
+        $fingerprint = $this->paymentFingerprint($organization, $fee, $data);
 
-        $record = DB::transaction(function () use ($data, $organization, $fee, $request): FeeRecord {
-            $record = FeeRecord::query()->where('organization_id', $organization)->lockForUpdate()->findOrFail($fee);
-            abort_if($record->status === 'paid', 409, 'This fee has already been settled.');
-            $paidCents = (int) round((float) $record->payments()->sum('amount') * 100);
-            $amountCents = (int) round((float) $data['amount'] * 100);
-            $totalCents = (int) round((float) $record->amount * 100);
-            if ($paidCents + $amountCents > $totalCents) {
-                throw ValidationException::withMessages(['amount' => ['The payment cannot exceed the remaining balance.']]);
+        try {
+            $result = DB::transaction(function () use ($data, $organization, $fee, $request, $idempotencyKey, $fingerprint): array {
+                $existing = FeePayment::query()->where('organization_id', $organization)
+                    ->where('idempotency_key', $idempotencyKey)->first();
+                if ($existing !== null) {
+                    $this->assertSamePaymentRequest($existing, $fee, $fingerprint);
+
+                    return [
+                        'record' => FeeRecord::query()->where('organization_id', $organization)
+                            ->with(['student:id,name,admission_number', 'feeCategory:id,name,code', 'payments'])
+                            ->findOrFail($fee),
+                        'created' => false,
+                    ];
+                }
+
+                $record = FeeRecord::query()->where('organization_id', $organization)->lockForUpdate()->findOrFail($fee);
+                abort_if($record->status === 'paid', 409, 'This fee has already been settled.');
+                $paidCents = (int) round((float) $record->payments()->sum('amount') * 100);
+                $amountCents = (int) round((float) $data['amount'] * 100);
+                $totalCents = (int) round((float) $record->amount * 100);
+                if ($paidCents + $amountCents > $totalCents) {
+                    throw ValidationException::withMessages(['amount' => ['The payment cannot exceed the remaining balance.']]);
+                }
+
+                $existing = FeePayment::query()->where('organization_id', $organization)
+                    ->where('idempotency_key', $idempotencyKey)->first();
+                if ($existing !== null) {
+                    $this->assertSamePaymentRequest($existing, $fee, $fingerprint);
+
+                    return [
+                        'record' => FeeRecord::query()->where('organization_id', $organization)
+                            ->with(['student:id,name,admission_number', 'feeCategory:id,name,code', 'payments'])
+                            ->findOrFail($fee),
+                        'created' => false,
+                    ];
+                }
+
+                FeePayment::query()->create([
+                    'organization_id' => $organization,
+                    'fee_record_id' => $record->id,
+                    'amount' => number_format($amountCents / 100, 2, '.', ''),
+                    'method' => $data['method'],
+                    'reference' => $data['reference'] ?? null,
+                    'received_by' => $request->user()->id,
+                    'received_at' => $data['received_at'] ?? now(),
+                    'idempotency_key' => $idempotencyKey,
+                    'idempotency_fingerprint' => $fingerprint,
+                ]);
+                $record->update(['status' => $paidCents + $amountCents === $totalCents ? 'paid' : 'partial']);
+
+                return [
+                    'record' => $record->refresh()->load(['student:id,name,admission_number', 'feeCategory:id,name,code', 'payments']),
+                    'created' => true,
+                ];
+            });
+        } catch (QueryException $exception) {
+            $existing = FeePayment::query()->where('organization_id', $organization)
+                ->where('idempotency_key', $idempotencyKey)->first();
+            if ($existing === null) {
+                throw $exception;
             }
-
-            FeePayment::query()->create([
-                'organization_id' => $organization,
-                'fee_record_id' => $record->id,
-                'amount' => number_format($amountCents / 100, 2, '.', ''),
-                'method' => $data['method'],
-                'reference' => $data['reference'] ?? null,
-                'received_by' => $request->user()->id,
-                'received_at' => $data['received_at'] ?? now(),
-            ]);
-            $record->update(['status' => $paidCents + $amountCents === $totalCents ? 'paid' : 'partial']);
-
-            return $record->refresh()->load(['student:id,name,admission_number', 'feeCategory:id,name,code', 'payments']);
-        });
-        $this->notifier->feePaymentRecorded($record, $request->user()->id, number_format((int) round((float) $data['amount'] * 100) / 100, 2, '.', ''));
+            $this->assertSamePaymentRequest($existing, $fee, $fingerprint);
+            $result = [
+                'record' => FeeRecord::query()->where('organization_id', $organization)
+                    ->with(['student:id,name,admission_number', 'feeCategory:id,name,code', 'payments'])
+                    ->findOrFail($fee),
+                'created' => false,
+            ];
+        }
+        /** @var FeeRecord $record */
+        $record = $result['record'];
+        if ($result['created']) {
+            $this->notifier->feePaymentRecorded($record, $request->user()->id, number_format((int) round((float) $data['amount'] * 100) / 100, 2, '.', ''));
+        }
 
         return response()->json(['data' => $this->feeData($record)]);
+    }
+
+    private function paymentFingerprint(int $organization, int $fee, array $data): string
+    {
+        return hash('sha256', json_encode([
+            'organization_id' => $organization,
+            'fee_record_id' => $fee,
+            'amount_cents' => (int) round((float) $data['amount'] * 100),
+            'method' => $data['method'],
+            'reference' => $data['reference'] ?? null,
+            'received_at' => isset($data['received_at']) ? Carbon::parse($data['received_at'])->utc()->format('Y-m-d\\TH:i:s.u\\Z') : null,
+        ], JSON_THROW_ON_ERROR));
+    }
+
+    private function assertSamePaymentRequest(FeePayment $existing, int $fee, string $fingerprint): void
+    {
+        abort_if(
+            (int) $existing->fee_record_id !== $fee
+                || $existing->idempotency_fingerprint === null
+                || ! hash_equals($existing->idempotency_fingerprint, $fingerprint),
+            409,
+            'This Idempotency-Key was already used with different payment details.',
+        );
     }
 
     private function feeData(FeeRecord $record): array

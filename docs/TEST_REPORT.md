@@ -2,6 +2,11 @@
 
 **Updated:** 19 November 2026
 
+## Manual receipt idempotency (19 November 2026)
+
+- Fee receipt POSTs now require a tenant-scoped `Idempotency-Key`. An additive migration adds a unique `(organization_id, idempotency_key)` index and stores a SHA-256 fingerprint of the fee and validated payment payload. Exact retries return the current persisted fee result without another payment notification; a key reused for different payment details or a different fee returns 409.
+- The FeeWorkspace creates one UUID per receipt form and reuses it if the request is retried. Focused regression coverage checks missing keys, duplicate receipt IDs and notification count, payload/fee conflicts, organization-level key reuse, and existing overpayment behavior. Focused FeeRecord tests passed (**4 tests / 42 assertions**). Full Laravel suite passed on in-memory SQLite and a fresh disposable PostgreSQL 17 cluster (**161 tests / 1,373 assertions on each**). Root typecheck, ESLint, production build (17 prerendered routes), Pint, and `git diff --check` passed. No production data or database was used.
+
 ## Course-specific public enquiry (19 November 2026)
 
 - Published course detail pages now provide an “Ask about this course” CTA. It carries the public course and organization names to the contact page, where the course context, enquiry category, and an editable message are shown before the visitor submits the existing consented contact form.

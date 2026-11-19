@@ -30,7 +30,7 @@ class BankReconciliationTest extends TestCase
             'title' => 'Term fee', 'amount' => '250.00', 'status' => 'unpaid', 'created_by' => $admin->id,
         ]);
         $base = "/api/v1/organizations/{$organization->id}";
-        $paymentId = $this->postJson("{$base}/fees/{$fee->id}/payments", ['amount' => '250.00', 'method' => 'bank_transfer'])
+        $paymentId = $this->postJson("{$base}/fees/{$fee->id}/payments", ['amount' => '250.00', 'method' => 'bank_transfer'], ['Idempotency-Key' => 'bank-match-receipt-test-0001'])
             ->assertOk()->json('data.payments.0.id');
         $expense = FinanceExpense::query()->create([
             'organization_id' => $organization->id, 'recorded_by' => $admin->id,
@@ -85,7 +85,7 @@ class BankReconciliationTest extends TestCase
             'title' => 'Term fee', 'amount' => '250.00', 'status' => 'unpaid', 'created_by' => $admin->id,
         ]);
         $base = "/api/v1/organizations/{$organization->id}";
-        $paymentId = $this->postJson("{$base}/fees/{$fee->id}/payments", ['amount' => '250.00', 'method' => 'cash'])->assertOk()->json('data.payments.0.id');
+        $paymentId = $this->postJson("{$base}/fees/{$fee->id}/payments", ['amount' => '250.00', 'method' => 'cash'], ['Idempotency-Key' => 'tenant-match-receipt-test-01'])->assertOk()->json('data.payments.0.id');
         $lineId = $this->postJson("{$base}/bank-statements", [
             'account_label' => 'Main account', 'period_from' => $today, 'period_to' => $today,
             'opening_balance' => '0.00', 'closing_balance' => '251.00',
