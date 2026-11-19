@@ -81,9 +81,13 @@ class MeetingTest extends TestCase
         $this->patchAs($studentUser, "{$recordingPath}/{$recordingId}", ['status' => 'published'])->assertForbidden();
         $this->patchAs($admin, "{$recordingPath}/{$recordingId}", ['status' => 'published'])->assertOk();
         $this->getAs($studentUser, $recordingPath)->assertOk()->assertJsonPath('data.0.id', $recordingId);
+        $signedPath = $this->postAs($studentUser, "{$recordingPath}/{$recordingId}/download-link", [])
+            ->assertOk()->json('data.path');
+        $this->get($signedPath)->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->getAs($parentUser, "{$recordingPath}/{$recordingId}/download")->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->patchAs($admin, "{$recordingPath}/{$recordingId}", ['status' => 'withdrawn'])->assertOk();
         $this->getAs($studentUser, $recordingPath)->assertOk()->assertJsonCount(0, 'data');
+        $this->get($signedPath)->assertNotFound();
         $this->patchAs($admin, "{$recordingPath}/{$recordingId}", ['status' => 'published'])->assertStatus(409);
     }
 

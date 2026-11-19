@@ -4,9 +4,9 @@
 
 ## Private meeting recording workflow (19 November 2026)
 
-- Added a tenant-scoped private recording library to scheduled meetings: staff can upload MP4/MOV/WebM files up to 50 MB or register an HTTPS link, attest participant notice and applicable consent, then publish, unpublish, or withdraw recordings. Students and explicitly linked parents see published recordings only for meetings in their authorized classes/courses. File downloads recheck meeting membership and publication; withdrawn files remain stored pending retention policy.
-- Regression coverage verifies consent and HTTPS requirements, staff publication, student/parent read access, unrelated learner denial, private file download headers, and withdrawn recording behavior. The additive migration was applied to the verified local SQLite database.
-- Full Laravel suite passed (**144 tests / 1,186 assertions**) on in-memory SQLite; Pint passed. Web typecheck and ESLint passed; production build passed with 14 prerendered routes (492.42 kB main bundle). PostgreSQL verification, authenticated browser QA, consent collection, retention controls, and durable production storage remain open.
+- Added a tenant-scoped private recording library to scheduled meetings: staff can upload MP4/MOV/WebM files up to 50 MB or register an HTTPS link, attest participant notice and applicable consent, then publish, unpublish, or withdraw recordings. Students and explicitly linked parents see published recordings only for meetings in their authorized classes/courses. Web downloads recheck meeting membership and publication; native clients request two-minute signed links for uploaded files. Withdrawn files remain stored pending retention policy.
+- Regression coverage verifies consent and HTTPS requirements, staff publication, student/parent read access, unrelated learner denial, authenticated and signed private file downloads, publication revocation, and withdrawn recording behavior. The additive migration was applied to the verified local SQLite database.
+- Full Laravel suite passed (**144 tests / 1,191 assertions**) on in-memory SQLite; Pint passed. Web typecheck and ESLint passed. Mobile typecheck and Android Expo export passed (564 modules, 1.7 MB bundle); native device builds were not run. PostgreSQL verification, authenticated browser QA, consent collection, retention controls, and durable production storage remain open.
 
 ## Email verification guidance (19 November 2026)
 

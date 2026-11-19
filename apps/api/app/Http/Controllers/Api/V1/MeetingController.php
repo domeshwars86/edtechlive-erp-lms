@@ -20,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -249,6 +250,35 @@ class MeetingController
         [$record, $learnerView] = $this->recordingAccess($request, $organization, $meeting);
         $item = MeetingRecording::query()->where('organization_id', $organization)->where('meeting_id', $record->id)->findOrFail($recording);
         abort_if($learnerView && $item->status !== 'published', 404);
+        abort_unless($item->storage_path && Storage::disk('private')->exists($item->storage_path), 404);
+
+        return Storage::disk('private')->download($item->storage_path, $item->original_name ?: 'class-recording', [
+            'Content-Type' => $item->mime_type ?: 'application/octet-stream',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function downloadRecordingLink(Request $request, int $organization, int $meeting, int $recording): JsonResponse
+    {
+        [$record] = $this->recordingAccess($request, $organization, $meeting);
+        $item = MeetingRecording::query()->where('organization_id', $organization)->where('meeting_id', $record->id)->findOrFail($recording);
+        abort_unless($item->status === 'published', 404);
+        abort_unless($item->storage_path && Storage::disk('private')->exists($item->storage_path), 404);
+        $expiresAt = now()->addMinutes(2);
+        $path = URL::temporarySignedRoute(
+            'api.v1.meeting-recordings.download-signed',
+            $expiresAt,
+            ['organization' => $organization, 'meeting' => $record->id, 'recording' => $item->id],
+            absolute: false,
+        );
+
+        return response()->json(['data' => ['path' => $path, 'expires_at' => $expiresAt->toISOString()]]);
+    }
+
+    public function signedDownloadRecording(int $organization, int $meeting, int $recording): StreamedResponse
+    {
+        $item = MeetingRecording::query()->where('organization_id', $organization)->where('meeting_id', $meeting)
+            ->where('status', 'published')->findOrFail($recording);
         abort_unless($item->storage_path && Storage::disk('private')->exists($item->storage_path), 404);
 
         return Storage::disk('private')->download($item->storage_path, $item->original_name ?: 'class-recording', [

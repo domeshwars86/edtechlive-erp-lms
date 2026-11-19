@@ -10,6 +10,7 @@ const roleNames: Record<OrganizationMembership['role'], string> = {
 }
 type MobileNotice = { id: string; type: string; title: string; body: string; read_at: string | null; created_at: string | null }
 type MobileMeeting = { id: number; kind: 'class' | 'management'; title: string; description: string | null; starts_at: string; ends_at: string; meeting_url: string; status: 'scheduled' | 'cancelled'; section: { id: number; name: string; class: string | null } | null; course: { id: number; title: string } | null }
+type MobileRecording = { id: number; title: string; description: string | null; external_url: string | null; download_url: string | null; status: 'draft' | 'published' | 'withdrawn' }
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused'
 type MobileRosterStudent = { id: number; name: string; admission_number: string | null; academic_class: { id: number; name: string } | null; academic_section: { id: number; name: string } | null }
 type MobileRosterTeacher = { id: number; name: string; employee_number: string | null; specialization: string | null }
@@ -31,6 +32,7 @@ export default function App() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [notices, setNotices] = useState<MobileNotice[]>([])
   const [meetings, setMeetings] = useState<MobileMeeting[]>([])
+  const [meetingRecordings, setMeetingRecordings] = useState<Record<number, MobileRecording[]>>({})
   const [studentProfile, setStudentProfile] = useState<FamilyStudent | null>(null)
   const [familyChildren, setFamilyChildren] = useState<Array<FamilyStudent & { attendance: StudentAttendance[]; results: AssessmentResults; progress: StudentProgress; homework: FamilyHomework[] }>>([])
   const [ownAttendance, setOwnAttendance] = useState<StudentAttendance[]>([])
@@ -95,14 +97,29 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
+    setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
     mobileApi.get<{ data: MobileNotice[] }>(`${base}/notifications?per_page=10`, token)
       .then(result => { if (!cancelled) setNotices(result.data) }),
     mobileApi.get<{ data: MobileMeeting[] }>(`${base}/meetings?per_page=100`, token)
-      .then(result => { if (!cancelled) setMeetings(result.data) })]
+      .then(async result => {
+        if (cancelled) return
+        setMeetings(result.data)
+        if (active.role === 'student' || active.role === 'parent') {
+          const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
+          const recent = result.data.filter(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() >= cutoff)
+            .sort((left, right) => new Date(right.starts_at).getTime() - new Date(left.starts_at).getTime()).slice(0, 10)
+          const entries = await Promise.all(recent.map(async item => {
+            try {
+              const recordings = await mobileApi.get<{ data: MobileRecording[] }>(`${base}/meetings/${item.id}/recordings`, token)
+              return [item.id, recordings.data] as const
+            } catch { return [item.id, []] as const }
+          }))
+          if (!cancelled) setMeetingRecordings(Object.fromEntries(entries))
+        }
+      })]
     if (active.role !== 'parent') {
       tasks.push(mobileApi.get<{ data: Course[] }>(`${base}/courses?per_page=100`, token)
         .then(result => { if (!cancelled) setCourses(result.data) }))
@@ -236,6 +253,21 @@ export default function App() {
     finally { setBusy(false) }
   }
 
+  async function openMeetingRecording(meetingId: number, recording: MobileRecording) {
+    if (!active || !token) return
+    setBusy(true); setError('')
+    try {
+      if (recording.external_url) {
+        await Linking.openURL(recording.external_url)
+      } else {
+        const base = `/api/v1/organizations/${active.organization.id}/meetings/${meetingId}/recordings/${recording.id}/download-link`
+        const result = await mobileApi.post<{ data: { path: string; expires_at: string } }>(base, token)
+        await Linking.openURL(mobileApi.absoluteUrl(result.data.path))
+      }
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not open this recording.') }
+    finally { setBusy(false) }
+  }
+
   async function submitAssignment(assignment: CourseAssignment) {
     if (!active || !token) return
     setBusy(true); setError('')
@@ -326,7 +358,7 @@ export default function App() {
     try { if (current) await mobileApi.post('/api/v1/auth/logout', current) }
     catch { /* Local credentials must still be removed if the API is offline. */ }
     await SecureStore.deleteItemAsync(TOKEN_KEY); await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
-    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
+    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
   }
 
   if (busy && !user) return <Splash />
@@ -407,13 +439,15 @@ export default function App() {
           <Text style={styles.sectionTitle}>Course progress · {courseProgressReport?.summary.learners ?? 0} learners</Text>
           {courseProgressReport ? <>{courseProgressReport.summary.courses ? <View style={styles.infoCard}><Text style={styles.courseTitle}>{courseProgressReport.summary.average_percent}% average completion</Text><Text style={styles.courseMeta}>{courseProgressReport.summary.courses} published courses · {courseProgressReport.summary.learners} active course enrollments</Text></View> : null}{courseProgressReport.data.slice(0, 5).map(course => <View style={styles.recordCard} key={course.course_id}><Text style={styles.courseTitle}>{course.title}</Text><Text style={styles.courseMeta}>{course.average_percent}% average · {course.completed_learners}/{course.learners} learners completed · {course.lessons} lessons</Text></View>)}{courseProgressReport.summary.courses === 0 ? <Empty text="No published courses are available to report." /> : null}</> : <Empty text={busy ? 'Loading course progress report…' : 'No course progress report is available.'} />}
         </> : null}
-        <Text style={styles.sectionTitle}>Upcoming classes and meetings</Text>
-        {meetings.filter(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() > Date.now()).slice(0, 5).map(item => {
+        <Text style={styles.sectionTitle}>Recent and upcoming classes</Text>
+        {meetings.filter(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000).sort((left, right) => new Date(right.starts_at).getTime() - new Date(left.starts_at).getTime()).slice(0, 10).sort((left, right) => new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime()).map(item => {
           const startsAt = new Date(item.starts_at).getTime()
-          const isLive = startsAt <= Date.now()
-          return <View key={item.id} style={styles.noticeCard}><Text style={styles.courseTitle}>{item.title}</Text><Text style={styles.courseMeta}>{new Date(item.starts_at).toLocaleString()} · {item.course?.title ?? ([item.section?.class, item.section?.name].filter(Boolean).join(' · ') || 'Meeting')}</Text>{isLive ? <Pressable onPress={() => void Linking.openURL(item.meeting_url)}><Text style={styles.link}>Join meeting</Text></Pressable> : null}</View>
+          const now = Date.now()
+          const isLive = startsAt <= now && new Date(item.ends_at).getTime() >= now
+          const recordings = meetingRecordings[item.id] ?? []
+          return <View key={item.id} style={styles.noticeCard}><Text style={styles.courseTitle}>{item.title}</Text><Text style={styles.courseMeta}>{new Date(item.starts_at).toLocaleString()} · {item.course?.title ?? ([item.section?.class, item.section?.name].filter(Boolean).join(' · ') || 'Meeting')}</Text>{isLive ? <Pressable onPress={() => void Linking.openURL(item.meeting_url)}><Text style={styles.link}>Join meeting</Text></Pressable> : startsAt > now ? <Text style={styles.courseMeta}>Upcoming</Text> : <Text style={styles.courseMeta}>Class ended</Text>}{recordings.map(recording => <Pressable key={recording.id} onPress={() => void openMeetingRecording(item.id, recording)} disabled={busy} accessibilityRole="link"><Text style={styles.link}>{busy ? 'Preparing secure link…' : `Open recording: ${recording.title}`}</Text></Pressable>)}</View>
         })}
-        {!meetings.some(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() > Date.now()) ? <Empty text="No upcoming meetings are scheduled." /> : null}
+        {!meetings.some(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000) ? <Empty text="No recent or upcoming meetings are available." /> : null}
         <Text style={styles.sectionTitle}>Recent updates</Text>
         {notices.length ? notices.map(notice => <Pressable key={notice.id} onPress={() => void markNoticeRead(notice)} style={[styles.noticeCard, !notice.read_at && styles.noticeUnread]}><Text style={styles.courseTitle}>{notice.title}</Text><Text style={styles.courseMeta}>{notice.body}</Text>{notice.created_at ? <Text style={styles.noticeDate}>{new Date(notice.created_at).toLocaleString()}</Text> : null}</Pressable>) : <Empty text="No recent updates." />}
         {active.role === 'student' && studentProfile ? <View style={styles.infoCard}><Text style={styles.courseTitle}>My profile</Text><Text style={styles.courseMeta}>{studentProfile.admission_number ? `Admission ${studentProfile.admission_number} · ` : ''}{studentProfile.academic_class?.name ?? 'Class not assigned'}{studentProfile.academic_section?.name ? ` · ${studentProfile.academic_section.name}` : ''}{studentProfile.academic_session?.name ? ` · ${studentProfile.academic_session.name}` : ''}</Text></View> : null}

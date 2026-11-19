@@ -65,6 +65,9 @@ Route::prefix('v1')->group(function (): void {
     Route::get('/assets/{organization}/{record}/download', [CourseAssetController::class, 'signedDownload'])
         ->whereNumber('organization')->whereNumber('record')->middleware(['signed:relative', 'throttle:60,1'])
         ->name('api.v1.assets.download-signed');
+    Route::get('/meeting-recordings/{organization}/{meeting}/{recording}/download', [MeetingController::class, 'signedDownloadRecording'])
+        ->whereNumber('organization')->whereNumber('meeting')->whereNumber('recording')->middleware(['signed:relative', 'throttle:60,1'])
+        ->name('api.v1.meeting-recordings.download-signed');
 
     Route::middleware(['auth:sanctum', 'verified'])->group(function (): void {
         Route::get('/enquiries', [ContactEnquiryController::class, 'index'])->name('api.v1.enquiries.index');
@@ -198,6 +201,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('/meetings/{meeting}/recordings', [MeetingController::class, 'storeRecording'])->whereNumber('meeting')->middleware('throttle:12,1');
                 Route::patch('/meetings/{meeting}/recordings/{recording}', [MeetingController::class, 'updateRecording'])->whereNumber('meeting')->whereNumber('recording');
                 Route::get('/meetings/{meeting}/recordings/{recording}/download', [MeetingController::class, 'downloadRecording'])->whereNumber('meeting')->whereNumber('recording');
+                Route::post('/meetings/{meeting}/recordings/{recording}/download-link', [MeetingController::class, 'downloadRecordingLink'])->whereNumber('meeting')->whereNumber('recording')->middleware('throttle:30,1');
                 Route::get('/notifications', [NotificationController::class, 'index']);
                 Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
                 Route::get('/announcements', [AnnouncementController::class, 'index']);
