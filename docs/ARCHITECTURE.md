@@ -2,7 +2,7 @@
 
 ## Current implementation
 
-The repository is a Vite-hosted React 19 / TypeScript frontend with React Router. Public routes, shared header/footer, sample course filtering, browser-native contact validation and responsive design systems live under `src/`. Public routes are statically pre-rendered by `src/entry-server.tsx` and `scripts/prerender.mjs`. The React client connects to Laravel for session-based login, registration, password recovery, current-user lookup and membership-scoped organization selection. Dashboard business records remain previews. Laravel 13/Sanctum provides the versioned API and first organization/membership schema; PostgreSQL migrations have not been applied.
+The repository contains a Vite-hosted React 19 / TypeScript frontend with React Router, a Laravel 13 / Sanctum API, and an Expo React Native application. Public routes are statically pre-rendered by `src/entry-server.tsx` and `scripts/prerender.mjs`. The web client connects to Laravel for session-based authentication and tenant-scoped academic, LMS, attendance, reporting, finance, meetings and notification workflows. Some platform and provider workflows remain previews or planned work; see `FEATURE_MATRIX.md`. Implemented migrations have passed the API suite on SQLite and a disposable PostgreSQL 17 instance. This is local verification, not production database or deployment validation.
 
 ## Target architecture
 
@@ -24,7 +24,7 @@ Use shared relational tables with organization foreign keys for organization-own
 
 ## Frontend
 
-Keep public, authentication and dashboard layouts separate, then organize feature modules and generated/shared API contracts. The initial auth API client uses credentialed Fetch and Laravel's CSRF cookie flow; account state is held in memory and rechecked from `/api/v1/me` on page load. The selected organization is revalidated against the API membership list and is not trusted as an authorization boundary. Add TanStack Query, React Hook Form and Zod where business workflows justify them. Route-specific SEO rendering/prerendering is an open decision before launch. Avoid treating client state as persisted business data.
+Keep public, authentication and dashboard layouts separate, then organize feature modules and generated/shared API contracts. The auth API client uses credentialed Fetch and Laravel's CSRF cookie flow; account state is held in memory and rechecked from `/api/v1/me` on page load. The selected organization is revalidated against the API membership list and is not trusted as an authorization boundary. Add TanStack Query, React Hook Form and Zod where business workflows justify them. Route prerendering exists; metadata coverage and deployed SEO behavior still need review. Avoid treating client state as persisted business data.
 
 ## Decisions and open design
 

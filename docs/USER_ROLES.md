@@ -2,8 +2,8 @@
 
 ## Platform scope
 
-- **Super Admin:** platform-wide organization/user operations, platform configuration, audit and support; access to student content is not implicit and should be exceptional and audited.
-- **Platform Support:** narrowly scoped diagnostics and support actions; no default access to private learning content.
+- **Super Admin:** platform-wide role is represented in the current role model. Current web/API platform controls are limited to allowlisted verified operators who can review aggregate metrics and organization/user directories, suspend/reactivate organizations, and read the audit history for those status changes. Account mutation, role configuration, subscription controls and support tooling remain planned; platform status privileges do not imply access to student content.
+- **Platform Support:** a target role for narrowly scoped diagnostics and support actions; a separate implementation and permission set are not yet available. No default access to private learning content is intended.
 
 ## Organization scope
 
@@ -13,6 +13,10 @@
 - **Student:** own enrollment, authorized courses, class links, assignments, submissions, attendance and results.
 - **Parent/Guardian:** only linked child summaries, attendance, published-course progress, assignment due/submission/grade status, assessment results and fees explicitly permitted by the institution.
 - **Independent Educator:** own educator workspace, courses, enrolled learners and teaching analytics; future sales tools are disabled until implemented.
+
+## Implemented authorization boundary
+
+The current API stores organization membership roles with a PHP backed enum and enforces access using authenticated-user, verified-email, active-organization and resource-scope checks. A dedicated configurable permission matrix is not implemented. The role descriptions below set product intent; use `FEATURE_MATRIX.md` and `IMPLEMENTATION_STATUS.md` to distinguish delivered workflows from planned ones.
 
 ## Rules
 

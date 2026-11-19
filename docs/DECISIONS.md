@@ -6,8 +6,16 @@
 
 ## 2026-11-18 — Keep site interactions honest
 
-**Context:** Backend is intentionally a later milestone. **Decision:** Course listings are marked sample, prices provisional, contact submit preview-only, and auth screens explicitly disconnected. **Reason:** Avoid implying persistence, delivery, commercial terms or account operations that do not exist.
+**Context:** Backend was initially a later milestone. **Decision:** Course listings remain marked sample and prices provisional; contact submissions and account operations were later connected to the API. **Reason:** Avoid implying operational capability where data or delivery is still only demonstrative. See the current feature matrix for the boundary between live workflows and previews.
 
 ## 2026-11-18 — Plan a modular monolith and organization-scoped relational data
 
-**Context:** The product requires multi-tenant ERP/LMS functions with a small-team maintainability target. **Decision:** Target Laravel REST API + PostgreSQL with organization membership and server policies; keep service integrations behind adapters. **Trade-off:** Detailed schema and authorization rules remain to be validated before migrations.
+**Context:** The product requires multi-tenant ERP/LMS functions with a small-team maintainability target. **Decision:** Use a Laravel REST API and relational tenant-owned records with organization membership and server-side checks; keep service integrations behind adapters. **Trade-off:** Implemented workflows have SQLite and PostgreSQL 17 regression coverage, while deployment and parts of the detailed permission model remain to be validated.
+
+## 2026-11-19 — Connect account flows and keep local verification mail inspectable
+
+**Context:** The React client now uses Laravel Sanctum for registration, email verification, login, password reset and current-user/session state. **Decision:** Use Laravel's log mailer for local development and disclose that signed links are written to the local API log; production requires a configured mail transport. **Trade-off:** A local account is not email-verified until the developer opens the logged verification link.
+
+## 2026-11-19 — Record the boundary of platform administration
+
+**Context:** Platform operators need a way to manage organization availability. **Decision:** Only an explicitly allowlisted, verified operator may suspend/reactivate an organization, with a required reason and transactional audit event. **Trade-off:** Broader account, role, billing and support administration is still planned; this control does not imply access to learner records.

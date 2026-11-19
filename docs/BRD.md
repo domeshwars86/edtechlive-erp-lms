@@ -36,9 +36,9 @@ Platform owner/operator; institution management and administrators; teachers; le
 
 Define after discovery and baseline testing: completion of core workflows; permission-denial correctness; adoption and active use; successful class/resource access; task completion time; reliability; accessibility; support burden. Do not claim numeric outcomes before measurement.
 
-## Out of scope for initial public website
+## Out of scope for the initial public website
 
-Live account provisioning, real course enrollment, payment collection, automated messaging, Meet API creation, private student records, operational AI and production privacy/legal commitments.
+The public website does not itself provision accounts, enroll learners, collect payments, send automated messages, create Meet sessions, expose private student records, or provide operational AI. Separate authenticated application workflows now support selected account and academic/LMS operations; payment collection, provider automation, production privacy/legal commitments and other planned capabilities remain out of scope until implemented and reviewed.
 
 ## Risks and dependencies
 

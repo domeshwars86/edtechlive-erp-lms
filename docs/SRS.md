@@ -12,12 +12,12 @@ The planned system is a public React web experience, role-based web application,
 2. Visitors can submit a consented contact enquiry to the throttled API; staff review is restricted to an allowlisted verified platform operator, and email delivery requires configuration.
 3. Users can register, verify email, sign in, recover passwords, and select active organization memberships; real email delivery and broader identity controls remain deployment requirements.
 4. Authenticated users see only the workspaces and records allowed by their organization membership and permissions.
-5. Administrators maintain organization, academic session, class, section, batch, subject, teacher and student records.
+5. Administrators maintain organization, academic session, class, section, subject, teacher and student records. Batch management remains planned.
 6. Teachers manage courses, lessons, resources, class schedules, assignments, submissions, assessments and results.
 7. Students access permitted learning content, submit work and view their own results/progress.
 8. Parents access only records of explicitly linked children permitted by the institution.
 9. Management views authorized aggregate academic and attendance reports and management meeting details.
-10. Platform operators configure organizations, users, roles, audit and system settings.
+10. An explicitly allowlisted, verified platform operator can suspend/reactivate organizations with a required reason and audit event. Broader user, role, billing and system configuration remains planned.
 11. Integrations use provider abstractions, explicit configuration, safe failure handling and appropriate consent.
 
 ## Quality requirements

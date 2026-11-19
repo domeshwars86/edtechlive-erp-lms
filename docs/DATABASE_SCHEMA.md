@@ -1,6 +1,6 @@
 # Database Schema Direction
 
-**Status:** Identity, organization, membership, invitation, academic session, class, section, subject, institution exam schedule/papers/results, student, teacher, student/guardian links, courses/modules/lessons/enrollment/progress/assets, assignment/submissions, quiz questions/attempts, fees/receipts, statement reconciliation, teaching assignment, attendance, timetable, meetings, and in-app notifications tables/models/migrations are implemented. Local development migrations are applied to SQLite; PostgreSQL deployment validation remains pending.
+**Status:** Identity, organization, membership, invitation, academic session/class/section/subject, exams, students/teachers/guardian links, courses/modules/lessons/enrollments/progress/assets, assignments/submissions, quizzes/attempts, fees/receipts, expenses, bank statement reconciliation, teaching assignments, attendance, timetable, meetings, announcements, notifications, enquiries and platform audit events have implemented tables/models/migrations. The migration suite passed on SQLite and a disposable PostgreSQL 17 instance. PostgreSQL 16 hosted CI and production database/deployment validation remain pending.
 
 ## Core entities
 
@@ -13,20 +13,20 @@
 - `bank_statements`, `bank_statement_lines`: tenant-owned CSV-imported statement periods, account labels, opening/closing balances, a unique-per-tenant content fingerprint and transaction lines. Statement lines may be linked one-to-one to a same-tenant fee receipt or expense; matched ledger IDs are unique across statements. No account number, bank credential, or raw uploaded statement is retained.
 - `meetings`: tenant-owned one-time class or management meeting with optional section/session or published course scope, HTTPS meeting URL, start/end time, creator, and scheduled/cancelled state. No provider credentials or participant secrets are stored.
 - `notifications`: Laravel database notifications addressed to individual users; payloads carry organization and event identifiers for fee issue/receipt and meeting scheduling. Reads and read receipts are restricted to the recipient and active organization membership.
-- `roles`, `permissions`, membership-role assignments: scoped authorization primitives.
-- `academic_sessions`, `classes`, `sections`, `batches`, `subjects`: organization-owned academic structure.
+- Organization membership roles are currently represented by a backed enum and membership records; dedicated `roles`, `permissions` and membership-role assignment tables are planned, not implemented.
+- `academic_sessions`, `academic_classes`, `academic_sections`, `subjects`: organization-owned academic structure. Batch records are planned and not implemented.
 - `students`, `teachers`: organization-owned roster profiles with optional class placement and organization-scoped admission/employee identifiers. Teacher profiles link to one user account; student profiles can link to one user account. `student_guardians` links a guardian account to explicitly authorized student profiles, with relationship, primary-contact and inviter metadata.
 - `organization_invitation_students`: tenant-scoped selected student profiles attached to parent invitations; links are created only after successful invitation acceptance.
 - `teaching_assignments`: tenant-owned teacher/subject/section/session links; timetable entries require the matching assignment when a teacher is set.
 - `attendance_records`, `timetable_entries`: class/session/date/user-scoped academic activity. Attendance has one mark per student/section/date and records the marking user. Timetable entries contain weekday/time, room, optional assigned teacher, and optional secure meeting URL.
 - `courses`, `course_modules`, `course_enrollments`, `course_lessons`, `course_lesson_progress`: course drafts/publication, ordered tenant-scoped modules, active student enrollment, ordered lessons optionally grouped by module, and per-student completion timestamps for published lessons. `course_assignments` and `assignment_submissions`: published prompts, due dates, student text responses, numeric grades and instructor feedback. `course_quizzes`, `quiz_questions`, and `quiz_attempts`: timed multiple-choice quizzes, private answer keys, bounded attempts, and server-scored results. `course_assets` stores tenant/course metadata and opaque private storage keys; downloads go through an authorized API route. `academic_exams`, `academic_exam_papers`, and `academic_exam_results` store session schedules, section/subject marks, absent/excused outcomes, teacher audit, and family-visible published results. Board-style exams and staff-wide progress reporting remain planned.
-- `assignments`, `submissions`, `exams`, `questions`, `exam_attempts`, `results`: assessment lifecycle and auditable scoring.
-- `meetings`, `meeting_participants`: class/management meetings and provider/manual links.
-- `notifications`, `announcements`, `audit_logs`: delivery state, communication and sensitive actions.
-- `fee_categories`, `invoices`, `payments`, `payment_webhook_events`: finance records and idempotent provider events.
-- `ai_usage_records`, provider configuration references: usage/cost tracking; secrets live outside database/application source.
+- Assessment data currently uses `course_assignments`, `assignment_submissions`, `course_quizzes`, `quiz_questions`, `quiz_attempts`, `academic_exams`, `academic_exam_papers` and `academic_exam_results`; a generalized exam-attempt model and board-style exams are planned.
+- `meetings` supports organization-scoped meeting links; provider provisioning and a participant table are not implemented.
+- `notifications`, `announcements`, and `platform_audit_events` are implemented. Audit events currently cover allowlisted platform organization status changes; a broader audit log is planned.
+- Finance currently uses `fee_records`, `fee_payments`, `finance_expenses`, `bank_statements` and `bank_statement_lines`. Fee categories, invoicing and payment webhook tables are planned; the current ledger does not initiate payments.
+- AI usage records/provider configuration references are planned; secrets must live outside the database and source.
 
-The implemented schema uses `organizations` and `organization_memberships`, indexed by organization/user/status with a unique organization/user membership. `organization_invitations`, `organization_invitation_students`, `student_guardians`, `courses`, `course_modules`, `course_enrollments`, `course_lessons`, `course_assignments`, `assignment_submissions`, `course_quizzes`, `quiz_questions`, `quiz_attempts`, `academic_sessions`, `academic_classes`, `academic_sections`, `subjects`, `students`, `teachers`, `teaching_assignments`, `attendance_records`, and `timetable_entries` carry organization ownership and tenant-aware validation/index constraints. Attendance, enrollment and course-progress reports aggregate existing records and require no separate materialized table. Local SQLite migrations pass; PostgreSQL-specific migration and constraint behavior still needs validation. Role, organization type and membership status use PHP backed enums.
+The implemented schema uses `organizations` and `organization_memberships`, indexed by organization/user/status with a unique organization/user membership. Tenant-owned domain tables carry organization ownership and tenant-aware validation/index constraints. Attendance, enrollment and course-progress reports aggregate existing records and require no separate materialized table. Migrations and API behavior pass on SQLite and disposable PostgreSQL 17; hosted PostgreSQL 16 CI and production verification remain open. Role, organization type and membership status use PHP backed enums.
 
 ## Modeling rules
 
@@ -34,4 +34,4 @@ Every tenant-owned entity carries a non-null organization key and has tenant-awa
 
 ## Open decisions
 
-Exact role representation, enrollment lifecycle, academic calendar flexibility, attendance correction, exam scoring model, child-data retention, financial accounting, partitioning thresholds and data residency require discovery before migrations are finalized.
+Dedicated permission modeling, enrollment lifecycle, academic calendar flexibility, attendance correction, exam scoring model, child-data retention, financial accounting, partitioning thresholds and data residency require discovery before the schema is considered production-ready.
