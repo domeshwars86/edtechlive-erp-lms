@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { AlertCircle, Check, LoaderCircle, Megaphone, Send } from 'lucide-react'
+import { AlertCircle, Check, ExternalLink, LoaderCircle, Megaphone, Send } from 'lucide-react'
 import { api } from '../lib/api'
 
 type Audience = 'all' | 'staff' | 'teachers' | 'students' | 'parents'
@@ -49,7 +49,26 @@ export default function AnnouncementWorkspace({ organizationId }: { organization
       </form>
     </section>
     <section className="dash-panel dash-masters-panel"><div className="dash-panel-heading"><div><span className="dash-panel-kicker">SENT HISTORY</span><h2>Recent announcements</h2></div></div>
-      {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading announcements…</p> : announcements.length ? <div className="announcement-list">{announcements.map(item => <article className="announcement-card" key={item.id}><header><h3>{item.title}</h3><span>{item.recipient_count} recipients</span></header><p>{item.body}</p><footer><span>{audienceLabels[item.audience]}</span><time dateTime={item.sent_at}>{new Date(item.sent_at).toLocaleString()}</time></footer></article>)}</div> : <p className="master-empty"><Megaphone size={18} />No announcements have been sent.</p>}
+      {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading announcements…</p> : announcements.length ? <div className="announcement-list">{announcements.map(item => <article className="announcement-card" key={item.id}><header><h3>{item.title}</h3><span>{item.recipient_count} recipients</span></header><p>{item.body}</p><footer><span>{audienceLabels[item.audience]}</span><time dateTime={item.sent_at}>{new Date(item.sent_at).toLocaleString()}</time></footer><WhatsAppShare announcement={item} /></article>)}</div> : <p className="master-empty"><Megaphone size={18} />No announcements have been sent.</p>}
     </section>
+  </div>
+}
+
+function WhatsAppShare({ announcement }: { announcement: Announcement }) {
+  const [open, setOpen] = useState(false)
+  const [phone, setPhone] = useState('')
+  const normalizedPhone = phone.trim().replace(/[\s().-]/g, '')
+  const digits = normalizedPhone.replace(/^\+/, '')
+  const validPhone = /^\+?[1-9]\d{6,14}$/.test(normalizedPhone)
+  const message = `${announcement.title}\n\n${announcement.body}`
+  const link = validPhone ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}` : undefined
+
+  return <div className="announcement-whatsapp">
+    <button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)}>Prepare WhatsApp message</button>
+    {open && <div className="announcement-whatsapp-panel">
+      <label>Recipient phone with country code<input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={event => setPhone(event.target.value)} placeholder="e.g. 919876543210" aria-describedby={`whatsapp-help-${announcement.id}`} /></label>
+      <p id={`whatsapp-help-${announcement.id}`}>Enter 7–15 digits, starting with the country code. Review and send the prefilled message in WhatsApp. edTechLive does not send or store it.</p>
+      {link && <a href={link} target="_blank" rel="noopener noreferrer">Continue to WhatsApp <ExternalLink size={13} /></a>}
+    </div>}
   </div>
 }

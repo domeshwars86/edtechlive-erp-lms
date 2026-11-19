@@ -2,6 +2,11 @@
 
 **Updated:** 19 November 2026
 
+## Manual WhatsApp announcement sharing (19 November 2026)
+
+- Authorized announcement managers can enter a phone number with country code and open WhatsApp with the selected announcement title and body prefilled. The number and message remain in the browser; staff review and send directly in WhatsApp.
+- Web typecheck, ESLint, and production build passed. The build prerendered 14 public routes (492.43 kB main bundle). No automated WhatsApp delivery or message logging was added.
+
 ## Private meeting recording workflow (19 November 2026)
 
 - Added a tenant-scoped private recording library to scheduled meetings: staff can upload MP4/MOV/WebM files up to 50 MB or register an HTTPS link, attest participant notice and applicable consent, then publish, unpublish, or withdraw recordings. Students and explicitly linked parents see published recordings only for meetings in their authorized classes/courses. Web downloads recheck meeting membership and publication; native clients request two-minute signed links for uploaded files. Withdrawn files remain stored pending retention policy.
