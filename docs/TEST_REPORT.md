@@ -11,6 +11,10 @@
 
 - Added an Account screen to the Expo app for current-password-confirmed name/email updates and optional strong password changes. The screen opens a local signed email-verification link and can refresh the user's verification state. Mobile TypeScript check passed; Android JavaScript export bundled 564 modules (1.7 MB). Native device interaction and reachable verification-link behavior on a phone remain unverified.
 
+## Mobile meeting scheduling (19 November 2026)
+
+- Added schedule forms for Admin, Management, Independent Educator and assigned Teacher accounts. Managers may create management or class meetings; teachers are limited to their assigned class sections. Device-local start/end times are converted to UTC, and server-side checks continue to enforce assignment, organization, HTTPS URL, time range and overlap constraints. Mobile TypeScript check passed; Android JavaScript export bundled 564 modules (1.7 MB). Native interaction and live provider link opening were not exercised.
+
 ## Platform user account controls (19 November 2026)
 
 - The verified platform operator can filter accounts by global status and suspend/reactivate ordinary accounts with a required reason. The change is audited with actor, target, reason and before/after status. The endpoint blocks self-changes and all allowlisted operator targets; suspended users cannot sign in or call authenticated APIs. The paginated audit UI now displays account changes beside organization status events.

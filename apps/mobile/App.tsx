@@ -11,6 +11,7 @@ const roleNames: Record<OrganizationMembership['role'], string> = {
 type MobileNotice = { id: string; type: string; title: string; body: string; read_at: string | null; created_at: string | null }
 type MobileMeeting = { id: number; kind: 'class' | 'management'; title: string; description: string | null; starts_at: string; ends_at: string; meeting_url: string; status: 'scheduled' | 'cancelled'; section: { id: number; name: string; class: string | null } | null; course: { id: number; title: string } | null }
 type MobileRecording = { id: number; title: string; description: string | null; external_url: string | null; download_url: string | null; status: 'draft' | 'published' | 'withdrawn' }
+type MobileMeetingSection = { id: number; name: string; academic_session_id: number; academic_class: { name: string } }
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused'
 type MobileAttendanceStudent = AttendanceStudent & { originalStatus: AttendanceStudent['status']; correctionReason: string }
 type MobileRosterStudent = { id: number; name: string; admission_number: string | null; academic_class: { id: number; name: string } | null; academic_section: { id: number; name: string } | null }
@@ -23,6 +24,7 @@ const examOutcomes: { value: SchoolExamMark['outcome']; label: string }[] = [
   { value: 'graded', label: 'Graded' }, { value: 'absent', label: 'Absent' }, { value: 'excused', label: 'Excused' },
 ]
 function localDate() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}` }
+function localDateTimeInput(hoursAhead: number) { const value = new Date(); value.setMinutes(0, 0, 0); value.setHours(value.getHours() + hoursAhead); return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}T${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}` }
 function organizationDate(timezone: string) {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
   const values = Object.fromEntries(parts.map(part => [part.type, part.value]))
@@ -37,6 +39,15 @@ export default function App() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [notices, setNotices] = useState<MobileNotice[]>([])
   const [meetings, setMeetings] = useState<MobileMeeting[]>([])
+  const [meetingSections, setMeetingSections] = useState<MobileMeetingSection[]>([])
+  const [meetingFormOpen, setMeetingFormOpen] = useState(false)
+  const [meetingKind, setMeetingKind] = useState<'class' | 'management'>('class')
+  const [meetingSectionId, setMeetingSectionId] = useState('')
+  const [meetingTitle, setMeetingTitle] = useState('')
+  const [meetingDescription, setMeetingDescription] = useState('')
+  const [meetingStartsAt, setMeetingStartsAt] = useState(() => localDateTimeInput(24))
+  const [meetingEndsAt, setMeetingEndsAt] = useState(() => localDateTimeInput(25))
+  const [meetingUrl, setMeetingUrl] = useState('')
   const [meetingRecordings, setMeetingRecordings] = useState<Record<number, MobileRecording[]>>({})
   const [studentProfile, setStudentProfile] = useState<FamilyStudent | null>(null)
   const [familyChildren, setFamilyChildren] = useState<Array<FamilyStudent & { attendance: StudentAttendance[]; results: AssessmentResults; progress: StudentProgress; homework: FamilyHomework[] }>>([])
@@ -115,7 +126,7 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
+    setSummary(null); setNotices([]); setMeetings([]); setMeetingSections([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setMeetingFormOpen(false)
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
@@ -141,6 +152,16 @@ export default function App() {
     if (active.role !== 'parent') {
       tasks.push(mobileApi.get<{ data: Course[] }>(`${base}/courses?per_page=100`, token)
         .then(result => { if (!cancelled) setCourses(result.data) }))
+    }
+    if (active.role === 'admin' || active.role === 'management' || active.role === 'independent_educator') {
+      tasks.push(mobileApi.get<{ data: { id: number; name: string }[] }>(`${base}/classes?per_page=100`, token)
+        .then(async result => {
+          const sections = await Promise.all(result.data.map(async item => {
+            const response = await mobileApi.get<{ data: { id: number; name: string; academic_session_id: number | null }[] }>(`${base}/classes/${item.id}/sections?per_page=100`, token)
+            return response.data.filter(section => section.academic_session_id !== null).map(section => ({ ...section, academic_session_id: section.academic_session_id as number, academic_class: { name: item.name } }))
+          }))
+          if (!cancelled) setMeetingSections(sections.flat())
+        }))
     }
     if (active.role === 'student' || active.role === 'parent') {
       tasks.push(mobileApi.get<{ data: StudyMaterial[] }>(`${base}/documents?per_page=100`, token)
@@ -249,7 +270,7 @@ export default function App() {
   async function chooseOrganization(membership: OrganizationMembership, currentToken = token) {
     if (currentToken) await mobileApi.patch<{ data: OrganizationMembership }>('/api/v1/me/organization', currentToken, { organization_id: membership.organization.id })
     await SecureStore.setItemAsync(ORGANIZATION_KEY, String(membership.organization.id))
-    setActive(membership); setError('')
+    setActive(membership); setError(''); setMeetingKind('class'); setMeetingSectionId(''); setMeetingFormOpen(false)
     if (currentToken) setToken(currentToken)
   }
 
@@ -443,6 +464,35 @@ export default function App() {
     finally { setBusy(false) }
   }
 
+  async function scheduleMeeting() {
+    if (!active || !token) return
+    const manager = active.role === 'admin' || active.role === 'management' || active.role === 'independent_educator'
+    const kind = active.role === 'teacher' ? 'class' : meetingKind
+    const selectableSections: MobileMeetingSection[] = manager
+      ? meetingSections
+      : teachingAssignments.map(item => ({ id: item.academic_section_id, name: item.academic_section.name, academic_session_id: item.academic_session_id, academic_class: { name: item.academic_section.academic_class.name } }))
+    const section = kind === 'class' ? selectableSections.find(item => `${item.id}:${item.academic_session_id}` === meetingSectionId) : undefined
+    if (kind === 'class' && !section) { setError('Choose an assigned class section for this meeting.'); return }
+    const startsAt = new Date(meetingStartsAt)
+    const endsAt = new Date(meetingEndsAt)
+    if (!Number.isFinite(startsAt.getTime()) || startsAt.getTime() < Date.now()) { setError('Enter a valid future start date and time.'); return }
+    if (!Number.isFinite(endsAt.getTime()) || endsAt <= startsAt) { setError('The meeting end must be later than its start.'); return }
+    setBusy(true); setError(''); setSuccess('')
+    try {
+      const base = `/api/v1/organizations/${active.organization.id}`
+      const response = await mobileApi.post<{ data: MobileMeeting }>(`${base}/meetings`, token, {
+        kind,
+        academic_section_id: section?.id ?? null,
+        academic_session_id: section?.academic_session_id ?? null,
+        title: meetingTitle.trim(), description: meetingDescription.trim() || null,
+        starts_at: startsAt.toISOString(), ends_at: endsAt.toISOString(), meeting_url: meetingUrl.trim(),
+      })
+      setMeetings(current => [...current.filter(item => item.id !== response.data.id), response.data].sort((left, right) => new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime()))
+      setMeetingTitle(''); setMeetingDescription(''); setMeetingSectionId(''); setMeetingUrl(''); setMeetingStartsAt(localDateTimeInput(24)); setMeetingEndsAt(localDateTimeInput(25)); setMeetingKind('class'); setMeetingFormOpen(false); setSuccess('Meeting scheduled for this workspace.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not schedule this meeting.') }
+    finally { setBusy(false) }
+  }
+
   async function saveAccountProfile() {
     if (!token) return
     if (newPassword && newPassword !== passwordConfirmation) {
@@ -483,12 +533,16 @@ export default function App() {
     try { if (current) await mobileApi.post('/api/v1/auth/logout', current) }
     catch { /* Local credentials must still be removed if the API is offline. */ }
     await SecureStore.deleteItemAsync(TOKEN_KEY); await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
-    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setExamSectionSummaries([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setAccountOpen(false); setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation(''); setVerificationUrl(''); setBusy(false)
+    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setMeetingSections([]); setMeetingFormOpen(false); setMeetingKind('class'); setMeetingSectionId(''); setMeetingTitle(''); setMeetingDescription(''); setMeetingUrl(''); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setExamSectionSummaries([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setAccountOpen(false); setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation(''); setVerificationUrl(''); setBusy(false)
   }
 
   if (busy && !user) return <Splash />
   if (!user) return <Login email={email} setEmail={value => { setEmail(value); setVerificationNeeded(false); setError(''); setSuccess('') }} password={password} setPassword={setPassword} busy={busy} error={error} success={success} verificationNeeded={verificationNeeded} onResend={() => void resendVerification()} onSubmit={() => void signIn()} />
   if (!active) return <OrganizationPicker user={user} memberships={memberships} busy={busy} error={error} onChoose={membership => void chooseOrganization(membership)} onSignOut={() => void signOut()} />
+  const canScheduleMeetings = ['admin', 'management', 'independent_educator', 'teacher'].includes(active.role)
+  const selectableMeetingSections: MobileMeetingSection[] = active.role === 'teacher'
+    ? teachingAssignments.map(item => ({ id: item.academic_section_id, name: item.academic_section.name, academic_session_id: item.academic_session_id, academic_class: { name: item.academic_section.academic_class.name } }))
+    : meetingSections
 
   return <View style={styles.screen}><StatusBar barStyle="dark-content" backgroundColor="#f4f7fc" />
     <View style={styles.topBar}><View style={{ flex: 1 }}><Text style={styles.brand}>edTechLive</Text><Text style={styles.orgName}>{active.organization.name}</Text></View><Pressable onPress={() => { setAccountOpen(true); setProfileName(user.name); setProfileEmail(user.email); setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation(''); setError(''); setSuccess(''); setVerificationUrl('') }} style={styles.topAction}><Text style={styles.topActionText}>Account</Text></Pressable><Pressable onPress={() => { setAccountOpen(false); setActive(null); setSelectedCourse(null) }} style={styles.topAction}><Text style={styles.topActionText}>Switch</Text></Pressable><Pressable onPress={() => void signOut()} style={styles.topAction}><Text style={styles.topActionText}>Sign out</Text></Pressable></View>
@@ -585,6 +639,20 @@ export default function App() {
           <ExamSeriesHistory items={examSeriesComparisons} emptyText="No published exams are available in a named series." />
         </> : null}
         {['admin', 'management', 'independent_educator'].includes(active.role) ? <FinanceSnapshot report={financeReport} busy={busy} /> : null}
+        {canScheduleMeetings ? <>
+          <Text style={styles.sectionTitle}>Meeting schedule</Text>
+          <Pressable style={styles.courseCard} onPress={() => { setMeetingFormOpen(open => !open); setError(''); setSuccess('') }} accessibilityRole="button" accessibilityState={{ expanded: meetingFormOpen }}><View style={{ flex: 1 }}><Text style={styles.courseTitle}>{meetingFormOpen ? 'Close meeting form' : active.role === 'teacher' ? 'Schedule a class meeting' : 'Schedule a class or management meeting'}</Text><Text style={styles.courseMeta}>Use a secure HTTPS link from Google Meet or another provider.</Text></View><Text style={styles.chevron}>{meetingFormOpen ? '−' : '+'}</Text></Pressable>
+          {meetingFormOpen ? <View style={styles.activityCard}>
+            {active.role !== 'teacher' ? <><Text style={styles.inputLabel}>Meeting type</Text><View style={styles.examOutcomeRow}><Pressable style={[styles.examOutcome, meetingKind === 'class' && styles.examOutcomeSelected]} onPress={() => setMeetingKind('class')} accessibilityRole="radio" accessibilityState={{ selected: meetingKind === 'class' }}><Text style={[styles.examOutcomeText, meetingKind === 'class' && styles.examOutcomeTextSelected]}>Class</Text></Pressable><Pressable style={[styles.examOutcome, meetingKind === 'management' && styles.examOutcomeSelected]} onPress={() => { setMeetingKind('management'); setMeetingSectionId('') }} accessibilityRole="radio" accessibilityState={{ selected: meetingKind === 'management' }}><Text style={[styles.examOutcomeText, meetingKind === 'management' && styles.examOutcomeTextSelected]}>Management</Text></Pressable></View></> : null}
+            {active.role === 'teacher' || meetingKind === 'class' ? <><Text style={styles.inputLabel}>Class section</Text>{selectableMeetingSections.length ? <View style={styles.meetingSectionList}>{selectableMeetingSections.map(section => { const key = `${section.id}:${section.academic_session_id}`; const selected = meetingSectionId === key; return <Pressable key={key} onPress={() => setMeetingSectionId(key)} style={[styles.examOutcome, selected && styles.examOutcomeSelected]} accessibilityRole="radio" accessibilityState={{ selected }}><Text style={[styles.examOutcomeText, selected && styles.examOutcomeTextSelected]}>{section.academic_class.name} · {section.name}</Text></Pressable> })}</View> : <Empty text="No active assigned class sections are available for scheduling." />}</> : null}
+            <Text style={styles.inputLabel}>Meeting title</Text><TextInput value={meetingTitle} onChangeText={setMeetingTitle} maxLength={160} placeholder="Class or team meeting" style={styles.input} editable={!busy} accessibilityLabel="Meeting title" />
+            <Text style={styles.inputLabel}>Description (optional)</Text><TextInput value={meetingDescription} onChangeText={setMeetingDescription} maxLength={5000} placeholder="Agenda or joining notes" style={styles.input} editable={!busy} accessibilityLabel="Meeting description" />
+            <Text style={styles.inputLabel}>Starts · local device time</Text><TextInput value={meetingStartsAt} onChangeText={setMeetingStartsAt} maxLength={32} placeholder="YYYY-MM-DDTHH:mm" style={styles.input} editable={!busy} accessibilityLabel="Meeting start date and time" />
+            <Text style={styles.inputLabel}>Ends · local device time</Text><TextInput value={meetingEndsAt} onChangeText={setMeetingEndsAt} maxLength={32} placeholder="YYYY-MM-DDTHH:mm" style={styles.input} editable={!busy} accessibilityLabel="Meeting end date and time" />
+            <Text style={styles.inputLabel}>HTTPS meeting link</Text><TextInput autoCapitalize="none" autoCorrect={false} keyboardType="url" value={meetingUrl} onChangeText={setMeetingUrl} maxLength={2048} placeholder="https://meet.google.com/…" style={styles.input} editable={!busy} accessibilityLabel="Meeting URL" />
+            <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void scheduleMeeting()} disabled={busy || meetingTitle.trim().length < 2 || !meetingUrl.trim() || ((active.role === 'teacher' || meetingKind === 'class') && !meetingSectionId)}><Text style={styles.primaryButtonText}>{busy ? 'Scheduling…' : 'Schedule meeting'}</Text></Pressable>
+          </View> : null}
+        </> : null}
         <Text style={styles.sectionTitle}>Recent and upcoming classes</Text>
         {meetings.filter(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000).sort((left, right) => new Date(right.starts_at).getTime() - new Date(left.starts_at).getTime()).slice(0, 10).sort((left, right) => new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime()).map(item => {
           const startsAt = new Date(item.starts_at).getTime()
@@ -804,6 +872,7 @@ const styles = StyleSheet.create({
   courseMeta: { color: '#8795a5', fontSize: 9, lineHeight: 15, marginTop: 4 },
   examPaperButton: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, borderTopWidth: 1, borderTopColor: '#edf1f5' },
   examOutcomeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 5 },
+  meetingSectionList: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   examOutcome: { paddingHorizontal: 9, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: '#e2eaf2', backgroundColor: '#fff' },
   examOutcomeSelected: { borderColor: '#3568c7', backgroundColor: '#edf3ff' },
   examOutcomeText: { color: '#65788d', fontSize: 9, fontWeight: '700' },
