@@ -13,7 +13,8 @@
 - Students inherit their branch from a branch-bound class and follow the class branch when reassigned unless the request explicitly supplies a conflicting branch. Class branch changes are guarded against conflicting student placement and teacher assignments; teaching assignment creation enforces branch compatibility while allowing organization-wide branchless teachers.
 - Regression coverage verifies student inheritance and reassignment, explicit mismatch rejection, branch roster filters, safe class branch changes, and branch-specific teacher assignment. The additive migration was applied to local SQLite.
 - Student and teacher rosters now expose profile editing alongside add/search/branch filters/status actions; student edits include branch-aware class, section, and session placement.
-- Full Laravel suite passed (**142 tests / 1,159 assertions**); Pint, web typecheck, ESLint, and production build passed. The current frontend build prerendered 14 routes (487.21 kB main bundle); the local frontend and API readiness endpoint both returned HTTP 200. PostgreSQL verification remains open.
+- Class branch assignments are editable from the Academic Masters class form, with API checks retaining placement consistency.
+- Full Laravel suite passed (**142 tests / 1,159 assertions**); Pint, web typecheck, ESLint, and production build passed. The current frontend build prerendered 14 routes (488.27 kB main bundle); the local frontend and API readiness endpoint both returned HTTP 200. PostgreSQL verification remains open.
 
 ## Notification preferences and browser preview (19 November 2026)
 
