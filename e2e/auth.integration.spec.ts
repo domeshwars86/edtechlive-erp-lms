@@ -61,6 +61,12 @@ test('real local registration, signed email verification, and browser sign-in wo
   await expectBackend(page).toHaveURL(/\/workspace\/admin$/)
   await expectBackend(page.getByText('CONNECTED ACCOUNT · WORKSPACE DATA')).toBeVisible()
 
+  await page.getByRole('button', { name: 'Invitations', exact: true }).click()
+  await page.getByRole('tab', { name: 'Members & roles' }).click()
+  await expectBackend(page.getByRole('heading', { name: 'Members and roles' })).toBeVisible()
+  await expectBackend(page.getByRole('row', { name: new RegExp(email) })).toBeVisible()
+  await expectBackend(page.getByRole('button', { name: 'Your account' })).toBeDisabled()
+
   await page.getByRole('button', { name: 'Preferences', exact: true }).click()
   await expectBackend(page.getByRole('heading', { name: 'Preferences', exact: true })).toBeVisible()
   await expectBackend(page.getByRole('heading', { name: 'Notification preferences' })).toBeVisible()

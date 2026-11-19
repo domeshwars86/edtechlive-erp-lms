@@ -6,6 +6,7 @@ use App\Enums\MembershipStatus;
 use App\Enums\OrganizationRole;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class OrganizationMembership extends Model
 {
@@ -42,5 +43,10 @@ class OrganizationMembership extends Model
     public function inviter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'invited_by');
+    }
+
+    public function permissionOverrides(): HasMany
+    {
+        return $this->hasMany(OrganizationMembershipPermission::class, 'organization_membership_id');
     }
 }

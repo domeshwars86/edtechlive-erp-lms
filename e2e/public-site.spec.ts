@@ -53,6 +53,37 @@ test('homepage sample courses and API-backed public course discovery both work',
   await expect(page.getByText('First steps')).toBeVisible()
 })
 
+test('public course catalog explains when no courses have been listed', async ({ page }) => {
+  await page.route('**/api/v1/public/courses*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: [], meta: { current_page: 1, last_page: 1, per_page: 12, total: 0 }, filters: { levels: [], subjects: [] } }),
+  }))
+  await page.goto('/courses')
+  await expect(page.getByRole('heading', { name: 'No public courses yet' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText(/active organization publishes a course/i)).toBeVisible()
+})
+
+test('public course catalog can recover from an API error', async ({ page }) => {
+  let attempts = 0
+  await page.route('**/api/v1/public/courses*', route => {
+    attempts += 1
+    if (attempts === 1) {
+      return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Catalog temporarily unavailable.' }) })
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [], meta: { current_page: 1, last_page: 1, per_page: 12, total: 0 }, filters: { levels: [], subjects: [] } }),
+    })
+  })
+  await page.goto('/courses')
+  await expect(page.getByRole('alert')).toContainText('Catalog temporarily unavailable.', { timeout: 30_000 })
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByRole('heading', { name: 'No public courses yet' })).toBeVisible()
+  expect(attempts).toBe(2)
+})
+
 test('mobile menu is operable and public pages avoid horizontal overflow', async ({ page }) => {
   test.setTimeout(120_000)
   for (const width of [320, 375, 430, 768]) {

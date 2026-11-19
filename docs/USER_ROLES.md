@@ -16,7 +16,7 @@
 
 ## Implemented authorization boundary
 
-The current API stores organization membership roles with a PHP backed enum and enforces access using authenticated-user, verified-email, active-organization and resource-scope checks. A dedicated configurable permission matrix is not implemented. The role descriptions below set product intent; use `FEATURE_MATRIX.md` and `IMPLEMENTATION_STATUS.md` to distinguish delivered workflows from planned ones.
+The current API stores organization membership roles with a PHP backed enum and enforces access using authenticated-user, verified-email, active-organization and resource-scope checks. Organization membership workflows also have a tenant-scoped capability catalog: Admin and Independent Educator default to membership read/manage/audit, Management defaults to read, and an Admin or Independent Educator may grant explicit catalog overrides to eligible memberships. Granting manage or audit also grants member-list read. Delegated capabilities can manage membership records and review their access audit, subject to role-escalation limits; they cannot grant or revoke capabilities. This permission system currently applies only to membership workflows. Other domain APIs continue to use their existing role and resource-scope checks.
 
 ## Rules
 
@@ -27,4 +27,4 @@ The current API stores organization membership roles with a PHP backed enum and 
 5. Privileged changes and access to sensitive data are auditable.
 6. Default to least privilege. Parent links and student access need verified relationships and revocation handling.
 
-This is a starting access model. A detailed permission/action matrix is required before backend authorization is considered complete.
+This is a starting access model. A complete cross-domain permission/action matrix is still required before backend authorization is considered complete.
