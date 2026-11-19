@@ -250,6 +250,79 @@ test('login page lets an unverified account request and open a verification link
   await expect(page.getByLabel('Password', { exact: true })).toBeVisible()
 })
 
+test('delegated management sees read-only member access without audit permission', async ({ page }) => {
+  let signedIn = false
+  const account = { id: 74, name: 'Workspace Manager', email: 'manager@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', is_platform_admin: false }
+  const membership = {
+    membership_id: 92,
+    role: 'management',
+    organization: { id: 18, name: 'Browser Test School', slug: 'browser-test-school', type: 'school', status: 'active', timezone: 'Asia/Kolkata' },
+  }
+  const member = {
+    id: 92,
+    user: { id: account.id, name: account.name, email: account.email },
+    role: 'management',
+    status: 'active',
+    accepted_at: '2026-11-19T12:00:00.000Z',
+    permissions: { effective: ['organization.memberships.read'], overrides: [], editable: false },
+  }
+
+  await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
+  await page.route('**/api/v1/me', route => route.fulfill({
+    status: signedIn ? 200 : 401,
+    contentType: 'application/json',
+    body: JSON.stringify(signedIn ? { data: account } : { message: 'Unauthenticated.' }),
+  }))
+  await page.route('**/api/v1/auth/login', route => {
+    signedIn = true
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: account }) })
+  })
+  await page.route('**/api/v1/organizations?per_page=100', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: [membership], preferred_organization_id: null, meta: { current_page: 1, last_page: 1, per_page: 100, total: 1 } }),
+  }))
+  await page.route('**/api/v1/me/organization', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: membership }),
+  }))
+  await page.route('**/api/v1/organizations/18/memberships**', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      data: [member],
+      permission_catalog: [
+        { key: 'organization.memberships.read', label: 'View members', description: 'View organization membership records and their status.' },
+        { key: 'organization.memberships.manage', label: 'Manage members', description: 'Change eligible member roles and suspend or restore membership access.' },
+        { key: 'organization.memberships.audit', label: 'View access audit', description: 'View membership role, status, and permission change history.' },
+      ],
+      can_manage_memberships: false,
+      can_manage_permissions: false,
+      meta: { current_page: 1, last_page: 1, total: 1 },
+    }),
+  }))
+  await page.route('**/api/v1/organizations/18/membership-access-audit**', route => route.fulfill({
+    status: 403,
+    contentType: 'application/json',
+    body: JSON.stringify({ message: 'Forbidden.' }),
+  }))
+
+  await page.goto('/login')
+  await page.getByRole('textbox', { name: 'Email address' }).fill(account.email)
+  await page.getByLabel('Password', { exact: true }).fill('LocalBrowserPass123')
+  await page.getByRole('button', { name: 'Log in' }).click()
+  await page.getByRole('button', { name: /Browser Test School/ }).click()
+  await expect(page).toHaveURL(/\/workspace\/management$/)
+  const accessNav = page.getByRole('button', { name: 'Members & roles', exact: true })
+  await expect(accessNav).toBeVisible()
+  await accessNav.click()
+  await expect(page.getByRole('heading', { name: 'Members and roles' })).toBeVisible()
+  await expect(page.getByRole('row', { name: new RegExp(account.email) })).toBeVisible()
+  await expect(page.getByText('You can view members, but your workspace role does not include access history.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Your account' })).toBeDisabled()
+})
+
 test('all seven dashboard previews fit narrow and desktop viewports', async ({ page }) => {
   test.setTimeout(120_000)
   const roles = ['super-admin', 'admin', 'management', 'teacher', 'student', 'parent', 'educator']

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { AlertCircle, Check, LoaderCircle, Search, ShieldCheck, UserRoundCog } from 'lucide-react'
 import { useAuth } from '../auth/useAuth'
 import { api, ApiError } from '../lib/api'
-import './MembershipAccess.css'
 
 type Role = 'admin' | 'management' | 'teacher' | 'student' | 'parent' | 'independent_educator'
 type Status = 'active' | 'suspended'
