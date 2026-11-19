@@ -5,6 +5,9 @@ import { useAuth } from './useAuth'
 import { ApiError, api, type OrganizationListResponse, type OrganizationMembership } from '../lib/api'
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset' | 'organization'
+const localMailHint = import.meta.env.DEV
+  ? ' Local development writes email links to apps/api/storage/logs/laravel.log; open the latest message there.'
+  : ''
 
 const workspaceForRole: Record<OrganizationMembership['role'], string> = {
   admin: 'admin', management: 'management', teacher: 'teacher', student: 'student',
@@ -58,11 +61,11 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
           password_confirmation: values.get('password_confirmation'), organization_name: values.get('organization_name'),
           organization_type: values.get('organization_type'),
         })
-        setMessage('If this address can be registered, check your inbox for a verification link to finish setup.')
+        setMessage(`If this address can be registered, check for a verification link to finish setup.${localMailHint}`)
         form.reset()
       } else if (mode === 'forgot') {
         await api.post('/api/v1/auth/forgot-password', { email: values.get('email') })
-        setMessage('If an account exists for that email, password reset instructions have been sent.')
+        setMessage(`If an account exists for that email, password reset instructions have been sent.${localMailHint}`)
       } else if (mode === 'reset') {
         await api.post('/api/v1/auth/reset-password', {
           email: values.get('email'), token: new URLSearchParams(location.search).get('token'),
@@ -88,7 +91,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     setError('')
     try {
       await api.post('/api/v1/auth/email/verification-notification', { email })
-      setMessage('If that address has an unverified account, a new verification link has been sent.')
+      setMessage(`If that address has an unverified account, a new verification link has been sent.${localMailHint}`)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not send a verification link.')
     } finally {

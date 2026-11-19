@@ -338,3 +338,8 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - `GET /quizzes/{quiz}/attempts` now returns stable newest-first pages (default 20, maximum 100) with current/last page and total metadata. Student access remains limited to the student's own submitted attempts; teachers/managers see roster identities only for courses they can access. The web quiz workspace provides page navigation.
 - Regression tests cover page boundaries, total counts, staff identity visibility, student privacy, and invalid page sizes. Full Laravel suite: **116 tests / 867 assertions** passed on in-memory SQLite and disposable PostgreSQL 17; Pint passed.
 - Root typecheck, ESLint, and production build passed. The build prerendered 14 routes with a 488.12 kB main JavaScript bundle. No migration was required.
+
+## Local authentication mail guidance (19 November 2026)
+
+- Registration, resend-verification, and password-reset success messages now explain in Vite development mode that the default local mailer writes signed links to `apps/api/storage/logs/laravel.log`. Production copy is unchanged and still depends on configured mail delivery.
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed. This is presentation/documentation only; no email was sent and no account data was created. The production build prerendered 14 routes and produced a 488.13 kB main JavaScript bundle.

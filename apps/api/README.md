@@ -20,6 +20,8 @@ Create a local PostgreSQL database named `edtechlive`, then set `DB_HOST`, `DB_P
 
 For a local browser session, set `APP_URL=http://127.0.0.1:8001`, `FRONTEND_URL=http://127.0.0.1:4173`, and run `php artisan serve --host=127.0.0.1 --port=8001`. The root Vite app runs on port 4173 and proxies the API to port 8001 by default.
 
+The guarded `npm run setup:local` configuration uses Laravel's log mailer; it does not deliver verification or reset email to an inbox. In the local browser, the success message points to `apps/api/storage/logs/laravel.log`. Open the latest mail entry and use its signed link locally; keep that link private and do not commit or share it. Configure an approved SMTP/mail transport to deliver links to real inboxes.
+
 Set `FRONTEND_URL` to the SPA origin used in reset links, `CORS_ALLOWED_ORIGINS` to the allowed browser origins, and `SANCTUM_STATEFUL_DOMAINS` to the hostnames (including ports) of your first-party SPA. The example allows arbitrary local development ports only on `localhost` and `127.0.0.1`; use exact origins and hostnames for deployed environments. For cookie-based SPA auth, call `/sanctum/csrf-cookie`, then submit login with credentials and use the session cookie. For native clients, include a `device_name` during login and send the returned token as a Bearer token. Tokens expire after 30 days and can be revoked with logout.
 
 ## Migrations and tests
