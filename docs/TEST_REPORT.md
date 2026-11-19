@@ -21,6 +21,12 @@
 - Tests cover category CRUD/filtering, role restrictions, tenant isolation, default activation, linking categories to fees, and rejection of invalid category IDs. The additive migration applied to local SQLite.
 - Full Laravel suite passed (**136 tests / 1,116 assertions**); Pint, web typecheck, ESLint, and production build passed (14 prerendered routes; 482.22 kB main bundle). PostgreSQL verification remains open.
 
+## Organization member roles and access audit (19 November 2026)
+
+- Added admin/independent-educator member search, role updates, access suspension/reactivation, and recent access audit history in the Invitations workspace. Pending invites continue through the invitation workflow.
+- API tests verify role/status changes, audit attribution, suspended-member restore, admin-only access, self-edit denial, invalid state denial, and cross-tenant record denial. The database transaction keeps an active administrator or independent educator in the organization.
+- Full Laravel suite passed (**139 tests / 1,138 assertions**); Pint, web typecheck, ESLint, and production build passed (14 prerendered routes; 483.29 kB main bundle). Local SQLite migration applied. PostgreSQL verification remains open.
+
 ## Batch master and local verification recovery (19 November 2026)
 
 - Added tenant-scoped academic batches with create/edit/activate/deactivate, search, session/class/status filters, pagination, section-placement checks, and organization isolation. The admin Academic masters page includes the Batches tab.

@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\V1\NotificationPreferencesController;
 use App\Http\Controllers\Api\V1\OrganizationBranchController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\OrganizationInvitationController;
+use App\Http\Controllers\Api\V1\OrganizationMembershipController;
 use App\Http\Controllers\Api\V1\OrganizationSettingsController;
 use App\Http\Controllers\Api\V1\PeopleController;
 use App\Http\Controllers\Api\V1\PlatformAuditEventController;
@@ -145,6 +146,9 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/fee-categories', [FeeCategoryController::class, 'index']);
                 Route::post('/fee-categories', [FeeCategoryController::class, 'store']);
                 Route::patch('/fee-categories/{record}', [FeeCategoryController::class, 'update'])->whereNumber('record');
+                Route::get('/memberships', [OrganizationMembershipController::class, 'index']);
+                Route::patch('/memberships/{membership}', [OrganizationMembershipController::class, 'update'])->whereNumber('membership');
+                Route::get('/membership-access-audit', [OrganizationMembershipController::class, 'audit']);
                 Route::get('/subjects', [AcademicMasterController::class, 'subjects']);
                 Route::post('/subjects', [AcademicMasterController::class, 'storeSubject']);
                 Route::patch('/subjects/{record}', [AcademicMasterController::class, 'updateSubject'])->whereNumber('record');

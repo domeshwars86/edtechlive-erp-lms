@@ -8,6 +8,7 @@
 - `organizations`: tenant, type, status, locale/timezone and settings.
 - `memberships`: user, organization, role/status, invitation/activation timestamps; unique active user/organization/role policy.
 - `organization_invitations`: organization, normalized email, limited role, hashed one-time token, inviter, expiry, and acceptance audit fields. Raw invitation tokens exist only in the mail link.
+- `organization_access_audits`: tenant-scoped actor/subject membership role and status transitions; each successful access change records before/after values and timestamp.
 - `contact_enquiries`: public prospective-user submissions with contact details, consent timestamp, workflow status, optional notification timestamp, and latest response time/operator. This table is not tenant-owned; reads and reply actions are restricted to verified allowlisted platform operators, and reply text is not stored on the enquiry record.
 - `fee_categories`: tenant-owned fee kinds with optional code/description and active state; names and codes are unique within an organization.
 - `fee_records`, `fee_payments`: tenant-owned INR receivables for active students and staff-entered partial/final receipts. A receivable can reference an active tenant category; existing records may keep a null category. Each receipt stores the staff user, method, optional reference, and received timestamp; this is a manual ledger, not a gateway transaction.
