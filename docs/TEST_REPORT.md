@@ -372,3 +372,10 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Focused subjective, family privacy and assessment aggregate tests passed (**3 tests / 53 assertions**). Full API suite passed on SQLite and disposable PostgreSQL 17 (**125 tests / 983 assertions** each); Pint passed.
 - Web typecheck, ESLint and production build passed (14 public routes; 478.34 kB main bundle, 56.00 kB lazy quiz workspace). Expo typecheck and Android export passed (564 modules; 1.7 MB bundle). Local migration was applied with guarded `npm run setup:local`.
 - Authenticated visual browser and native-device review remain open.
+
+## Exam-style quiz scoring controls (19 November 2026)
+
+- Draft quizzes can set a negative-marking multiplier from 0 to 1 and an optional pass percentage. Wrong answered objective questions deduct points multiplied by the configured rate; unanswered questions are not penalized and total scores cannot go below zero. Pass/fail remains pending while submitted written responses await review.
+- Focused scoring, written-review, and family-result checks passed. Complete API regression passed on SQLite and disposable PostgreSQL 17 (**126 tests / 1,001 assertions** each); Pint passed.
+- Web typecheck, ESLint and production build passed (14 prerendered routes; 478.51 kB main bundle, 57.88 kB lazy quiz workspace). Expo typecheck and Android export passed (564 modules; 1.7 MB bundle). The scoring migration was applied through guarded local setup.
+- Board-specific paper sections, exam series and section-level analytics remain open.

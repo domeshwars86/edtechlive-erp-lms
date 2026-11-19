@@ -32,7 +32,7 @@ class CourseQuizController
         if ($student) {
             $quizzes = $quizzes->where('status', 'published')->values();
         }
-        $attempts = $student ? QuizAttempt::query()->where('student_id', $student->id)
+        $attempts = $student ? QuizAttempt::query()->with('quiz')->where('student_id', $student->id)
             ->whereIn('quiz_id', $quizzes->pluck('id'))->orderByDesc('attempt_number')->get()->groupBy('quiz_id') : collect();
 
         return response()->json(['data' => $quizzes->map(fn (CourseQuiz $quiz): array => [
@@ -54,6 +54,8 @@ class CourseQuizController
             'max_attempts' => ['sometimes', 'integer', 'min:1', 'max:5'],
             'opens_at' => ['sometimes', 'nullable', 'date'],
             'closes_at' => ['sometimes', 'nullable', 'date'],
+            'negative_marking_rate' => ['sometimes', 'numeric', 'min:0', 'max:1', 'decimal:0,2'],
+            'pass_percent' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100'],
         ]);
         $this->assertSchedule($data['opens_at'] ?? null, $data['closes_at'] ?? null);
         $quiz = $courseRecord->quizzes()->create([
@@ -61,6 +63,7 @@ class CourseQuizController
             'organization_id' => $organization,
             'created_by' => $request->user()->id,
             'max_attempts' => $data['max_attempts'] ?? 1,
+            'negative_marking_rate' => $data['negative_marking_rate'] ?? 0,
             'status' => 'draft',
         ]);
 
@@ -79,6 +82,8 @@ class CourseQuizController
             'max_attempts' => ['sometimes', 'integer', 'min:1', 'max:5'],
             'opens_at' => ['sometimes', 'nullable', 'date'],
             'closes_at' => ['sometimes', 'nullable', 'date'],
+            'negative_marking_rate' => ['sometimes', 'numeric', 'min:0', 'max:1', 'decimal:0,2'],
+            'pass_percent' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100'],
             'status' => ['sometimes', Rule::in(['draft', 'published', 'archived'])],
         ]);
         $this->assertSchedule(
@@ -88,7 +93,7 @@ class CourseQuizController
         if (($data['status'] ?? $record->status) === 'published' && $record->questions()->doesntExist()) {
             throw ValidationException::withMessages(['status' => ['Add at least one question before publishing a quiz.']]);
         }
-        if ($record->status === 'published' && $request->hasAny(['title', 'instructions', 'time_limit_minutes', 'max_attempts', 'opens_at', 'closes_at'])) {
+        if ($record->status === 'published' && $request->hasAny(['title', 'instructions', 'time_limit_minutes', 'max_attempts', 'opens_at', 'closes_at', 'negative_marking_rate', 'pass_percent'])) {
             throw ValidationException::withMessages(['status' => ['Published quiz settings cannot be changed after attempts are enabled.']]);
         }
         $record->update($data);
@@ -332,9 +337,9 @@ class CourseQuizController
             $answers[$question->id] = $isMultiple ? $selectedOptions : $selectedOptions[0];
         }
         $maxScore = $record->quiz->questions->sum('points');
-        $score = $record->quiz->questions->sum(function (QuizQuestion $question) use ($answers): int {
+        $score = $record->quiz->questions->sum(function (QuizQuestion $question) use ($answers, $record): float {
             if ($question->question_type === 'short_answer') {
-                return 0;
+                return 0.0;
             }
             $submitted = $answers[$question->id] ?? null;
             $expected = $question->question_type === 'multiple_select'
@@ -343,8 +348,11 @@ class CourseQuizController
             sort($expected);
             $selected = is_array($submitted) ? $submitted : (is_int($submitted) ? [$submitted] : []);
 
-            return $selected === $expected ? $question->points : 0;
+            return $selected === $expected
+                ? (float) $question->points
+                : ($selected === [] ? 0.0 : -((float) $question->points * (float) $record->quiz->negative_marking_rate));
         });
+        $score = max(0, round($score, 2));
         $timeLimitExpired = $record->quiz->time_limit_minutes !== null
             && now()->gt($record->started_at->addMinutes($record->quiz->time_limit_minutes));
         $scheduleExpired = $record->quiz->closes_at !== null && now()->gte($record->quiz->closes_at);
@@ -387,9 +395,9 @@ class CourseQuizController
         $gradedCount = count($grades);
         $status = $pendingCount > 0 ? ($gradedCount > 0 ? 'partial' : 'pending') : 'graded';
         $recordQuestions = $record->questions()->get();
-        $objectiveScore = $recordQuestions->sum(function (QuizQuestion $item) use ($answers): int {
+        $objectiveScore = $recordQuestions->sum(function (QuizQuestion $item) use ($answers, $record): float {
             if ($item->question_type === 'short_answer') {
-                return 0;
+                return 0.0;
             }
             $submitted = $answers[$item->id] ?? null;
             $expected = $item->question_type === 'multiple_select' ? ($item->correct_options ?? []) : [$item->correct_option];
@@ -397,13 +405,15 @@ class CourseQuizController
             $selected = is_array($submitted) ? $submitted : (is_int($submitted) ? [$submitted] : []);
             sort($selected);
 
-            return $selected === $expected ? $item->points : 0;
+            return $selected === $expected
+                ? (float) $item->points
+                : ($selected === [] ? 0.0 : -((float) $item->points * (float) $record->negative_marking_rate));
         });
         $manualScore = collect($grades)->sum(fn (array $grade): int => (int) ($grade['awarded_points'] ?? 0));
         $attemptRecord->update([
             'manual_grades' => $grades,
             'review_status' => $status,
-            'score' => $objectiveScore + $manualScore,
+            'score' => max(0, round($objectiveScore + $manualScore, 2)),
             'max_score' => $recordQuestions->sum('points'),
         ]);
 
@@ -419,7 +429,7 @@ class CourseQuizController
         $membership = $this->access->membership($request, $organization);
         $record = CourseQuiz::query()->where('organization_id', $organization)->with('course')->findOrFail($quiz);
         $student = $this->authorizeCourseRead($request, $membership->role, $organization, $record->course);
-        $query = $record->attempts()->whereNotNull('submitted_at')->with('student:id,name,admission_number');
+        $query = $record->attempts()->whereNotNull('submitted_at')->with(['student:id,name,admission_number', 'quiz']);
         if ($student) {
             $query->where('student_id', $student->id);
         }
@@ -487,6 +497,10 @@ class CourseQuizController
             'max_attempts' => $quiz->max_attempts,
             'opens_at' => $quiz->opens_at?->toISOString(),
             'closes_at' => $quiz->closes_at?->toISOString(),
+            'negative_marking_rate' => $quiz->negative_marking_rate,
+            'pass_percent' => $quiz->pass_percent,
+            'negative_marking_rate' => $quiz->negative_marking_rate,
+            'pass_percent' => $quiz->pass_percent,
             'status' => $quiz->status,
             'questions' => $quiz->questions->map(fn (QuizQuestion $question): array => $this->questionData($question, $includeAnswers))->values(),
         ];
@@ -594,6 +608,7 @@ class CourseQuizController
 
     private function attemptData(QuizAttempt $attempt): array
     {
+        $attempt->loadMissing('quiz');
         $manualGrades = collect($attempt->manual_grades ?? [])->map(fn (array $grade): array => [
             'awarded_points' => $grade['awarded_points'],
             'feedback' => $grade['feedback'] ?? null,
@@ -608,8 +623,25 @@ class CourseQuizController
             'review_status' => $attempt->review_status,
             'score' => $attempt->score,
             'max_score' => $attempt->max_score,
+            'result_outcome' => $this->resultOutcome($attempt),
             'started_at' => $attempt->started_at?->toISOString(),
             'submitted_at' => $attempt->submitted_at?->toISOString(),
         ];
+    }
+
+    private function resultOutcome(QuizAttempt $attempt): string
+    {
+        $passPercent = $attempt->quiz->pass_percent;
+        if ($passPercent === null) {
+            return 'not_set';
+        }
+        if (in_array($attempt->review_status, ['pending', 'partial'], true)) {
+            return 'pending_review';
+        }
+        if ((float) $attempt->max_score <= 0) {
+            return 'failed';
+        }
+
+        return ((float) $attempt->score / (float) $attempt->max_score * 100) >= $passPercent ? 'passed' : 'failed';
     }
 }

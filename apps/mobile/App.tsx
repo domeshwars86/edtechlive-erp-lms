@@ -389,7 +389,7 @@ export default function App() {
             <Text style={styles.courseMeta}>{quiz.questions.length} questions · {quiz.time_limit_minutes ? `${quiz.time_limit_minutes} minutes` : 'No time limit'} · {quiz.attempts_used ?? 0}/{quiz.max_attempts} attempts</Text>
             {quiz.opens_at ? <Text style={styles.courseMeta}>Opens {new Date(quiz.opens_at).toLocaleString()}</Text> : null}
             {quiz.closes_at ? <Text style={styles.courseMeta}>Closes {new Date(quiz.closes_at).toLocaleString()}</Text> : null}
-            {quiz.latest_result?.submitted_at ? <Text style={styles.resultText}>{quiz.latest_result.review_status === 'pending' || quiz.latest_result.review_status === 'partial' ? 'Awaiting teacher review' : 'Latest result'}: {quiz.latest_result.score}/{quiz.latest_result.max_score}</Text> : null}
+            {quiz.latest_result?.submitted_at ? <Text style={styles.resultText}>{quiz.latest_result.review_status === 'pending' || quiz.latest_result.review_status === 'partial' ? 'Awaiting teacher review' : 'Latest result'}: {quiz.latest_result.score}/{quiz.latest_result.max_score}{quiz.latest_result.result_outcome === 'passed' ? ' · Passed' : quiz.latest_result.result_outcome === 'failed' ? ' · Not passed' : ''}</Text> : null}
             {active.role === 'student' && (quiz.attempts_used ?? 0) < quiz.max_attempts ? <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void startQuiz(quiz)} disabled={busy || notOpen || closed}><Text style={styles.primaryButtonText}>{notOpen ? 'Quiz not open yet' : closed ? 'Quiz closed' : 'Start quiz'}</Text></Pressable> : null}
           </View>
         }) : <Empty text="No published quizzes in this course." />}
@@ -512,7 +512,7 @@ function Empty({ text }: { text: string }) { return <View style={styles.empty}><
 function AssessmentHistory({ results }: { results: AssessmentResults }) {
   const items = [
     ...results.exams.map(result => ({ id: result.id, title: `${result.exam} · ${result.subject}`, kind: 'School exam', course: `${result.session} · ${result.class_section}`, score: result.score, max_score: result.max_marks, detail: result.outcome === 'graded' ? result.remarks || 'Published result' : result.outcome, completed_at: result.exam_on })),
-    ...results.quizzes.map(result => ({ ...result, kind: 'Quiz', detail: result.review_status === 'pending' || result.review_status === 'partial' ? 'Awaiting teacher review' : `Attempt ${result.attempt_number ?? 1}` })),
+    ...results.quizzes.map(result => ({ ...result, kind: 'Quiz', detail: result.result_outcome === 'pending_review' ? 'Awaiting teacher review' : result.result_outcome === 'passed' ? `Attempt ${result.attempt_number ?? 1} · Passed` : result.result_outcome === 'failed' ? `Attempt ${result.attempt_number ?? 1} · Not passed` : `Attempt ${result.attempt_number ?? 1}` })),
     ...results.assignments.map(result => ({ ...result, kind: 'Assignment', detail: result.feedback || 'Graded' })),
   ]
   if (!items.length) return <Text style={styles.courseMeta}>No completed or graded assessments yet.</Text>

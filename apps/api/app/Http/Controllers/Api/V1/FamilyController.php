@@ -233,12 +233,13 @@ class FamilyController
             ->where('course_quizzes.status', 'published')->where('courses.status', 'published')
             ->join('course_quizzes', 'course_quizzes.id', '=', 'quiz_attempts.quiz_id')
             ->join('courses', 'courses.id', '=', 'course_quizzes.course_id')
-            ->select('quiz_attempts.id', 'quiz_attempts.score', 'quiz_attempts.max_score', 'quiz_attempts.review_status', 'quiz_attempts.attempt_number', 'quiz_attempts.submitted_at', 'course_quizzes.title', 'courses.title as course_title')
+            ->select('quiz_attempts.id', 'quiz_attempts.score', 'quiz_attempts.max_score', 'quiz_attempts.review_status', 'quiz_attempts.attempt_number', 'quiz_attempts.submitted_at', 'course_quizzes.title', 'course_quizzes.pass_percent', 'courses.title as course_title')
             ->orderByDesc('quiz_attempts.submitted_at')->limit(100)->get()
             ->map(fn (QuizAttempt $attempt): array => [
                 'id' => $attempt->id, 'title' => $attempt->title, 'course' => $attempt->course_title,
                 'score' => $attempt->score, 'max_score' => $attempt->max_score,
                 'review_status' => $attempt->review_status,
+                'result_outcome' => $attempt->pass_percent === null ? 'not_set' : (in_array($attempt->review_status, ['pending', 'partial'], true) ? 'pending_review' : ((float) $attempt->max_score > 0 && (float) $attempt->score / (float) $attempt->max_score * 100 >= $attempt->pass_percent ? 'passed' : 'failed')),
                 'attempt_number' => $attempt->attempt_number, 'completed_at' => $attempt->submitted_at?->toISOString(),
             ])->values();
 

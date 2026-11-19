@@ -35,3 +35,7 @@
 ## 2026-11-19 — Keep subjective quiz grading separate from student answers
 
 **Context:** Quizzes need teacher-reviewed written responses without leaking answer keys or marking a partial score as final. **Decision:** Keep submitted text in the attempt answer map, store per-question grades/feedback and reviewer metadata separately, and expose a pending/partial/graded state. Only course editors can grade; aggregate score averages omit pending and partial attempts. **Trade-off:** The browser quiz workspace is the grading interface; bulk review and grade-change history remain future work.
+
+## 2026-11-19 — Apply board-style scoring at the server boundary
+
+**Context:** Objective quizzes need optional penalty scoring and a clear pass threshold. **Decision:** Allow draft quizzes to set a negative-marking rate from 0 to 1 and an optional 0–100 pass percentage. Penalize only answered wrong objective questions by points × rate, clamp the combined score at zero, and defer pass/fail while written responses are pending. **Trade-off:** These scoring controls do not yet provide board-specific paper sections, exam series, or section-level analytics.
