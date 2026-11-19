@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { createServer } from 'node:net'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -6,16 +7,35 @@ import { apiDirectory, assertSafeLocalApiEnvironment, rootDirectory } from './se
 
 const apiDatabase = path.join(apiDirectory, 'database', 'local-dev.sqlite')
 const viteCli = path.join(rootDirectory, 'node_modules', 'vite', 'bin', 'vite.js')
-const apiPort = Number(process.env.EDTECHLIVE_API_PORT || 8001)
-const webPort = Number(process.env.EDTECHLIVE_WEB_PORT || 4173)
+const apiPortOverride = process.env.EDTECHLIVE_API_PORT?.trim()
+const webPortOverride = process.env.EDTECHLIVE_WEB_PORT?.trim()
 const children = []
 let stopping = false
 
-for (const [name, port] of [['EDTECHLIVE_API_PORT', apiPort], ['EDTECHLIVE_WEB_PORT', webPort]]) {
-  if (!Number.isInteger(port) || port < 1024 || port > 65535) {
+for (const [name, override] of [['EDTECHLIVE_API_PORT', apiPortOverride], ['EDTECHLIVE_WEB_PORT', webPortOverride]]) {
+  const port = override === undefined || override === '' ? undefined : Number(override)
+  if (port !== undefined && (!Number.isInteger(port) || port < 1024 || port > 65535)) {
     process.stderr.write(`${name} must be an integer between 1024 and 65535.\n`)
     process.exit(1)
   }
+}
+
+function isPortAvailable(port) {
+  return new Promise(resolve => {
+    const server = createServer()
+    server.once('error', () => resolve(false))
+    server.listen({ host: '127.0.0.1', port, exclusive: true }, () => {
+      server.close(() => resolve(true))
+    })
+  })
+}
+
+async function selectPort(override, fallback) {
+  if (override) return Number(override)
+  for (let candidate = fallback; candidate < Math.min(fallback + 100, 65536); candidate += 1) {
+    if (await isPortAvailable(candidate)) return candidate
+  }
+  throw new Error(`No available local port found starting at ${fallback}. Set ${fallback === 8001 ? 'EDTECHLIVE_API_PORT' : 'EDTECHLIVE_WEB_PORT'} to choose one.`)
 }
 
 function stop(code = 0) {
@@ -33,6 +53,9 @@ try {
   assertSafeLocalApiEnvironment()
   if (!existsSync(apiDatabase)) throw new Error('Local database is missing. Run `npm run setup:local` first.')
   if (!existsSync(viteCli)) throw new Error('Web dependencies are missing. Run `npm install` in the repository root first.')
+
+  const apiPort = await selectPort(apiPortOverride, 8001)
+  const webPort = await selectPort(webPortOverride, 4173)
 
   const api = spawn(process.env.PHP_BINARY || 'php', ['artisan', 'serve', '--host=127.0.0.1', `--port=${apiPort}`], {
     cwd: apiDirectory,

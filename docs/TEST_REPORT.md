@@ -33,6 +33,10 @@
 
 - The restarted web preview at port 4180 returned HTTP 200 for `/login`; the API readiness endpoint on port 8010 returned `status: ok` with its database check healthy. Local HTTP smoke checks required authorized loopback access; the preview remains a local development service.
 
+## Local development port selection (19 November 2026)
+
+- The combined dev launcher now probes the default API and web ports and selects the next available localhost port when one is occupied; explicit `EDTECHLIVE_API_PORT` and `EDTECHLIVE_WEB_PORT` overrides remain supported. The selected ports are used consistently for the Laravel origin, Vite API proxy, verification links and Sanctum stateful domains. With defaults unavailable, the launcher selected web port 4174 and API port 8003; `/login`, `/workspace/admin`, and API readiness each returned HTTP 200.
+
 ## Browser signup verification and sign-in (19 November 2026)
 
 - The isolated Chromium integration flow passed (**1 test in 1.5 minutes**): create an account, open the local signed verification link, sign in, select the new workspace, reset the password, and sign in again. Playwright uses a temporary SQLite database that is removed after the run.
