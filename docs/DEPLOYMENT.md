@@ -8,7 +8,7 @@ The API now has a production-oriented Apache/PHP 8.4 container recipe in `apps/a
 
 ## Website preview
 
-The frontend builds to Vite's `dist/` directory and can be served as static assets. SPA route fallback must be configured by the eventual host. Before public launch, use the real canonical domain in metadata and sitemap and decide whether public pages need prerendering for search engines.
+The frontend builds to Vite's `dist/` directory and can be served as static assets. SPA route fallback must be configured by the eventual host. Set `EDTECHLIVE_SITE_URL` to the approved public HTTPS origin during the frontend build; the build then generates an absolute sitemap for public routes and adds its URL to `robots.txt`. Without a configured origin, the build omits the sitemap instead of shipping a reserved placeholder domain. Confirm the origin is approved before launch.
 
 ## Target Render architecture
 
