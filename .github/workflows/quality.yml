@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   web:
-    name: Web typecheck, lint, and production build
+    name: Web checks and browser API integration
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -21,6 +21,13 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
+      - uses: shivammathur/setup-php@2.40.0
+        with:
+          php-version: '8.4'
+          extensions: ctype, curl, dom, fileinfo, filter, hash, mbstring, openssl, pdo_sqlite, session, tokenizer, xml
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+        working-directory: apps/api
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
 
