@@ -11,6 +11,18 @@ test('public shell offers keyboard skip navigation and one main landmark', async
   await expect(page.locator('#main-content')).toBeFocused()
 })
 
+test('dashboard preview offers keyboard skip navigation', async ({ page }) => {
+  await page.goto('/workspace/admin')
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 30_000 })
+  const skipLink = page.getByRole('link', { name: 'Skip to content' })
+  await page.keyboard.press('Tab')
+  await expect(skipLink).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(/#dashboard-main$/)
+  await expect(page.getByRole('main')).toHaveCount(1)
+  await expect(page.locator('#dashboard-main')).toBeFocused()
+})
+
 test('homepage sample courses and API-backed public course discovery both work', async ({ page }) => {
   let enquiryPayload: Record<string, unknown> | null = null
   await page.route('**/api/v1/enquiries', async route => {
