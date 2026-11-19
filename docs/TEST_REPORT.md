@@ -453,3 +453,9 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Focused scoring, written-review, and family-result checks passed. Complete API regression passed on SQLite and disposable PostgreSQL 17 (**126 tests / 1,001 assertions** each); Pint passed.
 - Web typecheck, ESLint and production build passed (14 prerendered routes; 478.51 kB main bundle, 57.88 kB lazy quiz workspace). Expo typecheck and Android export passed (564 modules; 1.7 MB bundle). The scoring migration was applied through guarded local setup.
 - Board-specific paper sections, exam series and section-level analytics remain open.
+
+## Public course detail pages (19 November 2026)
+
+- The home and course catalog cards now link to three explicit sample course details with a sample syllabus, educator-profile preview, level/subject/lesson summary, and enquiry CTA. Copy states that listings are illustrative and enrollment is not available.
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed. Build prerendered 17 public routes, including all three course details, with route-specific title/description metadata. The main JavaScript bundle is 497.90 kB; live course discovery and enrollment remain unimplemented pending API-backed course publishing.
+- Parsed public/sitemap.xml successfully and confirmed all three sample detail URLs are listed. The sitemap still uses the reserved .example host pending a production domain.

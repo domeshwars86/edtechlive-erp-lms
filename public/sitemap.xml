@@ -4,6 +4,9 @@
   <url><loc>https://edtechlive.example/about</loc></url>
   <url><loc>https://edtechlive.example/features</loc></url>
   <url><loc>https://edtechlive.example/courses</loc></url>
+  <url><loc>https://edtechlive.example/courses/python-foundations</loc></url>
+  <url><loc>https://edtechlive.example/courses/algebra-step-by-step</loc></url>
+  <url><loc>https://edtechlive.example/courses/living-world-stories</loc></url>
   <url><loc>https://edtechlive.example/solutions/institutions</loc></url>
   <url><loc>https://edtechlive.example/solutions/teachers</loc></url>
   <url><loc>https://edtechlive.example/solutions/students</loc></url>
