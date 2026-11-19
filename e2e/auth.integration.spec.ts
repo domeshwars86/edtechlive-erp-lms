@@ -20,14 +20,11 @@ test('real local registration, signed email verification, and browser sign-in wo
   await page.getByRole('button', { name: 'Create account' }).click()
 
   await expectBackend(page.getByRole('heading', { name: 'You’re all set.' })).toBeVisible()
-  const verifyLink = page.getByRole('link', { name: /Verify email to unlock sign-in/ })
-  await expectBackend(verifyLink).toBeVisible()
-  await expectBackend(verifyLink).toHaveAttribute('href', /127\.0\.0\.1:4188\/api\/v1\/auth\/verify-email/)
-
-  const verificationTab = page.context().waitForEvent('page')
-  await verifyLink.click()
-  const verifiedPage = await verificationTab
-  await expectBackend(verifiedPage.locator('body')).toContainText('Email address verified. You can now sign in.')
+  const verifyButton = page.getByRole('button', { name: /Verify email to unlock sign-in/ })
+  await expectBackend(verifyButton).toBeVisible()
+  await expectBackend(page.getByText(/No inbox is needed for this local development link/)).toBeVisible()
+  await verifyButton.click()
+  await expectBackend(page.getByRole('status')).toContainText('Email verified. You can log in now.')
 
   await page.getByRole('link', { name: 'Log in', exact: true }).click()
   await page.getByRole('textbox', { name: 'Email address' }).fill(email)

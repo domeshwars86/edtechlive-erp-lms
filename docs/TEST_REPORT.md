@@ -6,6 +6,10 @@
 
 - The complete Laravel API suite passed **177 tests / 1,547 assertions** on in-memory SQLite (**72.99 seconds**) and a fresh disposable PostgreSQL 17 cluster (**39.87 seconds**); all migrations applied on PostgreSQL. The cluster was isolated to a unique system-temp path on loopback, then stopped and removed. The local development SQLite database and production databases were not used. Hosted PostgreSQL 16 CI remains unverified.
 
+## Local email verification and sign-in (20 November 2026)
+
+- Replaced the raw API tab opened by the development verification link with an in-page action. It confirms the signed URL through the same-origin API proxy, states that no email inbox is needed, and shows a clear “Email verified. You can log in now” result. The focused real Chromium flow passed **1 test in 39.1 seconds**, covering registration, in-place verification, sign-in and organization selection. TypeScript, ESLint and the production build passed (17 public routes). A rerun of the longer account-profile/recovery integration timed out at its final sign-out assertion after registration, verification and sign-in had passed; this broader-flow timeout is recorded for follow-up.
+
 ## Organization notification inbox (20 November 2026)
 
 - Added a full paginated inbox to signed-in Admin, Management, Teacher, Student and Independent Educator dashboards; parents retain their existing Notices entry. The inbox uses the current user's organization-scoped notification list and read receipt endpoints. The full Chromium Management flow and public-site suite passed (**16 tests in 2.4 minutes**), including notice loading and marking it read; the full API regression separately covers user and organization isolation.

@@ -30,6 +30,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [verificationUrl, setVerificationUrl] = useState('')
+  const [verificationComplete, setVerificationComplete] = useState(false)
   const [passwordResetUrl, setPasswordResetUrl] = useState('')
   const [organizations, setOrganizations] = useState<OrganizationMembership[]>([])
   const formRef = useRef<HTMLFormElement>(null)
@@ -39,6 +40,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     setError('')
     setMessage('')
     setVerificationUrl('')
+    setVerificationComplete(false)
     setPasswordResetUrl('')
   }, [mode])
 
@@ -61,6 +63,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     setError('')
     setMessage('')
     setVerificationUrl('')
+    setVerificationComplete(false)
     setPasswordResetUrl('')
 
     try {
@@ -74,8 +77,9 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
           organization_type: values.get('organization_type'),
         })
         setVerificationUrl(result.verification_url ?? '')
+        setVerificationComplete(false)
         setMessage(result.verification_url
-          ? 'Your local account is ready. Verify your email to continue to sign in.'
+          ? 'Your local account is ready. Use the button below to verify it—no email inbox is needed.'
           : `If this address can be registered, check your email for a verification link.${localMailHint}`)
         form.reset()
       } else if (mode === 'forgot') {
@@ -113,6 +117,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     setError('')
     setMessage('')
     setVerificationUrl('')
+    setVerificationComplete(false)
     try {
       const result = await api.post<{ verification_url?: string }>('/api/v1/auth/email/verification-notification', { email })
       setVerificationUrl(result.verification_url ?? '')
@@ -121,6 +126,36 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
         : `If that address has an unverified account, a new verification link has been sent.${localMailHint}`)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not send a verification link.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function verifyLocalEmail() {
+    if (!verificationUrl) return
+
+    let verificationPath: string
+    try {
+      const link = new URL(verificationUrl)
+      if (!link.pathname.startsWith('/api/v1/auth/verify-email/')) {
+        throw new Error('This verification link is not valid for the local account service.')
+      }
+      verificationPath = `${link.pathname}${link.search}`
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'This verification link is not valid.')
+      return
+    }
+
+    setBusy(true)
+    setError('')
+    try {
+      const result = await api.get<{ status: string }>(verificationPath)
+      if (result.status !== 'verified') throw new Error('The account service did not confirm email verification.')
+      setVerificationUrl('')
+      setVerificationComplete(true)
+      setMessage('Your email is verified. You can now sign in.')
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not verify this email address. Request a new link and try again.')
     } finally {
       setBusy(false)
     }
@@ -165,8 +200,9 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       {error && <div className="auth-error" role="alert">{error}</div>}
       <button className="button button-primary" type="submit" disabled={busy}>{busy ? <><LoaderCircle className="spin" /> Working…</> : <>{ { login: 'Log in', register: 'Create account', forgot: 'Send reset link', reset: 'Reset password' }[mode]} <ArrowUpRight size={16} /></>}</button>
     </>}
-    {message && <div className="auth-success"><Check />{verificationUrl ? 'Email verification is required before sign-in. Use the action below first.' : passwordResetUrl ? 'A local reset link is ready below.' : mode === 'register' ? 'Email verification is required before you can sign in.' : 'The request was sent securely.'}</div>}
-    {verificationUrl && <div className="local-verification-link"><p>Step 1: Verify your email address.</p><a href={verificationUrl} target="_blank" rel="noreferrer">Verify email to unlock sign-in <ArrowUpRight size={16} /></a><small>Step 2: Return to this page and log in. This development link expires in 60 minutes.</small></div>}
+    {message && <div className="auth-success" role="status" aria-live="polite"><Check />{verificationComplete ? 'Email verified. You can log in now.' : verificationUrl ? 'Email verification is required before sign-in. Use the action below first.' : passwordResetUrl ? 'A local reset link is ready below.' : mode === 'register' ? 'Email verification is required before you can sign in.' : 'The request was sent securely.'}</div>}
+    {error && message && mode !== 'login' && <div className="auth-error" role="alert">{error}</div>}
+    {verificationUrl && <div className="local-verification-link"><p>Step 1: Verify your email address.</p><button className="local-verification-action" type="button" disabled={busy} onClick={verifyLocalEmail}>{busy ? <><LoaderCircle className="spin" /> Verifying…</> : <>Verify email to unlock sign-in <ArrowUpRight size={16} /></>}</button><small>No inbox is needed for this local development link. It expires in 60 minutes. After it confirms, select “Log in” below.</small></div>}
     {passwordResetUrl && <div className="local-verification-link"><p>Open your local reset link to choose a new password.</p><a href={passwordResetUrl}>Reset your password <ArrowUpRight size={16} /></a><small>This local reset link expires in 60 minutes.</small></div>}
     {error && !message && mode !== 'login' && <div className="auth-error" role="alert">{error}</div>}
     <div className="auth-links">{mode === 'login' && <><Link to="/forgot-password">Forgot password?</Link><button type="button" disabled={busy} onClick={resendVerification}>Need a verification link? Resend it</button><span>New here? <Link to="/register">Create an account</Link></span></>}{mode === 'register' && <span>Already have an account? <Link to="/login">Log in</Link></span>}{mode === 'forgot' && <Link to="/login">Back to log in</Link>}{mode === 'reset' && <Link to="/login">Back to log in</Link>}</div>
