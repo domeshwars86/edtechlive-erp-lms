@@ -224,6 +224,41 @@ class CourseQuizTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_bank_questions_can_be_edited_and_deleted_without_changing_quiz_snapshots(): void
+    {
+        [, $teacherUser, , $organization, $course] = $this->classroom();
+        Sanctum::actingAs($teacherUser);
+        $base = "/api/v1/organizations/{$organization->id}";
+        $bank = $this->postJson("{$base}/courses/{$course->id}/question-banks", ['title' => 'Unit One'])
+            ->assertCreated()->json('data.id');
+        $question = $this->postJson("{$base}/question-banks/{$bank}/questions", [
+            'prompt' => 'Which planet is known as the red planet?',
+            'options' => ['Mars', 'Venus', 'Jupiter'],
+            'correct_option' => 0,
+        ])->assertCreated()->json('data.id');
+        $quiz = $this->postJson("{$base}/courses/{$course->id}/quizzes", ['title' => 'Planet quiz'])
+            ->assertCreated()->json('data.id');
+        $this->postJson("{$base}/quizzes/{$quiz}/questions/from-bank", ['question_bank_question_id' => $question])->assertCreated();
+
+        $this->patchJson("{$base}/question-banks/{$bank}/questions/{$question}", [
+            'prompt' => 'Which planet has prominent rings?',
+            'options' => ['Saturn', 'Mars', 'Mercury'],
+            'correct_option' => 0,
+            'difficulty' => 'hard',
+        ])->assertOk()->assertJsonPath('data.prompt', 'Which planet has prominent rings?');
+
+        $this->getJson("{$base}/courses/{$course->id}/quizzes")
+            ->assertOk()->assertJsonPath('data.0.questions.0.prompt', 'Which planet is known as the red planet?');
+        $this->deleteJson("{$base}/question-banks/{$bank}/questions/{$question}")->assertNoContent();
+        $this->getJson("{$base}/courses/{$course->id}/quizzes")
+            ->assertOk()->assertJsonPath('data.0.questions.0.prompt', 'Which planet is known as the red planet?')
+            ->assertJsonPath('data.0.questions.0.question_bank_question_id', null);
+        $this->patchJson("{$base}/question-banks/{$bank}", ['title' => 'Unit 1 review'])
+            ->assertOk()->assertJsonPath('data.title', 'Unit 1 review');
+        $this->deleteJson("{$base}/question-banks/{$bank}")->assertNoContent();
+        $this->getJson("{$base}/courses/{$course->id}/question-banks")->assertOk()->assertJsonCount(0, 'data');
+    }
+
     public function test_submitted_attempt_history_is_paginated_without_cross_student_results(): void
     {
         [$admin, $teacherUser, $studentUser, $organization, $course] = $this->classroom();

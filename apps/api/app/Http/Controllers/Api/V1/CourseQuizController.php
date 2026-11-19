@@ -139,6 +139,30 @@ class CourseQuizController
         return response()->json(['data' => $bank->loadCount('questions')], 201);
     }
 
+    public function updateQuestionBank(Request $request, int $organization, int $bank): JsonResponse
+    {
+        $record = CourseQuestionBank::query()->where('organization_id', $organization)->with('course')->findOrFail($bank);
+        $membership = $this->access->membership($request, $organization);
+        $this->assertCourseEditor($request, $membership->role, $organization, $record->course);
+        $data = $request->validate([
+            'title' => ['sometimes', 'required', 'string', 'min:2', 'max:150', Rule::unique('course_question_banks', 'title')->where('course_id', $record->course_id)->ignore($record->id)],
+            'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
+        ]);
+        $record->update($data);
+
+        return response()->json(['data' => $record->refresh()->loadCount('questions')]);
+    }
+
+    public function deleteQuestionBank(Request $request, int $organization, int $bank): JsonResponse
+    {
+        $record = CourseQuestionBank::query()->where('organization_id', $organization)->with('course')->findOrFail($bank);
+        $membership = $this->access->membership($request, $organization);
+        $this->assertCourseEditor($request, $membership->role, $organization, $record->course);
+        $record->delete();
+
+        return response()->json(status: 204);
+    }
+
     public function questionBankQuestions(Request $request, int $organization, int $bank): JsonResponse
     {
         $record = CourseQuestionBank::query()->where('organization_id', $organization)->with('course')->findOrFail($bank);
@@ -178,6 +202,29 @@ class CourseQuizController
         ]);
 
         return response()->json(['data' => $this->bankQuestionData($question)], 201);
+    }
+
+    public function updateQuestionBankQuestion(Request $request, int $organization, int $bank, int $question): JsonResponse
+    {
+        $record = CourseQuestionBank::query()->where('organization_id', $organization)->with('course')->findOrFail($bank);
+        $membership = $this->access->membership($request, $organization);
+        $this->assertCourseEditor($request, $membership->role, $organization, $record->course);
+        $questionRecord = $record->questions()->findOrFail($question);
+        $data = $this->validatedQuestionData($request);
+        unset($data['correct_option']);
+        $questionRecord->update($data);
+
+        return response()->json(['data' => $this->bankQuestionData($questionRecord->refresh())]);
+    }
+
+    public function deleteQuestionBankQuestion(Request $request, int $organization, int $bank, int $question): JsonResponse
+    {
+        $record = CourseQuestionBank::query()->where('organization_id', $organization)->with('course')->findOrFail($bank);
+        $membership = $this->access->membership($request, $organization);
+        $this->assertCourseEditor($request, $membership->role, $organization, $record->course);
+        $record->questions()->findOrFail($question)->delete();
+
+        return response()->json(status: 204);
     }
 
     public function addQuestionFromBank(Request $request, int $organization, int $quiz): JsonResponse

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { AlertCircle, Check, ClipboardList, LoaderCircle, Play, Plus, Save } from 'lucide-react'
+import { AlertCircle, Check, ClipboardList, LoaderCircle, Pencil, Play, Plus, Save, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
 
 type Course = { id: number; title: string }
@@ -24,8 +24,18 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
   const [bankPage, setBankPage] = useState(1)
   const [bankLastPage, setBankLastPage] = useState(1)
   const [bankTotal, setBankTotal] = useState(0)
+  const [editingBankQuestion, setEditingBankQuestion] = useState<number | null>(null)
+  const [bankEditPrompt, setBankEditPrompt] = useState('')
+  const [bankEditOptions, setBankEditOptions] = useState('')
+  const [bankEditCorrectOptions, setBankEditCorrectOptions] = useState<number[]>([])
+  const [bankEditType, setBankEditType] = useState<Question['question_type']>('single_choice')
+  const [bankEditDifficulty, setBankEditDifficulty] = useState<Question['difficulty']>('medium')
+  const [bankEditPoints, setBankEditPoints] = useState('1')
   const [bankTitle, setBankTitle] = useState('')
   const [bankDescription, setBankDescription] = useState('')
+  const [bankSettingsOpen, setBankSettingsOpen] = useState(false)
+  const [bankNameDraft, setBankNameDraft] = useState('')
+  const [bankDescriptionDraft, setBankDescriptionDraft] = useState('')
   const [saveToBank, setSaveToBank] = useState(false)
   const [quizId, setQuizId] = useState<number | null>(null)
   const [results, setResults] = useState<AttemptResult[]>([])
@@ -87,7 +97,7 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
     const params = new URLSearchParams({ per_page: '50', page: String(bankPage) })
     if (bankSearch.trim()) params.set('q', bankSearch.trim())
     api.get<{ data: BankQuestion[]; meta: { last_page: number; total: number } }>(`${base}/question-banks/${selectedBankId}/questions?${params}`)
-      .then(result => { if (!cancelled) { setBankQuestions(result.data); setBankLastPage(result.meta.last_page); setBankTotal(result.meta.total) } })
+      .then(result => { if (!cancelled) { setBankQuestions(result.data); setBankLastPage(result.meta.last_page); setBankTotal(result.meta.total); setBankPage(current => Math.min(current, result.meta.last_page)) } })
       .catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : 'Could not load bank questions.') })
     return () => { cancelled = true }
   }, [base, mode, selectedBankId, bankSearch, bankPage])
@@ -136,6 +146,32 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not create the question bank.') } finally { setSaving(false) }
   }
 
+  function beginBankSettings(bank: QuestionBank) {
+    setBankNameDraft(bank.title)
+    setBankDescriptionDraft(bank.description ?? '')
+    setBankSettingsOpen(true)
+  }
+
+  async function updateQuestionBank(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!selectedBankId) return
+    setSaving(true); setError(''); setMessage('')
+    try {
+      await api.patch(`${base}/question-banks/${selectedBankId}`, { title: bankNameDraft.trim(), description: bankDescriptionDraft.trim() || null })
+      await loadQuestionBanks()
+      setBankSettingsOpen(false); setMessage('Question bank details updated.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not update the question bank.') } finally { setSaving(false) }
+  }
+
+  async function deleteQuestionBank() {
+    if (!selectedBankId || !window.confirm('Delete this course question bank? Quiz copies will stay available.')) return
+    setSaving(true); setError(''); setMessage('')
+    try {
+      await api.delete(`${base}/question-banks/${selectedBankId}`)
+      setSelectedBankId(null); setBankSettingsOpen(false)
+      await loadQuestionBanks(); setMessage('Question bank deleted. Existing quiz copies remain unchanged.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not delete the question bank.') } finally { setSaving(false) }
+  }
+
   async function addQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!quiz) return
     const options = optionsText.split('\n').map(option => option.trim()).filter(Boolean)
@@ -162,6 +198,46 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
       await api.post(`${base}/quizzes/${quiz.id}/questions/from-bank`, { question_bank_question_id: question.id })
       await loadQuizzes(); setMessage('Question copied from the course bank into this quiz draft.')
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not add this bank question.') } finally { setSaving(false) }
+  }
+
+  function beginBankQuestionEdit(question: BankQuestion) {
+    setEditingBankQuestion(question.id)
+    setBankEditPrompt(question.prompt)
+    setBankEditOptions(question.options.join('\n'))
+    setBankEditCorrectOptions(question.correct_options)
+    setBankEditType(question.question_type)
+    setBankEditDifficulty(question.difficulty)
+    setBankEditPoints(String(question.points))
+  }
+
+  async function updateBankQuestion(event: FormEvent<HTMLFormElement>, questionId: number) {
+    event.preventDefault(); if (!selectedBankId) return
+    const options = bankEditOptions.split('\n').map(option => option.trim()).filter(Boolean)
+    setSaving(true); setError(''); setMessage('')
+    try {
+      await api.patch(`${base}/question-banks/${selectedBankId}/questions/${questionId}`, {
+        prompt: bankEditPrompt,
+        options,
+        question_type: bankEditType,
+        difficulty: bankEditDifficulty,
+        points: Number(bankEditPoints),
+        ...(bankEditType === 'multiple_select' ? { correct_options: bankEditCorrectOptions } : { correct_option: bankEditCorrectOptions[0] }),
+      })
+      setEditingBankQuestion(null)
+      await Promise.all([loadQuestionBanks(), loadQuizzes()])
+      setMessage('Question bank item updated. Quiz copies keep their saved content.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not update this bank question.') } finally { setSaving(false) }
+  }
+
+  async function deleteBankQuestion(question: BankQuestion) {
+    if (!selectedBankId || !window.confirm('Delete this question from the course bank? Copies already saved in quizzes will remain.')) return
+    setSaving(true); setError(''); setMessage('')
+    try {
+      await api.delete(`${base}/question-banks/${selectedBankId}/questions/${question.id}`)
+      setEditingBankQuestion(null)
+      await Promise.all([loadQuestionBanks(), loadQuizzes()])
+      setMessage('Question removed from the course bank.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not delete this bank question.') } finally { setSaving(false) }
   }
 
   async function publishQuiz() {
@@ -226,10 +302,14 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
           <button className="master-submit" disabled={saving}><Plus size={14} />Create bank</button>
         </form>
         {questionBanks.length > 0 ? <>
-          <div className="quiz-bank-toolbar"><label>Bank<select aria-label="Select course question bank" value={selectedBankId ?? ''} onChange={event => { setSelectedBankId(Number(event.target.value)); setBankPage(1) }}>{questionBanks.map(bank => <option key={bank.id} value={bank.id}>{bank.title} · {bank.questions_count} questions</option>)}</select></label><label>Search questions<input aria-label="Search bank questions" value={bankSearch} onChange={event => { setBankSearch(event.target.value); setBankPage(1) }} placeholder="Search prompts" /></label></div>
+          <div className="quiz-bank-toolbar"><label>Bank<select aria-label="Select course question bank" value={selectedBankId ?? ''} onChange={event => { setSelectedBankId(Number(event.target.value)); setBankPage(1); setBankSettingsOpen(false) }}>{questionBanks.map(bank => <option key={bank.id} value={bank.id}>{bank.title} · {bank.questions_count} questions</option>)}</select></label><label>Search questions<input aria-label="Search bank questions" value={bankSearch} onChange={event => { setBankSearch(event.target.value); setBankPage(1) }} placeholder="Search prompts" /></label><div className="quiz-bank-settings-actions"><button type="button" className="master-action" disabled={saving || !questionBanks.find(bank => bank.id === selectedBankId)} onClick={() => { const bank = questionBanks.find(item => item.id === selectedBankId); if (bank) beginBankSettings(bank) }}>Edit bank</button><button type="button" className="master-action" disabled={saving || !selectedBankId} onClick={() => void deleteQuestionBank()}><Trash2 size={13} />Delete bank</button></div></div>
+          {bankSettingsOpen && <form className="quiz-bank-edit-form" onSubmit={event => void updateQuestionBank(event)}><label>Bank name<input required minLength={2} maxLength={150} value={bankNameDraft} onChange={event => setBankNameDraft(event.target.value)} /></label><label>Description<input maxLength={1000} value={bankDescriptionDraft} onChange={event => setBankDescriptionDraft(event.target.value)} /></label><div className="quiz-bank-question-actions"><button className="master-submit" disabled={saving}><Save size={14} />Save bank</button><button className="master-action" type="button" disabled={saving} onClick={() => setBankSettingsOpen(false)}>Cancel</button></div></form>}
           {bankQuestions.length ? <div className="quiz-bank-questions">{bankQuestions.map(question => {
             const added = quiz?.questions.some(item => item.question_bank_question_id === question.id) ?? false
-            return <article key={question.id}><div><b>{question.prompt}</b><small>{question.question_type === 'multiple_select' ? 'Multiple select' : 'Single choice'} · {question.difficulty} · {question.points} pt{question.points === 1 ? '' : 's'}</small></div><button type="button" className="master-action" disabled={!quiz || quiz.status !== 'draft' || saving || added} onClick={() => void addBankQuestion(question)}>{added ? 'Added' : 'Add to quiz'}</button></article>
+            const options = bankEditOptions.split('\n').map(option => option.trim()).filter(Boolean)
+            return <div className="quiz-bank-question-entry" key={question.id}><article><div><b>{question.prompt}</b><small>{question.question_type === 'multiple_select' ? 'Multiple select' : 'Single choice'} · {question.difficulty} · {question.points} pt{question.points === 1 ? '' : 's'}</small></div><div className="quiz-bank-question-actions"><button type="button" className="master-action" disabled={saving} onClick={() => editingBankQuestion === question.id ? setEditingBankQuestion(null) : beginBankQuestionEdit(question)}><Pencil size={13} />{editingBankQuestion === question.id ? 'Cancel' : 'Edit'}</button><button type="button" className="master-action" disabled={saving} onClick={() => void deleteBankQuestion(question)}><Trash2 size={13} />Remove</button><button type="button" className="master-action" disabled={!quiz || quiz.status !== 'draft' || saving || added} onClick={() => void addBankQuestion(question)}>{added ? 'Added' : 'Add to quiz'}</button></div></article>
+              {editingBankQuestion === question.id && <form className="course-form quiz-bank-edit-form" onSubmit={event => void updateBankQuestion(event, question.id)}><label>Prompt<input required minLength={3} maxLength={2000} value={bankEditPrompt} onChange={event => setBankEditPrompt(event.target.value)} /></label><label>Answer choices, one per line<textarea required rows={3} value={bankEditOptions} onChange={event => setBankEditOptions(event.target.value)} /></label><div className="assignment-form-row"><label>Question type<select value={bankEditType} onChange={event => setBankEditType(event.target.value as Question['question_type'])}><option value="single_choice">Single choice</option><option value="multiple_select">Select all that apply</option></select></label><label>Difficulty<select value={bankEditDifficulty} onChange={event => setBankEditDifficulty(event.target.value as Question['difficulty'])}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label><label>Points<input type="number" min="1" max="1000" value={bankEditPoints} onChange={event => setBankEditPoints(event.target.value)} /></label></div>{bankEditType === 'multiple_select' ? <fieldset className="quiz-correct-options"><legend>Correct answers (choose at least two)</legend>{options.map((option, index) => <label key={`bank-edit-${index}`}><input type="checkbox" checked={bankEditCorrectOptions.includes(index)} onChange={event => setBankEditCorrectOptions(current => event.target.checked ? [...current, index].sort() : current.filter(item => item !== index))} />{index + 1}. {option}</label>)}</fieldset> : <label>Correct answer number<input type="number" min="1" max={options.length} value={(bankEditCorrectOptions[0] ?? 0) + 1} onChange={event => setBankEditCorrectOptions([Number(event.target.value) - 1])} /></label>}<button className="master-submit" disabled={saving || options.length < 2 || (bankEditType === 'multiple_select' && bankEditCorrectOptions.length < 2)}><Save size={14} />Save question</button></form>}
+            </div>
           })}</div> : <p className="master-empty">{bankSearch.trim() ? 'No bank questions match this search.' : 'This bank has no questions yet.'}</p>}
           {bankLastPage > 1 && <div className="platform-directory-pagination"><span>Page {bankPage} of {bankLastPage} · {bankTotal} questions</span><button className="master-action" type="button" disabled={bankPage <= 1} onClick={() => setBankPage(page => page - 1)}>Previous</button><button className="master-action" type="button" disabled={bankPage >= bankLastPage} onClick={() => setBankPage(page => page + 1)}>Next</button></div>}
         </> : <p className="master-empty">Create a bank to store and reuse course questions.</p>}

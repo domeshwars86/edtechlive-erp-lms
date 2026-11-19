@@ -204,6 +204,10 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('/courses/{course}/question-banks', [CourseQuizController::class, 'storeQuestionBank'])->whereNumber('course');
                 Route::get('/question-banks/{bank}/questions', [CourseQuizController::class, 'questionBankQuestions'])->whereNumber('bank');
                 Route::post('/question-banks/{bank}/questions', [CourseQuizController::class, 'storeQuestionBankQuestion'])->whereNumber('bank');
+                Route::patch('/question-banks/{bank}', [CourseQuizController::class, 'updateQuestionBank'])->whereNumber('bank');
+                Route::delete('/question-banks/{bank}', [CourseQuizController::class, 'deleteQuestionBank'])->whereNumber('bank');
+                Route::patch('/question-banks/{bank}/questions/{question}', [CourseQuizController::class, 'updateQuestionBankQuestion'])->whereNumber('bank')->whereNumber('question');
+                Route::delete('/question-banks/{bank}/questions/{question}', [CourseQuizController::class, 'deleteQuestionBankQuestion'])->whereNumber('bank')->whereNumber('question');
                 Route::patch('/quizzes/{quiz}', [CourseQuizController::class, 'update'])->whereNumber('quiz');
                 Route::post('/quizzes/{quiz}/questions', [CourseQuizController::class, 'addQuestion'])->whereNumber('quiz');
                 Route::post('/quizzes/{quiz}/questions/from-bank', [CourseQuizController::class, 'addQuestionFromBank'])->whereNumber('quiz');
