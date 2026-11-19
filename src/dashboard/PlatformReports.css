@@ -1,0 +1,5 @@
+.platform-report-actions{display:flex;align-items:center;gap:7px}
+.platform-report-actions>.master-action{display:inline-flex;align-items:center;gap:6px}
+.platform-report-actions>.master-action:disabled{opacity:.55;cursor:not-allowed}
+.platform-report-footnote{margin:0;padding:13px 22px;color:#7c8da0;font-size:10px;line-height:1.6}
+@media(max-width:600px){.platform-reports .dash-panel-heading{align-items:flex-start}.platform-report-actions{flex:none}.platform-report-footnote{padding-left:14px;padding-right:14px}}

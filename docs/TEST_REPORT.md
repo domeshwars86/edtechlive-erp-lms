@@ -463,3 +463,7 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 
 - The Audit logs navigation opens a dedicated paginated view for organization suspension/reactivation events. The screen includes event time, organization, status transition, operator and required reason, and labels the current limited audit scope.
 - The existing Laravel platform-audit authorization/history tests passed (**5 tests / 56 assertions**). Web typecheck, ESLint and production build passed; 17 public routes prerendered and the audit page is a 3.24 kB lazy-loaded chunk. Broad platform event auditing remains unimplemented.
+## Super Admin platform snapshot report (19 November 2026)
+
+- Platform reports now consumes the existing allowlisted aggregate API and exports a five-column CSV containing current organization/user/educator/enquiry totals and the eight latest organizations. The screen explains the snapshot-only scope and excludes learner-level records.
+- Web typecheck, ESLint and production build passed; 17 public routes prerendered. The report component is a 4.56 kB lazy-loaded JavaScript chunk with 0.51 kB CSS. The underlying allowlist and aggregate endpoint are covered by the existing platform feature tests.
