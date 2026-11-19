@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\MeetingController;
 use App\Http\Controllers\Api\V1\NotificationController;
+use App\Http\Controllers\Api\V1\NotificationPreferencesController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\OrganizationInvitationController;
 use App\Http\Controllers\Api\V1\OrganizationSettingsController;
@@ -91,6 +92,8 @@ Route::prefix('v1')->group(function (): void {
 
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/me', MeController::class)->name('api.v1.me');
+        Route::get('/me/notification-preferences', [NotificationPreferencesController::class, 'show'])->name('api.v1.me.notification-preferences.show');
+        Route::patch('/me/notification-preferences', [NotificationPreferencesController::class, 'update'])->name('api.v1.me.notification-preferences.update');
         Route::get('/platform/overview', PlatformOverviewController::class)->middleware('verified');
         Route::get('/platform/organizations', [PlatformOrganizationController::class, 'index'])->middleware('verified');
         Route::patch('/platform/organizations/{organization}', [PlatformOrganizationController::class, 'update'])->whereNumber('organization')->middleware('verified');

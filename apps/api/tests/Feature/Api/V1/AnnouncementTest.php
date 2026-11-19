@@ -52,6 +52,24 @@ class AnnouncementTest extends TestCase
         ])->assertForbidden();
     }
 
+    public function test_announcement_delivery_respects_recipient_preferences(): void
+    {
+        $organization = $this->organization('Preference Academy');
+        $admin = User::factory()->create();
+        $student = User::factory()->create();
+        $student->forceFill(['notification_preferences' => ['announcements' => false]])->save();
+        $this->membership($organization, $admin, OrganizationRole::Admin);
+        $this->membership($organization, $student, OrganizationRole::Student);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/v1/organizations/{$organization->id}/announcements", [
+            'title' => 'Exam schedule', 'body' => 'Check your portal for details.', 'audience' => 'students',
+        ])->assertCreated()->assertJsonPath('data.recipient_count', 0);
+
+        Sanctum::actingAs($student);
+        $this->getJson("/api/v1/organizations/{$organization->id}/notifications")->assertOk()->assertJsonCount(0, 'data');
+    }
+
     private function organization(string $name): Organization
     {
         return Organization::query()->create([

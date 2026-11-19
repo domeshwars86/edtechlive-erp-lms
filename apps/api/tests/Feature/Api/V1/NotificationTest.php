@@ -18,6 +18,21 @@ class NotificationTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_user_can_read_and_update_in_app_notification_preferences(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/v1/me/notification-preferences')->assertOk()
+            ->assertJsonPath('data.announcements', true)->assertJsonPath('data.meetings', true)->assertJsonPath('data.fees', true);
+        $this->patchJson('/api/v1/me/notification-preferences', [
+            'announcements' => false, 'meetings' => true, 'fees' => false,
+        ])->assertOk()->assertJsonPath('data.announcements', false)->assertJsonPath('data.fees', false);
+        $this->assertSame(['announcements' => false, 'meetings' => true, 'fees' => false], $user->fresh()->notification_preferences);
+        $this->patchJson('/api/v1/me/notification-preferences', ['announcements' => 'sometimes'])
+            ->assertUnprocessable();
+    }
+
     public function test_notification_list_and_read_receipt_are_user_and_organization_scoped(): void
     {
         $user = User::factory()->create();

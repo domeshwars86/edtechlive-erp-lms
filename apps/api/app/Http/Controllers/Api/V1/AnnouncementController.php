@@ -7,6 +7,7 @@ use App\Enums\OrganizationRole;
 use App\Models\Announcement;
 use App\Models\OrganizationMembership;
 use App\Models\User;
+use App\Services\NotificationPreferences;
 use App\Services\OrganizationAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ use Illuminate\Validation\Rule;
 
 class AnnouncementController
 {
-    public function __construct(private readonly OrganizationAccess $access) {}
+    public function __construct(private readonly OrganizationAccess $access, private readonly NotificationPreferences $preferences) {}
 
     public function index(Request $request, int $organization): JsonResponse
     {
@@ -45,8 +46,10 @@ class AnnouncementController
             'parents' => [OrganizationRole::Parent],
             default => [OrganizationRole::Admin, OrganizationRole::Management, OrganizationRole::IndependentEducator, OrganizationRole::Teacher, OrganizationRole::Student, OrganizationRole::Parent],
         };
-        $recipients = OrganizationMembership::query()->where('organization_id', $organization)
-            ->where('status', MembershipStatus::Active)->whereIn('role', $roles)->pluck('user_id')->unique()->values();
+        $recipients = User::query()->whereIn('id', OrganizationMembership::query()->where('organization_id', $organization)
+            ->where('status', MembershipStatus::Active)->whereIn('role', $roles)->select('user_id'))
+            ->get()->filter(fn (User $user): bool => $this->preferences->allows($user, 'announcement'))
+            ->pluck('id')->values();
 
         $announcement = DB::transaction(function () use ($data, $organization, $request, $recipients): Announcement {
             $announcement = Announcement::query()->create([

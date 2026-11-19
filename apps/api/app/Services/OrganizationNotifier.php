@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Notification;
 
 class OrganizationNotifier
 {
+    public function __construct(private readonly NotificationPreferences $preferences) {}
+
     public function feeIssued(FeeRecord $fee, int $actorId): void
     {
         $fee->loadMissing('student:id,user_id,name');
@@ -30,7 +32,7 @@ class OrganizationNotifier
             'organization_id' => $fee->organization_id,
             'kind' => 'fee_issued',
             'title' => 'New fee record',
-            'body' => "{$fee->title} · INR {$fee->amount}".($fee->due_on ? " · Due {$fee->due_on->format('d M Y')}" : ''),
+            'body' => 'A new fee record is available. Sign in to view details.',
             'resource_type' => 'fee_record',
             'resource_id' => $fee->id,
         ], $actorId);
@@ -46,7 +48,7 @@ class OrganizationNotifier
             'organization_id' => $fee->organization_id,
             'kind' => 'fee_payment',
             'title' => 'Payment receipt recorded',
-            'body' => "INR {$amount} recorded for {$fee->title}.",
+            'body' => 'A fee payment receipt is available. Sign in to view details.',
             'resource_type' => 'fee_record',
             'resource_id' => $fee->id,
         ], $actorId);
@@ -89,7 +91,8 @@ class OrganizationNotifier
 
     private function notify(Collection|array $userIds, array $payload, int $actorId): void
     {
-        $users = User::query()->whereIn('id', collect($userIds)->filter()->unique()->reject(fn (int $id): bool => $id === $actorId))->get();
+        $users = User::query()->whereIn('id', collect($userIds)->filter()->unique()->reject(fn (int $id): bool => $id === $actorId))
+            ->get()->filter(fn (User $user): bool => $this->preferences->allows($user, $payload['kind']));
         Notification::send($users, new WorkspaceNotification($payload));
     }
 }

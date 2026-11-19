@@ -2,6 +2,13 @@
 
 **Updated:** 19 November 2026
 
+## Notification preferences and browser preview (19 November 2026)
+
+- Added account-level in-app preferences for announcements, scheduled meetings, and fee notices. All categories default to enabled, and server delivery applies saved preferences; notification fee text avoids exposing fee amounts/titles.
+- Preference settings are available from the signed-in notification bell and are validated through authenticated `GET/PATCH /api/v1/me/notification-preferences`. Announcement preference filtering, default values, validation, and persistence are covered by tests.
+- Full Laravel suite passed on in-memory SQLite (**132 tests / 1,075 assertions**); Pint, web typecheck, ESLint, and production build passed (14 routes prerendered; 488.56 kB main bundle). Local SQLite migration applied. PostgreSQL verification remains open.
+- Restarted the local Vite/Laravel stack with browser-accessible permissions; localhost website and API health returned HTTP 200.
+
 ## Batch master and local verification recovery (19 November 2026)
 
 - Added tenant-scoped academic batches with create/edit/activate/deactivate, search, session/class/status filters, pagination, section-placement checks, and organization isolation. The admin Academic masters page includes the Batches tab.
