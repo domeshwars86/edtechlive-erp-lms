@@ -47,6 +47,7 @@ use App\Http\Controllers\Api\V1\PlatformAuditEventController;
 use App\Http\Controllers\Api\V1\PlatformOrganizationController;
 use App\Http\Controllers\Api\V1\PlatformOverviewController;
 use App\Http\Controllers\Api\V1\PlatformUserController;
+use App\Http\Controllers\Api\V1\PublicCourseController;
 use App\Http\Controllers\Api\V1\StudentGuardianController;
 use App\Http\Controllers\Api\V1\TeacherWorkloadReportController;
 use App\Http\Controllers\Api\V1\TeachingAssignmentController;
@@ -60,6 +61,10 @@ Route::prefix('v1')->group(function (): void {
         'version' => 'v1',
     ]))->name('api.v1.health');
     Route::get('/health/ready', [HealthController::class, 'ready'])->name('api.v1.health.ready');
+    Route::get('/public/courses', [PublicCourseController::class, 'index'])->middleware('throttle:120,1')->name('api.v1.public.courses.index');
+    Route::get('/public/organizations/{organizationSlug}/courses/{courseSlug}', [PublicCourseController::class, 'show'])
+        ->where(['organizationSlug' => '[A-Za-z0-9-]{1,120}', 'courseSlug' => '[A-Za-z0-9-]{1,180}'])
+        ->middleware('throttle:120,1')->name('api.v1.public.courses.show');
 
     Route::post('/enquiries', [ContactEnquiryController::class, 'store'])
         ->middleware('throttle:6,1')->name('api.v1.enquiries.store');

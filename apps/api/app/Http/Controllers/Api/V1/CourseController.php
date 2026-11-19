@@ -80,12 +80,22 @@ class CourseController
             'description' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'subject_id' => ['sometimes', 'nullable', 'integer', Rule::exists('subjects', 'id')->where('organization_id', $organization)],
             'status' => ['sometimes', Rule::in(['draft', 'published', 'archived'])],
+            'is_public_listing' => ['sometimes', 'boolean'],
             'teacher_id' => [Rule::prohibitedIf($membership->role === OrganizationRole::Teacher), 'sometimes', 'nullable', 'integer', Rule::exists('teachers', 'id')->where('organization_id', $organization)->where('status', 'active')],
         ]);
+        if (array_key_exists('is_public_listing', $data) && $course->status !== 'published') {
+            throw ValidationException::withMessages(['is_public_listing' => ['Only published courses can change their public listing setting.']]);
+        }
+        if (($data['is_public_listing'] ?? false) && ($data['status'] ?? $course->status) !== 'published') {
+            throw ValidationException::withMessages(['is_public_listing' => ['A public course must remain published.']]);
+        }
         if (($data['status'] ?? null) === 'published' && $course->lessons()->where('status', 'published')->doesntExist()) {
             throw ValidationException::withMessages(['status' => ['Publish at least one lesson before publishing a course.']]);
         }
         $data['published_at'] = ($data['status'] ?? null) === 'published' ? ($course->published_at ?? now()) : $course->published_at;
+        if (isset($data['status']) && $data['status'] !== 'published') {
+            $data['is_public_listing'] = false;
+        }
         unset($data['teacher_id']);
         $course->update($data);
 
@@ -201,9 +211,11 @@ class CourseController
         return [
             'id' => $course->id,
             'title' => $course->title,
+            'slug' => $course->slug,
             'level' => $course->level,
             'description' => $course->description,
             'status' => $course->status,
+            'is_public_listing' => $course->is_public_listing,
             'subject' => $course->subject?->only(['id', 'name']),
             'teacher' => $course->teacher?->only(['id', 'name']),
             'published_at' => $course->published_at?->toISOString(),

@@ -1,21 +1,56 @@
 import { expect, test } from '@playwright/test'
 
-test('homepage navigation opens searchable sample course details', async ({ page }) => {
+test('homepage sample courses and API-backed public course discovery both work', async ({ page }) => {
   await page.goto('/')
   await expect(page).toHaveTitle(/edTechLive/)
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Good learning')
 
-  await page.getByRole('link', { name: 'Courses', exact: true }).first().click()
-  await expect(page).toHaveURL(/\/courses$/)
-  await page.getByRole('textbox', { name: 'Search courses' }).fill('Python')
   await expect(page.getByRole('link', { name: 'View sample course: The foundations of Python' })).toBeVisible()
-  await expect(page.getByRole('link', { name: /Algebra/ })).toHaveCount(0)
-
   await page.getByRole('link', { name: 'View sample course: The foundations of Python' }).click()
   await expect(page).toHaveURL(/\/courses\/python-foundations$/)
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('foundations of Python')
   await expect(page.getByRole('heading', { name: 'Example syllabus' })).toBeVisible()
-  await expect(page.getByText('enrollment is not open', { exact: false }).first()).toBeVisible()
+
+  const course = {
+    title: 'Foundations of Python',
+    description: 'Learn to write small programs with clear examples.',
+    level: 'Beginner',
+    slug: 'foundations-of-python',
+    subject: 'Computer Science',
+    organization: { name: 'Browser Test School', slug: 'browser-test-school' },
+    published_lesson_count: 2,
+  }
+  await page.route('**/api/v1/public/courses*', route => {
+    const url = new URL(route.request().url())
+    const visible = (!url.searchParams.has('q') || course.title.toLowerCase().includes(url.searchParams.get('q')!.toLowerCase()))
+      && (!url.searchParams.has('level') || url.searchParams.get('level') === course.level)
+      && (!url.searchParams.has('subject') || url.searchParams.get('subject') === course.subject)
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: visible ? [course] : [],
+        meta: { current_page: Number(url.searchParams.get('page') || '1'), last_page: 1, per_page: 12, total: visible ? 1 : 0 },
+        filters: { levels: ['Beginner'], subjects: [{ name: 'Computer Science' }] },
+      }),
+    })
+  })
+  await page.route('**/api/v1/public/organizations/browser-test-school/courses/foundations-of-python', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: { ...course, lessons: [{ title: 'First steps', sort_order: 1 }, { title: 'Use variables', sort_order: 2 }] } }),
+  }))
+
+  await page.getByRole('link', { name: 'Courses', exact: true }).first().click()
+  await expect(page).toHaveURL(/\/courses$/)
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('questions to begin', { timeout: 30_000 })
+  await page.getByRole('textbox', { name: 'Search published courses' }).fill('Python')
+  await expect(page.getByRole('link', { name: /Foundations of Python/ })).toBeVisible()
+  await expect(page.getByText('Browser Test School')).toBeVisible()
+  await page.getByRole('combobox', { name: 'Filter by subject' }).selectOption('Computer Science')
+  await page.getByRole('link', { name: /Foundations of Python/ }).click()
+  await expect(page).toHaveURL(/\/courses\/browser-test-school\/foundations-of-python$/)
+  await expect(page.getByRole('heading', { name: 'Foundations of Python' })).toBeVisible()
+  await expect(page.getByText('First steps')).toBeVisible()
 })
 
 test('mobile menu is operable and public pages avoid horizontal overflow', async ({ page }) => {

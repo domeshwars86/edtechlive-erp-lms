@@ -6,7 +6,7 @@ An education ERP and learning platform for institutions, independent educators, 
 
 ## Current status
 
-- Responsive public website with homepage, about, feature catalog, sample course discovery, institution/teacher/student solution pages, provisional pricing, connected contact enquiries, authentication screens and draft legal pages.
+- Responsive public website with homepage, about, feature catalog, API-backed public course discovery (with clearly identified sample homepage cards), institution/teacher/student solution pages, provisional pricing, connected contact enquiries, authentication screens and draft legal pages.
 - Responsive role dashboards at `/workspace/:role`: `super-admin`, `admin`, `management`, `teacher`, `student`, `parent`, `educator`.
 - Course search and education-level filtering work locally.
 - Contact form saves consented enquiries to a throttled API. An authenticated platform inbox filters and tracks status for allowlisted operators; optional email requires `ENQUIRY_RECIPIENT` and a configured mail transport.
@@ -59,7 +59,7 @@ npm run build
 npm run test:e2e
 ```
 
-The Playwright suite starts Vite and Laravel on ports 4188/4189 and uses an isolated, temporary SQLite database with an in-memory mailer; it removes the temporary data when the run ends. Install the browser once with `npx playwright install chromium` before running it locally; CI installs PHP dependencies and Chromium automatically. The suite includes a real local registration, signed verification, session login and workspace-selection flow. Contact-form requests and a separate UI regression case use mocked responses; no email is delivered.
+The Playwright suite starts Vite and Laravel on ports 4188/4189 and uses an isolated, temporary SQLite database with an in-memory mailer; it removes the temporary data when the run ends. Install the browser once with `npx playwright install chromium` before running it locally; CI installs PHP dependencies and Chromium automatically. The suite includes mocked published-course listing/filter/detail behavior, a real local registration, signed verification, session login and workspace-selection flow. Contact-form requests and a separate UI regression case use mocked responses; no email is delivered.
 
 ## Technology
 

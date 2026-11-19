@@ -2,6 +2,12 @@
 
 **Updated:** 19 November 2026
 
+## Public course discovery (19 November 2026)
+
+- Added public course listing and detail APIs, default-off organization opt-in, organization-unique slugs, and a privacy-safe response containing published lesson titles only. API regression checks cover editor permissions, draft/publication requirements, disabled/suspended/unlisted courses, filtering, pagination, and private-field exclusion. The organization course editor now enables/disables listing and offers open/copy link actions.
+- The full Laravel suite passed: **153 tests / 1,277 assertions** on in-memory SQLite. `vendor/bin/pint --test`, web typecheck, and ESLint passed. The production build passed and prerendered 17 public routes; route-level loading splits reduced the main JavaScript chunk to **319.35 kB** (gzip 99.54 kB).
+- Full Playwright Chromium E2E passed: **10 tests** in 1.9 minutes using two workers. The public-catalog browser workflow used a mocked eligible listing and verified search, subject filtering and course details; API privacy/publication behavior was covered by Laravel tests. The current local database migration was applied safely to the ignored SQLite development database. Its public catalog has no eligible courses yet, so it correctly displays the publish-first empty state. No external email or production service was used.
+
 ## Public website browser smoke suite (19 November 2026)
 
 - Added Playwright Chromium E2E coverage for homepage-to-course search/detail navigation, mobile menu operation and overflow, all 19 public/account routes at 320 px and 1440 px, all seven dashboard previews at 320/768/1440 px, mocked contact-form behavior, mocked auth UI state, and login-page verification resend. A separate live browser test uses a fresh temporary SQLite database and array mailer to register an account, follow the real signed verification link, sign in with a browser session, and reach organization selection.
