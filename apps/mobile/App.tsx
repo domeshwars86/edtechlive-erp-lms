@@ -12,6 +12,7 @@ type MobileNotice = { id: string; type: string; title: string; body: string; rea
 type MobileMeeting = { id: number; kind: 'class' | 'management'; title: string; description: string | null; starts_at: string; ends_at: string; meeting_url: string; status: 'scheduled' | 'cancelled'; section: { id: number; name: string; class: string | null } | null; course: { id: number; title: string } | null }
 type MobileRecording = { id: number; title: string; description: string | null; external_url: string | null; download_url: string | null; status: 'draft' | 'published' | 'withdrawn' }
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused'
+type MobileAttendanceStudent = AttendanceStudent & { originalStatus: AttendanceStudent['status']; correctionReason: string }
 type MobileRosterStudent = { id: number; name: string; admission_number: string | null; academic_class: { id: number; name: string } | null; academic_section: { id: number; name: string } | null }
 type MobileRosterTeacher = { id: number; name: string; employee_number: string | null; specialization: string | null }
 type MobileAttendanceReport = { from: string; to: string; totals: { records: number; present: number; late: number; absent: number; excused: number; attendance_rate: number }; sections: { section_id: number; class: string; section: string; records: number; attendance_rate: number; absent: number }[] }
@@ -69,7 +70,7 @@ export default function App() {
   const [teachingAssignments, setTeachingAssignments] = useState<TeachingAssignment[]>([])
   const [attendanceSection, setAttendanceSection] = useState<TeachingAssignment | null>(null)
   const [attendanceDate, setAttendanceDate] = useState(localDate())
-  const [attendanceStudents, setAttendanceStudents] = useState<AttendanceStudent[]>([])
+  const [attendanceStudents, setAttendanceStudents] = useState<MobileAttendanceStudent[]>([])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(true)
@@ -413,7 +414,7 @@ export default function App() {
     setBusy(true); setError(''); setSuccess(''); setAttendanceSection(assignment); setAttendanceStudents([]); setAttendanceDate(localDate())
     try {
       const result = await mobileApi.get<{ data: AttendanceStudent[] }>(`/api/v1/organizations/${active.organization.id}/attendance?section_id=${assignment.academic_section_id}&date=${localDate()}&per_page=200`, token)
-      setAttendanceStudents(result.data)
+      setAttendanceStudents(result.data.map(student => ({ ...student, originalStatus: student.status, correctionReason: '' })))
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not load this attendance register.') }
     finally { setBusy(false) }
   }
@@ -421,13 +422,15 @@ export default function App() {
   async function saveAttendance() {
     if (!active || !token || !attendanceSection) return
     if (attendanceStudents.some(student => !student.status)) { setError('Choose an attendance status for every learner before saving.'); return }
+    if (attendanceStudents.some(student => student.originalStatus !== null && student.status !== student.originalStatus && !student.correctionReason.trim())) { setError('Add a reason for each change to a saved attendance mark.'); return }
     setBusy(true); setError(''); setSuccess('')
     try {
       await mobileApi.put(`/api/v1/organizations/${active.organization.id}/attendance`, token, {
         section_id: attendanceSection.academic_section_id,
         date: attendanceDate,
-        records: attendanceStudents.map(student => ({ student_id: student.id, status: student.status })),
+        records: attendanceStudents.map(student => ({ student_id: student.id, status: student.status, correction_reason: student.originalStatus !== null && student.status !== student.originalStatus ? student.correctionReason.trim() : null })),
       })
+      setAttendanceStudents(students => students.map(student => ({ ...student, originalStatus: student.status, correctionReason: '' })))
       setSuccess('Attendance saved successfully.')
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not save attendance.') }
     finally { setBusy(false) }
@@ -456,7 +459,10 @@ export default function App() {
         <Text style={styles.pageTitle}>Take attendance</Text>
         <Text style={styles.subtitle}>{attendanceSection.academic_section.academic_class.name} · {attendanceSection.academic_section.name} · {attendanceSection.subject.name}</Text>
         <Text style={styles.courseMeta}>Date: {attendanceDate} · {attendanceSection.academic_session.name}</Text>
-        {attendanceStudents.length ? attendanceStudents.map(student => <View style={styles.studentRow} key={student.id}><View><Text style={styles.courseTitle}>{student.name}</Text><Text style={styles.courseMeta}>{student.admission_number || 'Learner'}</Text></View><View style={styles.statusRow}>{attendanceStatuses.map(status => <Pressable key={status} onPress={() => setAttendanceStudents(items => items.map(item => item.id === student.id ? { ...item, status } : item))} style={[styles.statusChip, student.status === status && styles.statusChipSelected]}><Text style={[styles.statusChipText, student.status === status && styles.statusChipTextSelected]}>{status.slice(0, 1).toUpperCase()}</Text></Pressable>)}</View></View>) : <Empty text={busy ? 'Loading class register…' : 'No active learners found for this class and date.'} />}
+        {attendanceStudents.length ? attendanceStudents.map(student => {
+          const correcting = student.originalStatus !== null && student.status !== student.originalStatus
+          return <View style={styles.studentRow} key={student.id}><View style={{ flex: 1 }}><Text style={styles.courseTitle}>{student.name}</Text><Text style={styles.courseMeta}>{student.admission_number || 'Learner'}</Text>{correcting ? <TextInput accessibilityLabel={`Correction reason for ${student.name}`} value={student.correctionReason} onChangeText={correctionReason => setAttendanceStudents(items => items.map(item => item.id === student.id ? { ...item, correctionReason } : item))} placeholder="Why is this saved mark changing?" maxLength={500} style={styles.attendanceReasonInput} /> : null}</View><View style={styles.statusRow}>{attendanceStatuses.map(status => <Pressable key={status} onPress={() => setAttendanceStudents(items => items.map(item => item.id === student.id ? { ...item, status } : item))} style={[styles.statusChip, student.status === status && styles.statusChipSelected]}><Text style={[styles.statusChipText, student.status === status && styles.statusChipTextSelected]}>{status.slice(0, 1).toUpperCase()}</Text></Pressable>)}</View></View>
+        }) : <Empty text={busy ? 'Loading class register…' : 'No active learners found for this class and date.'} />}
         {attendanceStudents.length ? <Text style={styles.courseMeta}>P present · A absent · L late · E excused. All learners need a selection before saving.</Text> : null}
         {attendanceStudents.length ? <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void saveAttendance()} disabled={busy}><Text style={styles.primaryButtonText}>{busy ? 'Saving…' : 'Save attendance'}</Text></Pressable> : null}
       </> : selectedCourse ? <>
@@ -763,6 +769,7 @@ const styles = StyleSheet.create({
   progressTrack: { height: 6, borderRadius: 99, backgroundColor: '#e9eef5', overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 99, backgroundColor: '#3f7ccf' },
   studentRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: 11, marginBottom: 7, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
+  attendanceReasonInput: { minHeight: 38, marginTop: 7, paddingHorizontal: 9, borderWidth: 1, borderColor: '#dce4ed', borderRadius: 7, color: '#425b75', fontSize: 11 },
   statusRow: { flexDirection: 'row', gap: 4 },
   statusChip: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f4f8' },
   statusChipSelected: { backgroundColor: '#3568c7' },
