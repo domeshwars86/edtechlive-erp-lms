@@ -26,6 +26,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const updateUser = useCallback((currentUser: ApiUser) => setUser(currentUser), [])
+
   useEffect(() => { void refresh() }, [refresh])
 
   const signIn = useCallback(async (email: string, password: string, remember = false) => {
@@ -52,8 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(() => ({
-    user, loading, activeMembership, refresh, signIn, signOut, selectOrganization,
-  }), [user, loading, activeMembership, refresh, signIn, signOut, selectOrganization])
+    user, loading, activeMembership, refresh, updateUser, signIn, signOut, selectOrganization,
+  }), [user, loading, activeMembership, refresh, updateUser, signIn, signOut, selectOrganization])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

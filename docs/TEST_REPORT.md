@@ -2,6 +2,11 @@
 
 **Updated:** 19 November 2026
 
+## Self-service account profiles (19 November 2026)
+
+- Signed-in users can change their display name and email after confirming their current password. Email changes normalize and enforce uniqueness, clear the verified timestamp, and send a fresh signed verification link; platform-operator allowlist addresses cannot be claimed or changed through this endpoint.
+- The full Laravel suite passed (**175 tests / 1,531 assertions**) on in-memory SQLite; the focused account profile suite passed (**4 tests / 29 assertions**). The real Chromium registration/auth flow passed (**1 test in 1.4 minutes**) after adding profile edit, signed verification of the new address, reload and workspace selection; the account page also stayed within a 390px mobile viewport. Web typecheck, ESLint, production build (17 prerendered routes), Playwright TypeScript check, and Pint passed. Live email delivery and PostgreSQL validation for newer migrations remain open.
+
 ## Platform user account controls (19 November 2026)
 
 - The verified platform operator can filter accounts by global status and suspend/reactivate ordinary accounts with a required reason. The change is audited with actor, target, reason and before/after status. The endpoint blocks self-changes and all allowlisted operator targets; suspended users cannot sign in or call authenticated APIs. The paginated audit UI now displays account changes beside organization status events.

@@ -110,6 +110,8 @@ Route::prefix('v1')->group(function (): void {
 
     Route::middleware(['auth:sanctum', 'account.active'])->group(function (): void {
         Route::get('/me', MeController::class)->name('api.v1.me');
+        Route::patch('/me/profile', [MeController::class, 'updateProfile'])
+            ->middleware('throttle:12,1')->name('api.v1.me.profile.update');
         Route::get('/me/notification-preferences', [NotificationPreferencesController::class, 'show'])->name('api.v1.me.notification-preferences.show');
         Route::patch('/me/notification-preferences', [NotificationPreferencesController::class, 'update'])->name('api.v1.me.notification-preferences.update');
         Route::get('/platform/overview', PlatformOverviewController::class)->middleware('verified');

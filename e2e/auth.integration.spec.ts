@@ -5,6 +5,7 @@ test('real local registration, signed email verification, and browser sign-in wo
   const expectBackend = expect.configure({ timeout: 30_000 })
   const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
   const email = `browser-${unique}@example.test`
+  const updatedEmail = `browser-updated-${unique}@example.test`
   const organization = `Browser Test School ${unique}`
   const password = 'LocalIntegrationPass123'
 
@@ -78,4 +79,25 @@ test('real local registration, signed email verification, and browser sign-in wo
   await page.getByRole('button', { name: 'Overview', exact: true }).click()
   await page.getByRole('button', { name: 'Preferences', exact: true }).click()
   await expectBackend(page.locator('.notification-preference-row').first().locator('input')).not.toBeChecked()
+
+  await page.getByRole('button', { name: 'Account profile', exact: true }).click()
+  await expectBackend(page.getByRole('heading', { name: 'Account profile', exact: true })).toBeVisible()
+  await page.setViewportSize({ width: 390, height: 844 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.getByRole('textbox', { name: 'Full name' }).fill('E2E Profile Updated')
+  await page.getByRole('textbox', { name: 'Email address' }).fill(updatedEmail)
+  await page.getByLabel('Current password').fill('ResetIntegrationPass456')
+  await page.getByRole('button', { name: 'Save account details' }).click()
+  await expectBackend(page.getByText(/Your email was updated/)).toBeVisible()
+  const profileVerificationTab = page.context().waitForEvent('page')
+  await page.getByRole('link', { name: 'Verify email address', exact: true }).click()
+  const verifiedProfilePage = await profileVerificationTab
+  await expectBackend(verifiedProfilePage.locator('body')).toContainText('Email address verified. You can now sign in.')
+  await page.reload()
+  await expectBackend(page.getByRole('heading', { name: 'Choose your workspace' })).toBeVisible()
+  await page.getByRole('button', { name: new RegExp(organization) }).click()
+  await expectBackend(page).toHaveURL(/\/workspace\/admin$/)
+  await expectBackend(page.getByText(updatedEmail)).toBeVisible()
+  await expectBackend(page.getByRole('heading', { name: 'Welcome, E2E Profile Updated' })).toBeVisible()
 })

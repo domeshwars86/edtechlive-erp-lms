@@ -6,6 +6,7 @@ export type AuthContextValue = {
   loading: boolean
   activeMembership: OrganizationMembership | null
   refresh: () => Promise<ApiUser | null>
+  updateUser: (user: ApiUser) => void
   signIn: (email: string, password: string, remember?: boolean) => Promise<ApiUser>
   signOut: () => Promise<void>
   selectOrganization: (membership: OrganizationMembership) => Promise<void>
