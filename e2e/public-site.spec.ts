@@ -144,3 +144,17 @@ test('local account verification link leads back to a working sign-in flow', asy
   await expect(page.getByRole('heading', { name: 'Choose your workspace' })).toBeVisible()
   await expect(page.getByRole('button', { name: /Browser Test School/ })).toBeVisible()
 })
+
+test('all seven dashboard previews fit narrow and desktop viewports', async ({ page }) => {
+  test.setTimeout(120_000)
+  const roles = ['super-admin', 'admin', 'management', 'teacher', 'student', 'parent', 'educator']
+  for (const role of roles) {
+    for (const width of [320, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto(`/workspace/${role}`, { waitUntil: 'domcontentloaded' })
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth)
+      expect(pageWidth, `${role} dashboard preview overflows at ${width}px`).toBeLessThanOrEqual(width)
+    }
+  }
+})
