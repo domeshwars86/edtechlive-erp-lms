@@ -77,4 +77,38 @@ class NotificationTest extends TestCase
         $readList = $this->getJson($base)->assertOk()->assertJsonPath('meta.unread', 0);
         $this->assertNotNull($readList->json('data.0.read_at'));
     }
+
+    public function test_marking_a_notification_read_does_not_reorder_paginated_results(): void
+    {
+        $user = User::factory()->create();
+        $organization = Organization::query()->create([
+            'name' => 'Stable Notices School', 'slug' => 'stable-notices-'.str()->random(6),
+            'type' => OrganizationType::School, 'status' => 'active', 'timezone' => 'Asia/Kolkata',
+        ]);
+        OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $user->id, 'role' => OrganizationRole::Admin,
+            'status' => MembershipStatus::Active, 'accepted_at' => now(),
+        ]);
+
+        foreach (['First notice', 'Second notice', 'Third notice'] as $title) {
+            Notification::send($user, new WorkspaceNotification([
+                'organization_id' => $organization->id, 'kind' => 'announcement', 'title' => $title, 'body' => 'Update',
+            ]));
+        }
+
+        Sanctum::actingAs($user);
+        $base = "/api/v1/organizations/{$organization->id}/notifications";
+        $firstPage = $this->getJson("{$base}?per_page=2&page=1")->assertOk();
+        $secondPageBefore = $this->getJson("{$base}?per_page=2&page=2")->assertOk()->json('data');
+        $notificationId = $firstPage->json('data.0.id');
+
+        $this->postJson("{$base}/{$notificationId}/read")->assertOk();
+
+        $secondPageAfter = $this->getJson("{$base}?per_page=2&page=2")->assertOk()->json('data');
+        $this->assertSame(
+            array_column($secondPageBefore, 'id'),
+            array_column($secondPageAfter, 'id'),
+            'Read receipts must not move notifications across pages.',
+        );
+    }
 }

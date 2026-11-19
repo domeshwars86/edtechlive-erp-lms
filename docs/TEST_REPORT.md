@@ -18,6 +18,10 @@
 
 - Added a full paginated inbox to signed-in Admin, Management, Teacher, Student and Independent Educator dashboards; parents retain their existing Notices entry. The inbox uses the current user's organization-scoped notification list and read receipt endpoints. The full Chromium Management flow and public-site suite passed (**16 tests in 2.4 minutes**), including notice loading and marking it read; the full API regression separately covers user and organization isolation.
 
+## Stable notification pagination and mobile load-more (20 November 2026)
+
+- Notification feeds now use stable newest-first ordering by creation timestamp and ID, so marking an item read cannot move it across paginated results. A regression test compares the second page before and after a first-page read receipt. Mobile now fetches notices in pages of ten, appends additional pages without duplicate IDs, exposes read/unread state to assistive technology, and offers a loading-aware “Load more updates” control. `php artisan test --filter=NotificationTest` passed **8 tests / 48 assertions**, Pint passed for the touched API files, `apps/mobile` TypeScript typecheck passed, and `npx expo export --platform android` produced the Android JS bundle (**1.7 MB; 564 modules**). Native-device behavior remains a separate gate.
+
 ## Keyboard navigation landmarks (20 November 2026)
 
 - Added visible-on-focus skip links before the public header, account form and dashboard sidebar; each link focuses its main landmark. Course detail content uses a section container rather than a nested `main` landmark. Dashboard sidebar buttons announce the selected section with `aria-current`. TypeScript, ESLint, and the production build passed; the complete public-site Chromium spec passed (**16 tests in 2.0 minutes**), including first-tab focus, fragment navigation, target focus, active-section announcement and exactly one main landmark on public, account and dashboard shells.

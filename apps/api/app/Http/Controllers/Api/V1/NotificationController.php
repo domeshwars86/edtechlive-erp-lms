@@ -15,7 +15,7 @@ class NotificationController
         $this->access->membership($request, $organization);
         $notifications = $request->user()->notifications()
             ->whereJsonContains('data', ['organization_id' => $organization])
-            ->orderByRaw('read_at IS NULL DESC')->orderByDesc('created_at')
+            ->orderByDesc('created_at')->orderByDesc('id')
             ->paginate(min(max($request->integer('per_page', 20), 1), 100));
 
         return response()->json([

@@ -8,7 +8,7 @@ The planned system is a public React web experience, role-based web application,
 
 ## Functional requirements
 
-1. Visitors can navigate the statically rendered public product pages and search, filter and paginate explicitly published public course listings by level and subject. Course detail pages show published lesson titles and offer contextual enquiry; enrollment and public educator profiles are not available yet.
+1. Visitors can navigate the statically rendered public product pages and search, filter and paginate explicitly published public course listings by level and subject. Course detail pages show published lesson titles and offer contextual enquiry; public self-enrollment and educator profiles are not available yet. Authorized organization staff can assign course enrollment.
 2. Visitors can submit a consented contact enquiry to the throttled API; staff review is restricted to an allowlisted verified platform operator, and email delivery requires configuration.
 3. Users can register, verify email, sign in, recover passwords, and select active organization memberships; real email delivery and broader identity controls remain deployment requirements.
 4. Authenticated users see only workspaces and records allowed by active organization membership, role/resource policy and supported membership capabilities. Organization membership and platform status changes are audited; domain authorization remains enforced by resource-specific API policies.

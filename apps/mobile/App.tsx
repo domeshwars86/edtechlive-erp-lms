@@ -38,6 +38,9 @@ export default function App() {
   const [active, setActive] = useState<OrganizationMembership | null>(null)
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [notices, setNotices] = useState<MobileNotice[]>([])
+  const [noticePage, setNoticePage] = useState(1)
+  const [noticeLastPage, setNoticeLastPage] = useState(1)
+  const [noticeLoading, setNoticeLoading] = useState(false)
   const [meetings, setMeetings] = useState<MobileMeeting[]>([])
   const [meetingSections, setMeetingSections] = useState<MobileMeetingSection[]>([])
   const [meetingFormOpen, setMeetingFormOpen] = useState(false)
@@ -126,12 +129,12 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setNotices([]); setMeetings([]); setMeetingSections([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setMeetingFormOpen(false)
+    setSummary(null); setNotices([]); setNoticePage(1); setNoticeLastPage(1); setNoticeLoading(false); setMeetings([]); setMeetingSections([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setMeetingFormOpen(false)
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
-    mobileApi.get<{ data: MobileNotice[] }>(`${base}/notifications?per_page=10`, token)
-      .then(result => { if (!cancelled) setNotices(result.data) }),
+    mobileApi.get<{ data: MobileNotice[]; meta: { current_page: number; last_page: number } }>(`${base}/notifications?per_page=10&page=1`, token)
+      .then(result => { if (!cancelled) { setNotices(result.data); setNoticePage(result.meta.current_page); setNoticeLastPage(result.meta.last_page) } }),
     mobileApi.get<{ data: MobileMeeting[] }>(`${base}/meetings?per_page=100`, token)
       .then(async result => {
         if (cancelled) return
@@ -437,6 +440,29 @@ export default function App() {
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not update this notification.') }
   }
 
+  async function loadMoreNotices() {
+    if (!active || !token || noticeLoading || noticePage >= noticeLastPage) return
+    setNoticeLoading(true)
+    setError('')
+    try {
+      const nextPage = noticePage + 1
+      const result = await mobileApi.get<{ data: MobileNotice[]; meta: { current_page: number; last_page: number } }>(
+        `/api/v1/organizations/${active.organization.id}/notifications?per_page=10&page=${nextPage}`,
+        token,
+      )
+      setNotices(current => {
+        const knownIds = new Set(current.map(item => item.id))
+        return [...current, ...result.data.filter(item => !knownIds.has(item.id))]
+      })
+      setNoticePage(result.meta.current_page)
+      setNoticeLastPage(result.meta.last_page)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not load more updates.')
+    } finally {
+      setNoticeLoading(false)
+    }
+  }
+
   async function loadAttendance(assignment: TeachingAssignment) {
     if (!active || !token) return
     setBusy(true); setError(''); setSuccess(''); setAttendanceSection(assignment); setAttendanceStudents([]); setAttendanceDate(localDate())
@@ -544,7 +570,7 @@ export default function App() {
     try { if (current) await mobileApi.post('/api/v1/auth/logout', current) }
     catch { /* Local credentials must still be removed if the API is offline. */ }
     await SecureStore.deleteItemAsync(TOKEN_KEY); await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
-    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setMeetingSections([]); setMeetingFormOpen(false); setMeetingKind('class'); setMeetingSectionId(''); setMeetingTitle(''); setMeetingDescription(''); setMeetingUrl(''); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setExamSectionSummaries([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setAccountOpen(false); setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation(''); setVerificationUrl(''); setBusy(false)
+    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setNoticePage(1); setNoticeLastPage(1); setNoticeLoading(false); setMeetings([]); setMeetingSections([]); setMeetingFormOpen(false); setMeetingKind('class'); setMeetingSectionId(''); setMeetingTitle(''); setMeetingDescription(''); setMeetingUrl(''); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setExamSectionSummaries([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setAccountOpen(false); setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation(''); setVerificationUrl(''); setBusy(false)
   }
 
   if (busy && !user) return <Splash />
@@ -675,7 +701,10 @@ export default function App() {
         })}
         {!meetings.some(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000) ? <Empty text="No recent or upcoming meetings are available." /> : null}
         <Text style={styles.sectionTitle}>Recent updates</Text>
-        {notices.length ? notices.map(notice => <Pressable key={notice.id} onPress={() => void markNoticeRead(notice)} style={[styles.noticeCard, !notice.read_at && styles.noticeUnread]}><Text style={styles.courseTitle}>{notice.title}</Text><Text style={styles.courseMeta}>{notice.body}</Text>{notice.created_at ? <Text style={styles.noticeDate}>{new Date(notice.created_at).toLocaleString()}</Text> : null}</Pressable>) : <Empty text="No recent updates." />}
+        {notices.length ? <>
+          {notices.map(notice => <Pressable key={notice.id} onPress={() => void markNoticeRead(notice)} style={[styles.noticeCard, !notice.read_at && styles.noticeUnread]} accessibilityRole="button" accessibilityLabel={`${notice.title}, ${notice.read_at ? 'read' : 'unread'}`} accessibilityHint={notice.read_at ? 'This notice is already read.' : 'Tap to mark this notice as read.'}><Text style={styles.courseTitle}>{notice.title}</Text><Text style={styles.courseMeta}>{notice.body}</Text>{notice.created_at ? <Text style={styles.noticeDate}>{new Date(notice.created_at).toLocaleString()}</Text> : null}{!notice.read_at ? <Text style={styles.noticeUnreadLabel}>Unread · tap to mark read</Text> : null}</Pressable>)}
+          {noticePage < noticeLastPage ? <Pressable style={styles.noticeLoadMore} onPress={() => void loadMoreNotices()} disabled={noticeLoading} accessibilityRole="button"><Text style={styles.noticeLoadMoreText}>{noticeLoading ? 'Loading updates…' : 'Load more updates'}</Text></Pressable> : null}
+        </> : <Empty text="No recent updates." />}
         {active.role === 'student' && studentProfile ? <View style={styles.infoCard}><Text style={styles.courseTitle}>My profile</Text><Text style={styles.courseMeta}>{studentProfile.admission_number ? `Admission ${studentProfile.admission_number} · ` : ''}{studentProfile.academic_class?.name ?? 'Class not assigned'}{studentProfile.academic_section?.name ? ` · ${studentProfile.academic_section.name}` : ''}{studentProfile.academic_session?.name ? ` · ${studentProfile.academic_session.name}` : ''}</Text></View> : null}
         {active.role === 'student' || active.role === 'parent' ? <>
           <Text style={styles.sectionTitle}>Study materials</Text>
@@ -915,6 +944,9 @@ const styles = StyleSheet.create({
   noticeCard: { padding: 12, marginBottom: 8, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
   noticeUnread: { borderLeftColor: '#3869c8', borderLeftWidth: 3 },
   noticeDate: { color: '#9aa7b5', fontSize: 8, marginTop: 6 },
+  noticeUnreadLabel: { color: '#3768bb', fontSize: 9, fontWeight: '700', marginTop: 7 },
+  noticeLoadMore: { minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 9, backgroundColor: '#edf3ff', marginBottom: 8 },
+  noticeLoadMoreText: { color: '#315ca8', fontSize: 11, fontWeight: '700' },
   recordCard: { gap: 5, padding: 12, marginBottom: 8, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
   recordHeading: { color: '#526d8d', fontSize: 9, fontWeight: '800', marginTop: 8 },
   feeStatus: { alignSelf: 'flex-start', color: '#5270a3', backgroundColor: '#edf3ff', borderRadius: 6, overflow: 'hidden', paddingVertical: 4, paddingHorizontal: 6, fontSize: 8, fontWeight: '800', marginTop: 4 },
