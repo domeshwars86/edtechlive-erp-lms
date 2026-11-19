@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AcademicExamResult extends Model
 {
@@ -22,5 +23,10 @@ class AcademicExamResult extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
+    }
+
+    public function sectionResults(): HasMany
+    {
+        return $this->hasMany(AcademicExamSectionResult::class, 'academic_exam_result_id');
     }
 }

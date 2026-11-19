@@ -34,4 +34,9 @@ class AcademicExamPaper extends Model
     {
         return $this->hasMany(AcademicExamResult::class, 'academic_exam_paper_id');
     }
+
+    public function paperSections(): HasMany
+    {
+        return $this->hasMany(AcademicExamPaperSection::class, 'academic_exam_paper_id')->orderBy('position');
+    }
 }

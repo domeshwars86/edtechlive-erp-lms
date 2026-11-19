@@ -260,7 +260,7 @@ class FamilyController
         $exams = AcademicExamResult::query()->where('academic_exam_results.organization_id', $organization)
             ->where('academic_exam_results.student_id', $student->id)
             ->whereHas('paper.exam', fn (Builder $query) => $query->where('organization_id', $organization)->where('status', 'published'))
-            ->with(['paper.exam.academicSession:id,name', 'paper.section:id,name,academic_class_id', 'paper.section.academicClass:id,name', 'paper.subject:id,name'])
+            ->with(['paper.exam.academicSession:id,name', 'paper.section:id,name,academic_class_id', 'paper.section.academicClass:id,name', 'paper.subject:id,name', 'sectionResults.section'])
             ->orderByDesc('updated_at')->limit(100)->get()
             ->map(fn (AcademicExamResult $result): array => [
                 'id' => $result->id, 'exam' => $result->paper->exam->title,
@@ -269,6 +269,7 @@ class FamilyController
                 'subject' => $result->paper->subject->name, 'exam_on' => $result->paper->exam_on->toDateString(),
                 'score' => $result->score, 'max_marks' => $result->paper->max_marks,
                 'outcome' => $result->outcome, 'remarks' => $result->remarks,
+                'section_scores' => $result->sectionResults->map(fn ($sectionScore): array => ['section' => $sectionScore->section->title, 'score' => $sectionScore->score, 'max_marks' => $sectionScore->section->max_marks])->values(),
             ])->values();
 
         return response()->json(['data' => ['exams' => $exams, 'quizzes' => $quizzes, 'assignments' => $assignments]]);

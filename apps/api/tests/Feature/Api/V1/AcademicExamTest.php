@@ -85,6 +85,56 @@ class AcademicExamTest extends TestCase
         ]])->assertUnprocessable();
     }
 
+    public function test_board_style_paper_sections_validate_totals_and_publish_family_breakdown(): void
+    {
+        $workspace = $this->workspace();
+        Sanctum::actingAs($workspace['admin']);
+        $base = "/api/v1/organizations/{$workspace['organization']->id}";
+        $start = CarbonImmutable::now('Asia/Kolkata')->toDateString();
+        $examId = $this->postJson("{$base}/exams", [
+            'academic_session_id' => $workspace['session']->id, 'title' => 'Board practice paper',
+            'starts_on' => $start, 'ends_on' => CarbonImmutable::now('Asia/Kolkata')->addDays(8)->toDateString(),
+        ])->assertCreated()->json('data.id');
+        $paperId = $this->postJson("{$base}/exams/{$examId}/papers", [
+            'academic_section_id' => $workspace['section']->id, 'subject_id' => $workspace['subject']->id,
+            'exam_on' => $start, 'max_marks' => '50', 'paper_sections' => [
+                ['title' => 'Part A · Multiple choice', 'max_marks' => '20'],
+                ['title' => 'Part B · Written answers', 'max_marks' => '30'],
+            ],
+        ])->assertCreated()->json('data.id');
+
+        $sections = $this->getJson("{$base}/exams")->assertOk()->json('data.0.papers.0.paper_sections');
+        $this->assertCount(2, $sections);
+        $this->putJson("{$base}/exam-papers/{$paperId}/results", ['records' => [
+            ['student_id' => $workspace['student']->id, 'outcome' => 'graded', 'score' => '40', 'section_scores' => [
+                ['section_id' => $sections[0]['id'], 'score' => '15'], ['section_id' => $sections[1]['id'], 'score' => '25'],
+            ]],
+        ]])->assertOk();
+        $this->getJson("{$base}/exam-papers/{$paperId}/results")->assertOk()
+            ->assertJsonPath('data.0.section_scores.'.$sections[0]['id'], '15.00');
+        $this->putJson("{$base}/exam-papers/{$paperId}/results", ['records' => [
+            ['student_id' => $workspace['secondStudent']->id, 'outcome' => 'graded', 'score' => '41', 'section_scores' => [
+                ['section_id' => $sections[0]['id'], 'score' => '15'], ['section_id' => $sections[1]['id'], 'score' => '25'],
+            ]],
+        ]])->assertUnprocessable()->assertJsonValidationErrors('records.0.score');
+        $this->putJson("{$base}/exam-papers/{$paperId}/results", ['records' => [
+            ['student_id' => $workspace['secondStudent']->id, 'outcome' => 'graded', 'score' => '40', 'section_scores' => [
+                ['section_id' => $sections[0]['id'], 'score' => '21'], ['section_id' => $sections[1]['id'], 'score' => '19'],
+            ]],
+        ]])->assertUnprocessable();
+        $this->putJson("{$base}/exam-papers/{$paperId}/results", ['records' => [
+            ['student_id' => $workspace['secondStudent']->id, 'outcome' => 'graded', 'score' => '40', 'section_scores' => [
+                ['section_id' => $sections[0]['id'], 'score' => '15'], ['section_id' => $sections[1]['id'], 'score' => '25'],
+            ]],
+        ]])->assertOk();
+        $this->postJson("{$base}/exams/{$examId}/publish")->assertOk();
+
+        Sanctum::actingAs($workspace['studentUser']);
+        $this->getJson("{$base}/my/student/results")->assertOk()
+            ->assertJsonPath('data.exams.0.section_scores.0.section', 'Part A · Multiple choice')
+            ->assertJsonPath('data.exams.0.section_scores.0.score', '15.00');
+    }
+
     public function test_assigned_teacher_can_record_marks_but_cannot_create_or_publish_exams(): void
     {
         $workspace = $this->workspace(withTeacher: true);

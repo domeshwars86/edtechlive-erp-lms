@@ -26,7 +26,7 @@ class AcademicExamController
         $membership = $this->access->membership($request, $organization);
         abort_unless(in_array($membership->role, [OrganizationRole::Admin, OrganizationRole::Management, OrganizationRole::IndependentEducator, OrganizationRole::Teacher], true), 403);
         $teacher = null;
-        $query = AcademicExam::query()->where('organization_id', $organization)->with(['academicSession:id,name', 'papers.section:id,name,academic_class_id', 'papers.section.academicClass:id,name', 'papers.subject:id,name,code'])
+        $query = AcademicExam::query()->where('organization_id', $organization)->with(['academicSession:id,name', 'papers.section:id,name,academic_class_id', 'papers.section.academicClass:id,name', 'papers.subject:id,name,code', 'papers.paperSections'])
             ->orderByDesc('starts_on')->orderByDesc('id');
         if ($membership->role === OrganizationRole::Teacher) {
             $teacher = Teacher::query()->where('organization_id', $organization)->where('user_id', $request->user()->id)->where('status', 'active')->firstOrFail();
@@ -50,6 +50,7 @@ class AcademicExamController
                 'section' => $paper->section->academicClass->name.' · '.$paper->section->name,
                 'subject_id' => $paper->subject_id, 'subject' => $paper->subject->name,
                 'exam_on' => $paper->exam_on->toDateString(), 'max_marks' => $paper->max_marks,
+                'paper_sections' => $paper->paperSections->map(fn ($section): array => ['id' => $section->id, 'title' => $section->title, 'max_marks' => $section->max_marks, 'position' => $section->position])->values(),
                 'results_recorded' => $paper->results()->count(),
             ])->values(),
         ])->values()]);
@@ -82,15 +83,32 @@ class AcademicExamController
             'subject_id' => ['required', 'integer', Rule::exists('subjects', 'id')->where('organization_id', $organization)->where('is_active', true)],
             'exam_on' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$examRecord->starts_on->toDateString(), 'before_or_equal:'.$examRecord->ends_on->toDateString()],
             'max_marks' => ['required', 'numeric', 'gt:0', 'max:99999999.99', 'decimal:0,2'],
+            'paper_sections' => ['sometimes', 'array', 'max:20'],
+            'paper_sections.*.title' => ['required', 'string', 'min:1', 'max:100'],
+            'paper_sections.*.max_marks' => ['required', 'numeric', 'gt:0', 'max:99999999.99', 'decimal:0,2'],
         ]);
-        $paper = DB::transaction(function () use ($data, $organization, $exam): AcademicExamPaper {
+        $components = $data['paper_sections'] ?? [];
+        $sectionsMaximum = (int) round(collect($components)->sum(fn (array $component): float => (float) $component['max_marks']) * 100);
+        if ($components && $sectionsMaximum !== (int) round((float) $data['max_marks'] * 100)) {
+            throw ValidationException::withMessages(['paper_sections' => ['The section maximum marks must add up to the paper maximum.']]);
+        }
+        $paper = DB::transaction(function () use ($data, $components, $organization, $exam): AcademicExamPaper {
             $lockedExam = AcademicExam::query()->where('organization_id', $organization)->lockForUpdate()->findOrFail($exam);
             abort_unless($lockedExam->status === 'draft', 409, 'Published exam papers are locked.');
             $section = AcademicSection::query()->where('organization_id', $organization)->where('is_active', true)->lockForUpdate()->findOrFail($data['academic_section_id']);
             abort_unless((int) $section->academic_session_id === (int) $lockedExam->academic_session_id, 422, 'The section must belong to the examination session.');
             abort_if($lockedExam->papers()->where('academic_section_id', $section->id)->where('subject_id', $data['subject_id'])->exists(), 409, 'This subject already has a paper for the selected section.');
 
-            return AcademicExamPaper::query()->create([...$data, 'organization_id' => $organization, 'academic_exam_id' => $lockedExam->id]);
+            $paper = AcademicExamPaper::query()->create([...collect($data)->except('paper_sections')->all(), 'organization_id' => $organization, 'academic_exam_id' => $lockedExam->id]);
+            foreach ($components as $position => $component) {
+                $paper->paperSections()->create([
+                    'organization_id' => $organization,
+                    ...$component,
+                    'position' => $position + 1,
+                ]);
+            }
+
+            return $paper;
         });
 
         return response()->json(['data' => ['id' => $paper->id, 'exam_on' => $paper->exam_on->toDateString(), 'max_marks' => $paper->max_marks]], 201);
@@ -102,13 +120,14 @@ class AcademicExamController
         $paperRecord = AcademicExamPaper::query()->where('organization_id', $organization)->with('exam')->findOrFail($paper);
         $students = Student::query()->where('organization_id', $organization)->where('academic_section_id', $paperRecord->academic_section_id)
             ->where('academic_session_id', $paperRecord->exam->academic_session_id)->where('status', 'active')->orderBy('name')->get();
-        $results = $paperRecord->results()->get()->keyBy('student_id');
+        $results = $paperRecord->results()->with('sectionResults')->get()->keyBy('student_id');
 
         return response()->json(['data' => $students->map(fn (Student $student): array => [
             'student_id' => $student->id, 'name' => $student->name, 'admission_number' => $student->admission_number,
             'outcome' => $results->get($student->id)?->outcome,
             'score' => $results->get($student->id)?->score,
             'remarks' => $results->get($student->id)?->remarks,
+            'section_scores' => $results->get($student->id)?->sectionResults->mapWithKeys(fn ($score): array => [(string) $score->academic_exam_paper_section_id => $score->score]) ?? (object) [],
         ])->values(), 'context' => ['exam' => $paperRecord->exam->title, 'max_marks' => $paperRecord->max_marks, 'exam_on' => $paperRecord->exam_on->toDateString(), 'teacher_scoped' => $teacher !== null]]);
     }
 
@@ -121,8 +140,12 @@ class AcademicExamController
             'records.*.outcome' => ['required', Rule::in(['graded', 'absent', 'excused'])],
             'records.*.score' => ['nullable', 'numeric', 'min:0', 'max:99999999.99', 'decimal:0,2'],
             'records.*.remarks' => ['nullable', 'string', 'max:500'],
+            'records.*.section_scores' => ['sometimes', 'array', 'max:20'],
+            'records.*.section_scores.*.section_id' => ['required', 'integer', 'distinct'],
+            'records.*.section_scores.*.score' => ['required', 'numeric', 'min:0', 'max:99999999.99', 'decimal:0,2'],
         ]);
         $paperRecord = AcademicExamPaper::query()->where('organization_id', $organization)->with('exam')->findOrFail($paper);
+        $paperSections = $paperRecord->paperSections()->get()->keyBy('id');
         abort_unless($paperRecord->exam->status === 'draft', 409, 'Published exam results are locked.');
         $records = collect($data['records']);
         foreach ($records as $index => $record) {
@@ -131,6 +154,26 @@ class AcademicExamController
             }
             if (isset($record['score']) && ((int) round((float) $record['score'] * 100) > (int) round((float) $paperRecord->max_marks * 100))) {
                 throw ValidationException::withMessages(["records.{$index}.score" => ['The score cannot exceed the paper maximum.']]);
+            }
+            $sectionScores = collect($record['section_scores'] ?? []);
+            if ($paperSections->isNotEmpty()) {
+                if ($record['outcome'] === 'graded' && $sectionScores->count() !== $paperSections->count()) {
+                    throw ValidationException::withMessages(["records.{$index}.section_scores" => ['Enter a score for every paper section.']]);
+                }
+                if ($record['outcome'] !== 'graded' && $sectionScores->isNotEmpty()) {
+                    throw ValidationException::withMessages(["records.{$index}.section_scores" => ['Absent or excused students cannot have section scores.']]);
+                }
+                $seenIds = $sectionScores->pluck('section_id')->map(fn ($id): int => (int) $id)->sort()->values();
+                $expectedIds = $paperSections->keys()->map(fn ($id): int => (int) $id)->sort()->values();
+                abort_unless($seenIds->all() === $expectedIds->all(), 422, 'Section scores must belong to every section of this paper.');
+                foreach ($sectionScores as $sectionScore) {
+                    $section = $paperSections->get((int) $sectionScore['section_id']);
+                    abort_if((int) round((float) $sectionScore['score'] * 100) > (int) round((float) $section->max_marks * 100), 422, 'A section score cannot exceed its maximum.');
+                }
+                $sectionsScoreTotal = (int) round($sectionScores->sum(fn (array $sectionScore): float => (float) $sectionScore['score']) * 100);
+                if ($record['outcome'] === 'graded' && $sectionsScoreTotal !== (int) round((float) $record['score'] * 100)) {
+                    throw ValidationException::withMessages(["records.{$index}.score" => ['The total must equal the sum of section scores.']]);
+                }
             }
         }
         $studentIds = $records->pluck('student_id')->map(fn ($id): int => (int) $id)->all();
@@ -150,6 +193,22 @@ class AcademicExamController
                 'created_at' => $now, 'updated_at' => $now,
             ])->all();
             AcademicExamResult::query()->upsert($rows, ['academic_exam_paper_id', 'student_id'], ['recorded_by', 'outcome', 'score', 'remarks', 'updated_at']);
+            $resultIds = AcademicExamResult::query()->where('academic_exam_paper_id', $paperRecord->id)->whereIn('student_id', $records->pluck('student_id'))->get(['id', 'student_id'])->keyBy('student_id');
+            foreach ($records as $record) {
+                $resultId = $resultIds->get($record['student_id'])?->id;
+                if (! $resultId) {
+                    continue;
+                }
+                DB::table('academic_exam_section_results')->where('academic_exam_result_id', $resultId)->delete();
+                $sectionRows = collect($record['section_scores'] ?? [])->map(fn (array $sectionScore): array => [
+                    'organization_id' => $organization, 'academic_exam_result_id' => $resultId,
+                    'academic_exam_paper_section_id' => $sectionScore['section_id'], 'score' => $sectionScore['score'],
+                    'created_at' => $now, 'updated_at' => $now,
+                ])->all();
+                if ($sectionRows) {
+                    DB::table('academic_exam_section_results')->insert($sectionRows);
+                }
+            }
         });
 
         return response()->json(['message' => 'Examination results saved.', 'saved' => count($records)]);
