@@ -5,6 +5,7 @@ import { downloadCsv } from '../lib/csv'
 
 type Row = { paper_id: number; exam: string; session: string; class_section: string; subject: string; exam_on: string; max_marks: string; result_count: number; graded_count: number; absent_count: number; excused_count: number; average_score: string | null; average_percent: number | null; paper_sections: { title: string; max_marks: string; graded_count: number; average_score: string; average_percent: number }[] }
 type SectionRow = { exam_id: number; exam: string; session: string; class_section: string; paper_count: number; subject_count: number; student_count: number; result_count: number; graded_count: number; absent_count: number; excused_count: number; average_percent: number | null }
+type ComparisonRow = { exam_id: number; exam: string; series: string; exam_on: string; session: string; class_section: string; subject: string; result_count: number; graded_count: number; absent_count: number; excused_count: number; average_percent: number | null; previous_exam: string | null; change_percentage_points: number | null }
 type Session = { id: number; name: string }
 const money = (value: string, maximumFractionDigits = 1) => new Intl.NumberFormat('en-IN', { maximumFractionDigits }).format(Number(value))
 
@@ -14,6 +15,7 @@ export default function ExamReport({ organizationId }: { organizationId: number 
   const [sessionId, setSessionId] = useState('')
   const [rows, setRows] = useState<Row[]>([])
   const [sectionRows, setSectionRows] = useState<SectionRow[]>([])
+  const [comparisonRows, setComparisonRows] = useState<ComparisonRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -31,8 +33,9 @@ export default function ExamReport({ organizationId }: { organizationId: number 
     Promise.all([
       api.get<{ data: Row[] }>(`${base}/reports/exams${query}`),
       api.get<{ data: SectionRow[] }>(`${base}/reports/exams/sections${query}`),
-    ]).then(([paperResult, sectionResult]) => {
-      if (!cancelled) { setRows(paperResult.data); setSectionRows(sectionResult.data) }
+      api.get<{ data: ComparisonRow[] }>(`${base}/reports/exams/comparisons${query}`),
+    ]).then(([paperResult, sectionResult, comparisonResult]) => {
+      if (!cancelled) { setRows(paperResult.data); setSectionRows(sectionResult.data); setComparisonRows(comparisonResult.data) }
     })
       .catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : 'Could not load examination reports.') })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -51,6 +54,7 @@ export default function ExamReport({ organizationId }: { organizationId: number 
       <div className="report-stat-grid"><article><small>PUBLISHED PAPERS</small><b>{rows.length}</b></article><article><small>GRADED RESULTS</small><b>{graded}</b></article><article><small>ABSENT</small><b>{absences}</b></article><article><small>EXCUSED</small><b>{excused}</b></article></div>
       <h3 className="family-results-heading">Class-section performance by examination</h3><p className="dash-record-subtitle">Average percent normalizes each paper to its maximum before averaging graded results. Counts include published results only.</p>
       <div className="dash-table-scroll attendance-table"><table><thead><tr><th>EXAMINATION</th><th>SESSION · CLASS / SECTION</th><th>PAPERS / SUBJECTS</th><th>LEARNERS</th><th>AVERAGE</th><th>GRADED / ABSENT / EXCUSED</th><th>RESULTS</th></tr></thead><tbody>{sectionRows.map(row => <tr key={`${row.exam_id}-${row.class_section}`}><td>{row.exam}</td><td>{row.session} · {row.class_section}</td><td>{row.paper_count} / {row.subject_count}</td><td>{row.student_count}</td><td>{row.average_percent === null ? '—' : `${row.average_percent}%`}</td><td>{row.graded_count} / {row.absent_count} / {row.excused_count}</td><td>{row.result_count}</td></tr>)}</tbody></table></div>
+      {comparisonRows.length > 0 && <><h3 className="family-results-heading">Exam series progress</h3><p className="dash-record-subtitle">Compares published exams with the same series, class section and subject, including across academic sessions. Change is measured against the previous exam in percentage points.</p><div className="report-actions"><button className="dash-secondary-button" type="button" disabled={loading} onClick={() => downloadCsv(`exam-series-comparisons${sessionId ? `-session-${sessionId}` : ''}.csv`, ['Series', 'Examination', 'Date', 'Session', 'Class / section', 'Subject', 'Graded', 'Average (%)', 'Previous exam', 'Change (percentage points)'], comparisonRows.map(row => [row.series, row.exam, row.exam_on, row.session, row.class_section, row.subject, row.graded_count, row.average_percent, row.previous_exam, row.change_percentage_points]))}><Download size={14} />Export series comparison</button></div><div className="dash-table-scroll attendance-table"><table><thead><tr><th>SERIES · EXAM</th><th>CLASS / SECTION</th><th>SUBJECT</th><th>GRADED</th><th>AVERAGE</th><th>CHANGE VS PREVIOUS</th></tr></thead><tbody>{comparisonRows.map(row => <tr key={`${row.exam_id}-${row.class_section}-${row.subject}`}><td>{row.series} · {row.exam}<small>{row.session}</small></td><td>{row.class_section}</td><td>{row.subject}</td><td>{row.graded_count}</td><td>{row.average_percent === null ? '—' : `${row.average_percent}%`}</td><td>{row.previous_exam ? `${row.change_percentage_points === null ? '—' : `${row.change_percentage_points > 0 ? '+' : ''}${row.change_percentage_points} pp`} · after ${row.previous_exam}` : 'Baseline'}</td></tr>)}</tbody></table></div></>}
       <div className="dash-table-scroll attendance-table"><table><thead><tr><th>EXAMINATION</th><th>SESSION · SECTION</th><th>SUBJECT</th><th>DATE</th><th>AVERAGE</th><th>PART AVERAGES</th><th>GRADE / ABSENT / EXCUSED</th><th>RESULTS</th></tr></thead><tbody>{rows.map(row => <tr key={row.paper_id}><td>{row.exam}</td><td>{row.session} · {row.class_section}</td><td>{row.subject}</td><td>{new Date(`${row.exam_on}T00:00:00`).toLocaleDateString()}</td><td>{row.average_score === null ? '—' : `${money(row.average_score)} / ${money(row.max_marks)} (${row.average_percent}%)`}</td><td>{row.paper_sections.length ? row.paper_sections.map(part => <div key={part.title}>{part.title}: {money(part.average_score)} / {money(part.max_marks)} ({part.average_percent}%) · {part.graded_count} graded</div>) : 'Whole paper'}</td><td>{row.graded_count} / {row.absent_count} / {row.excused_count}</td><td>{row.result_count}</td></tr>)}</tbody></table></div>
     </> : <p className="master-empty"><BarChart3 size={18} />No published examination results match this session.</p>}
   </section>

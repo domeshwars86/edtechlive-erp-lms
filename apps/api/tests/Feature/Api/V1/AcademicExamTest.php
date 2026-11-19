@@ -221,6 +221,45 @@ class AcademicExamTest extends TestCase
         $this->getJson("{$base}/reports/exams/sections")->assertForbidden();
     }
 
+    public function test_exam_series_report_compares_normalized_averages_with_the_previous_published_exam(): void
+    {
+        $workspace = $this->workspace();
+        Sanctum::actingAs($workspace['admin']);
+        $base = "/api/v1/organizations/{$workspace['organization']->id}";
+        $start = CarbonImmutable::now('Asia/Kolkata')->toDateString();
+        foreach ([['Term 1', '40.00'], ['Term 2', '45.00']] as [$title, $score]) {
+            $examId = $this->postJson("{$base}/exams", [
+                'academic_session_id' => $workspace['session']->id, 'title' => $title, 'series_name' => '2026 annual assessments',
+                'starts_on' => $start, 'ends_on' => CarbonImmutable::now('Asia/Kolkata')->addDays(8)->toDateString(),
+            ])->assertCreated()->json('data.id');
+            $paperId = $this->postJson("{$base}/exams/{$examId}/papers", [
+                'academic_section_id' => $workspace['section']->id, 'subject_id' => $workspace['subject']->id,
+                'exam_on' => $start, 'max_marks' => '50.00',
+            ])->assertCreated()->json('data.id');
+            $this->putJson("{$base}/exam-papers/{$paperId}/results", ['records' => [
+                ['student_id' => $workspace['student']->id, 'outcome' => 'graded', 'score' => $score],
+                ['student_id' => $workspace['secondStudent']->id, 'outcome' => 'absent', 'score' => null],
+            ]])->assertOk();
+            $this->postJson("{$base}/exams/{$examId}/publish")->assertOk();
+        }
+
+        $response = $this->getJson("{$base}/reports/exams/comparisons?session_id={$workspace['session']->id}")
+            ->assertOk()->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.exam', 'Term 2')
+            ->assertJsonPath('data.0.series', '2026 annual assessments')
+            ->assertJsonPath('data.0.average_percent', 90)
+            ->assertJsonPath('data.0.previous_exam', 'Term 1')
+            ->assertJsonPath('data.0.change_percentage_points', 10)
+            ->assertJsonPath('data.1.exam', 'Term 1')
+            ->assertJsonPath('data.1.average_percent', 80)
+            ->assertJsonPath('data.1.previous_exam', null);
+        $this->assertStringNotContainsString('Learner One', $response->getContent());
+        $this->assertStringNotContainsString('S-1', $response->getContent());
+
+        Sanctum::actingAs($workspace['studentUser']);
+        $this->getJson("{$base}/reports/exams/comparisons")->assertForbidden();
+    }
+
     private function createExam(string $base, array $workspace): array
     {
         $start = CarbonImmutable::now('Asia/Kolkata')->toDateString();

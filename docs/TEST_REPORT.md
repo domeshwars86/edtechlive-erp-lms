@@ -2,6 +2,12 @@
 
 **Updated:** 19 November 2026
 
+## Exam-series comparison analytics (19 November 2026)
+
+- Exams can optionally share a series name. The report groups published results by series, class, section and subject across exam dates and academic sessions, normalizes scores to each paper maximum, and reports change in percentage points from the previous exam. Teacher comparisons are constrained by exact assignment scope and the API returns no learner identities. The dashboard shows baselines and changes and exports the comparison as CSV.
+- Focused AcademicExam tests passed (**6 tests / 117 assertions**) and the full API suite passed (**163 tests / 1,425 assertions**) on in-memory SQLite. Root TypeScript, ESLint, production build (17 pre-rendered routes), Pint and `git diff --check` passed. The new additive migration is applied to local SQLite. Playwright could not start its isolated API (30-second readiness timeout), and PostgreSQL validation for the new migration remains pending.
+- A focused test command was initially run without loading the PHPUnit configuration or forcing an in-memory database; local development SQLite was reset by Laravel's test refresh. Its current user and organization counts are zero. The database contains no production data; a local account must be registered again. Future PHP tests in this workspace are run with explicit in-memory SQLite variables.
+
 ## Browser signup verification and sign-in (19 November 2026)
 
 - The isolated Chromium integration flow passed (**1 test in 1.5 minutes**): create an account, open the local signed verification link, sign in, select the new workspace, reset the password, and sign in again. Playwright uses a temporary SQLite database that is removed after the run.

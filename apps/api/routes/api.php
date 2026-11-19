@@ -179,6 +179,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::put('/attendance', [AttendanceController::class, 'store']);
                 Route::get('/reports/assessments', [AssessmentReportController::class, 'index']);
                 Route::get('/reports/exams/sections', [AcademicExamReportController::class, 'sections']);
+                Route::get('/reports/exams/comparisons', [AcademicExamReportController::class, 'comparisons']);
                 Route::get('/reports/exams', [AcademicExamReportController::class, 'index']);
                 Route::get('/exams', [AcademicExamController::class, 'index']);
                 Route::post('/exams', [AcademicExamController::class, 'store']);

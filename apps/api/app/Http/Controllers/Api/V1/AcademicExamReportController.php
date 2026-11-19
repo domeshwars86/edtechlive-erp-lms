@@ -14,6 +14,89 @@ class AcademicExamReportController
 {
     public function __construct(private readonly OrganizationAccess $access) {}
 
+    public function comparisons(Request $request, int $organization): JsonResponse
+    {
+        $membership = $this->access->membership($request, $organization);
+        abort_unless(in_array($membership->role, [OrganizationRole::Admin, OrganizationRole::Management, OrganizationRole::IndependentEducator, OrganizationRole::Teacher], true), 403);
+        $filters = $request->validate([
+            'session_id' => ['sometimes', 'integer', Rule::exists('academic_sessions', 'id')->where('organization_id', $organization)],
+            'series_name' => ['sometimes', 'string', 'min:2', 'max:120'],
+        ]);
+
+        $query = DB::table('academic_exam_results as results')
+            ->join('academic_exam_papers as papers', 'papers.id', '=', 'results.academic_exam_paper_id')
+            ->join('academic_exams as exams', 'exams.id', '=', 'papers.academic_exam_id')
+            ->join('academic_sessions as sessions', 'sessions.id', '=', 'exams.academic_session_id')
+            ->join('academic_sections as sections', 'sections.id', '=', 'papers.academic_section_id')
+            ->join('academic_classes as classes', 'classes.id', '=', 'sections.academic_class_id')
+            ->join('subjects', 'subjects.id', '=', 'papers.subject_id')
+            ->where('results.organization_id', $organization)->where('papers.organization_id', $organization)
+            ->where('exams.organization_id', $organization)->where('sessions.organization_id', $organization)
+            ->where('sections.organization_id', $organization)->where('classes.organization_id', $organization)
+            ->where('subjects.organization_id', $organization)->where('exams.status', 'published')
+            ->whereNotNull('exams.series_name');
+
+        if (isset($filters['session_id'])) {
+            $query->where('exams.academic_session_id', $filters['session_id']);
+        }
+        if (isset($filters['series_name'])) {
+            $query->where('exams.series_name', $filters['series_name']);
+        }
+        if ($membership->role === OrganizationRole::Teacher) {
+            $teacher = Teacher::query()->where('organization_id', $organization)->where('user_id', $request->user()->id)->where('status', 'active')->firstOrFail();
+            $query->whereExists(fn ($assignments) => $assignments->selectRaw('1')->from('teaching_assignments')
+                ->whereColumn('teaching_assignments.organization_id', 'papers.organization_id')
+                ->whereColumn('teaching_assignments.academic_session_id', 'exams.academic_session_id')
+                ->whereColumn('teaching_assignments.academic_section_id', 'papers.academic_section_id')
+                ->whereColumn('teaching_assignments.subject_id', 'papers.subject_id')
+                ->where('teaching_assignments.teacher_id', $teacher->id));
+        }
+
+        $exams = $query->select([
+            'exams.id as exam_id', 'exams.title as exam_title', 'exams.series_name', 'exams.starts_on',
+            'exams.academic_session_id as session_id', 'sessions.name as session_name',
+            'classes.id as class_id', 'classes.name as class_name', 'sections.name as section_name',
+            'subjects.id as subject_id', 'subjects.name as subject_name',
+        ])
+            ->selectRaw('COUNT(results.id) as result_count')
+            ->selectRaw("SUM(CASE WHEN results.outcome = 'graded' THEN 1 ELSE 0 END) as graded_count")
+            ->selectRaw("SUM(CASE WHEN results.outcome = 'absent' THEN 1 ELSE 0 END) as absent_count")
+            ->selectRaw("SUM(CASE WHEN results.outcome = 'excused' THEN 1 ELSE 0 END) as excused_count")
+            ->selectRaw("AVG(CASE WHEN results.outcome = 'graded' THEN results.score * 100.0 / NULLIF(papers.max_marks, 0) ELSE NULL END) as average_percent")
+            ->groupBy('exams.id', 'exams.title', 'exams.series_name', 'exams.starts_on', 'exams.academic_session_id', 'sessions.name', 'classes.id', 'classes.name', 'sections.name', 'subjects.id', 'subjects.name')
+            ->orderByDesc('exams.starts_on')->orderByDesc('exams.id')->limit(2000)->get();
+
+        $comparisons = $exams->groupBy(fn ($exam): string => serialize([$exam->series_name, $exam->class_id, $exam->section_name, $exam->subject_id]))
+            ->flatMap(function ($seriesExams): array {
+                $previous = null;
+
+                return $seriesExams->sortBy([['starts_on', 'asc'], ['exam_id', 'asc']])->values()->map(function ($exam) use (&$previous): array {
+                    $average = $exam->average_percent === null ? null : round((float) $exam->average_percent, 1);
+                    $row = [
+                        'exam_id' => (int) $exam->exam_id,
+                        'exam' => $exam->exam_title,
+                        'series' => $exam->series_name,
+                        'exam_on' => $exam->starts_on,
+                        'session' => $exam->session_name,
+                        'class_section' => $exam->class_name.' · '.$exam->section_name,
+                        'subject' => $exam->subject_name,
+                        'result_count' => (int) $exam->result_count,
+                        'graded_count' => (int) $exam->graded_count,
+                        'absent_count' => (int) $exam->absent_count,
+                        'excused_count' => (int) $exam->excused_count,
+                        'average_percent' => $average,
+                        'previous_exam' => $previous['title'] ?? null,
+                        'change_percentage_points' => $average === null || $previous === null || $previous['average'] === null ? null : round($average - $previous['average'], 1),
+                    ];
+                    $previous = ['title' => $exam->exam_title, 'average' => $average];
+
+                    return $row;
+                })->all();
+            })->sortBy([['exam_on', 'desc'], ['exam_id', 'desc']])->values();
+
+        return response()->json(['data' => $comparisons]);
+    }
+
     public function sections(Request $request, int $organization): JsonResponse
     {
         $membership = $this->access->membership($request, $organization);

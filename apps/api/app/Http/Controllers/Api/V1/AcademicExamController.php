@@ -42,7 +42,7 @@ class AcademicExamController
             ->mapWithKeys(fn (TeachingAssignment $assignment): array => [implode(':', [$assignment->academic_session_id, $assignment->academic_section_id, $assignment->subject_id]) => true]) : collect();
 
         return response()->json(['data' => $exams->map(fn (AcademicExam $exam): array => [
-            'id' => $exam->id, 'title' => $exam->title, 'status' => $exam->status,
+            'id' => $exam->id, 'title' => $exam->title, 'series_name' => $exam->series_name, 'status' => $exam->status,
             'starts_on' => $exam->starts_on->toDateString(), 'ends_on' => $exam->ends_on->toDateString(),
             'session_id' => $exam->academic_session_id, 'session' => $exam->academicSession->name, 'published_at' => $exam->published_at?->toISOString(),
             'papers' => $exam->papers->filter(fn (AcademicExamPaper $paper): bool => ! $teacher || $assignments->has(implode(':', [$exam->academic_session_id, $paper->academic_section_id, $paper->subject_id])))->map(fn (AcademicExamPaper $paper): array => [
@@ -62,6 +62,7 @@ class AcademicExamController
         $data = $request->validate([
             'academic_session_id' => ['required', 'integer', Rule::exists('academic_sessions', 'id')->where('organization_id', $organization)->where('is_active', true)],
             'title' => ['required', 'string', 'min:2', 'max:160'],
+            'series_name' => ['nullable', 'string', 'min:2', 'max:120'],
             'starts_on' => ['required', 'date_format:Y-m-d'],
             'ends_on' => ['required', 'date_format:Y-m-d', 'after_or_equal:starts_on'],
         ]);
@@ -71,7 +72,7 @@ class AcademicExamController
         }
         $exam = AcademicExam::query()->create([...$data, 'organization_id' => $organization, 'created_by' => $request->user()->id]);
 
-        return response()->json(['data' => ['id' => $exam->id, 'title' => $exam->title, 'status' => $exam->status]], 201);
+        return response()->json(['data' => ['id' => $exam->id, 'title' => $exam->title, 'series_name' => $exam->series_name, 'status' => $exam->status]], 201);
     }
 
     public function storePaper(Request $request, int $organization, int $exam): JsonResponse
