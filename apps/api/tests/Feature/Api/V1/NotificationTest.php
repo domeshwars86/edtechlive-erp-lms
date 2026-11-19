@@ -27,8 +27,12 @@ class NotificationTest extends TestCase
             ->assertJsonPath('data.announcements', true)->assertJsonPath('data.meetings', true)->assertJsonPath('data.fees', true);
         $this->patchJson('/api/v1/me/notification-preferences', [
             'announcements' => false, 'meetings' => true, 'fees' => false,
+            'email' => ['announcements' => false, 'meetings' => false, 'fees' => false],
         ])->assertOk()->assertJsonPath('data.announcements', false)->assertJsonPath('data.fees', false);
-        $this->assertSame(['announcements' => false, 'meetings' => true, 'fees' => false], $user->fresh()->notification_preferences);
+        $this->assertSame([
+            'announcements' => false, 'meetings' => true, 'fees' => false,
+            'email' => ['announcements' => false, 'meetings' => false, 'fees' => false],
+        ], $user->fresh()->notification_preferences);
         $this->patchJson('/api/v1/me/notification-preferences', ['announcements' => 'sometimes'])
             ->assertUnprocessable();
     }

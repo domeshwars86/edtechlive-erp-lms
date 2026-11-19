@@ -9,6 +9,7 @@ use App\Models\OrganizationMembership;
 use App\Models\User;
 use App\Services\NotificationPreferences;
 use App\Services\OrganizationAccess;
+use App\Services\WorkspaceEmailDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +18,11 @@ use Illuminate\Validation\Rule;
 
 class AnnouncementController
 {
-    public function __construct(private readonly OrganizationAccess $access, private readonly NotificationPreferences $preferences) {}
+    public function __construct(
+        private readonly OrganizationAccess $access,
+        private readonly NotificationPreferences $preferences,
+        private readonly WorkspaceEmailDispatcher $emailDispatcher,
+    ) {}
 
     public function index(Request $request, int $organization): JsonResponse
     {
@@ -46,10 +51,10 @@ class AnnouncementController
             'parents' => [OrganizationRole::Parent],
             default => [OrganizationRole::Admin, OrganizationRole::Management, OrganizationRole::IndependentEducator, OrganizationRole::Teacher, OrganizationRole::Student, OrganizationRole::Parent],
         };
-        $recipients = User::query()->whereIn('id', OrganizationMembership::query()->where('organization_id', $organization)
+        $audienceUsers = User::query()->whereIn('id', OrganizationMembership::query()->where('organization_id', $organization)
             ->where('status', MembershipStatus::Active)->whereIn('role', $roles)->select('user_id'))
-            ->get()->filter(fn (User $user): bool => $this->preferences->allows($user, 'announcement'))
-            ->pluck('id')->values();
+            ->get();
+        $recipients = $audienceUsers->filter(fn (User $user): bool => $this->preferences->allows($user, 'announcement'))->pluck('id')->values();
 
         $announcement = DB::transaction(function () use ($data, $organization, $request, $recipients): Announcement {
             $announcement = Announcement::query()->create([
@@ -73,6 +78,10 @@ class AnnouncementController
 
             return $announcement;
         });
+        $this->emailDispatcher->dispatch($audienceUsers, [
+            'organization_id' => $organization, 'kind' => 'announcement', 'title' => $data['title'],
+            'body' => $data['body'], 'resource_type' => 'announcement', 'resource_id' => $announcement->id,
+        ]);
 
         return response()->json(['data' => $this->row($announcement)], 201);
     }

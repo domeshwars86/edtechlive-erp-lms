@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\MeetingController;
 use App\Http\Controllers\Api\V1\NotificationController;
+use App\Http\Controllers\Api\V1\NotificationDeliveryController;
 use App\Http\Controllers\Api\V1\NotificationPreferencesController;
 use App\Http\Controllers\Api\V1\OrganizationBranchController;
 use App\Http\Controllers\Api\V1\OrganizationController;
@@ -203,6 +204,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/meetings/{meeting}/recordings/{recording}/download', [MeetingController::class, 'downloadRecording'])->whereNumber('meeting')->whereNumber('recording');
                 Route::post('/meetings/{meeting}/recordings/{recording}/download-link', [MeetingController::class, 'downloadRecordingLink'])->whereNumber('meeting')->whereNumber('recording')->middleware('throttle:30,1');
                 Route::get('/notifications', [NotificationController::class, 'index']);
+                Route::get('/email-deliveries', [NotificationDeliveryController::class, 'index']);
                 Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
                 Route::get('/announcements', [AnnouncementController::class, 'index']);
                 Route::post('/announcements', [AnnouncementController::class, 'store'])->middleware('throttle:30,1');

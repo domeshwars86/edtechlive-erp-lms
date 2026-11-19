@@ -12,7 +12,7 @@ class NotificationPreferencesController
 
     public function show(Request $request): JsonResponse
     {
-        return response()->json(['data' => $this->preferences->for($request->user())]);
+        return response()->json(['data' => $this->preferences->for($request->user()), 'email_available' => config('workspace-notifications.email_enabled')]);
     }
 
     public function update(Request $request): JsonResponse
@@ -21,10 +21,17 @@ class NotificationPreferencesController
             'announcements' => ['required', 'boolean'],
             'meetings' => ['required', 'boolean'],
             'fees' => ['required', 'boolean'],
+            'email' => ['required', 'array:announcements,meetings,fees'],
+            'email.announcements' => ['required', 'boolean'],
+            'email.meetings' => ['required', 'boolean'],
+            'email.fees' => ['required', 'boolean'],
         ]);
+        if (! config('workspace-notifications.email_enabled') && collect($data['email'])->contains(true)) {
+            return response()->json(['message' => 'Email notifications are not enabled for this environment.'], 422);
+        }
         $user = $request->user();
         $user->forceFill(['notification_preferences' => $data])->save();
 
-        return response()->json(['data' => $this->preferences->for($user)]);
+        return response()->json(['data' => $this->preferences->for($user), 'email_available' => config('workspace-notifications.email_enabled')]);
     }
 }

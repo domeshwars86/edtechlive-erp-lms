@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Notification;
 
 class OrganizationNotifier
 {
-    public function __construct(private readonly NotificationPreferences $preferences) {}
+    public function __construct(private readonly NotificationPreferences $preferences, private readonly WorkspaceEmailDispatcher $emailDispatcher) {}
 
     public function feeIssued(FeeRecord $fee, int $actorId): void
     {
@@ -91,8 +91,8 @@ class OrganizationNotifier
 
     private function notify(Collection|array $userIds, array $payload, int $actorId): void
     {
-        $users = User::query()->whereIn('id', collect($userIds)->filter()->unique()->reject(fn (int $id): bool => $id === $actorId))
-            ->get()->filter(fn (User $user): bool => $this->preferences->allows($user, $payload['kind']));
-        Notification::send($users, new WorkspaceNotification($payload));
+        $recipients = User::query()->whereIn('id', collect($userIds)->filter()->unique()->reject(fn (int $id): bool => $id === $actorId))->get();
+        Notification::send($recipients->filter(fn (User $user): bool => $this->preferences->allows($user, $payload['kind'])), new WorkspaceNotification($payload));
+        $this->emailDispatcher->dispatch($recipients, $payload);
     }
 }
