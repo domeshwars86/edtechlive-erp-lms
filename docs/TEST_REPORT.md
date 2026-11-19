@@ -457,5 +457,9 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 ## Public course detail pages (19 November 2026)
 
 - The home and course catalog cards now link to three explicit sample course details with a sample syllabus, educator-profile preview, level/subject/lesson summary, and enquiry CTA. Copy states that listings are illustrative and enrollment is not available.
-- `npm run typecheck`, `npm run lint`, and `npm run build` passed. Build prerendered 17 public routes, including all three course details, with route-specific title/description metadata. The main JavaScript bundle is 497.90 kB; live course discovery and enrollment remain unimplemented pending API-backed course publishing.
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed. Build prerendered 17 public routes, including all three course details, with route-specific title/description metadata. The main JavaScript bundle is 498.25 kB; live course discovery and enrollment remain unimplemented pending API-backed course publishing.
 - Parsed public/sitemap.xml successfully and confirmed all three sample detail URLs are listed. The sitemap still uses the reserved .example host pending a production domain.
+## Super Admin organization status audit view (19 November 2026)
+
+- The Audit logs navigation opens a dedicated paginated view for organization suspension/reactivation events. The screen includes event time, organization, status transition, operator and required reason, and labels the current limited audit scope.
+- The existing Laravel platform-audit authorization/history tests passed (**5 tests / 56 assertions**). Web typecheck, ESLint and production build passed; 17 public routes prerendered and the audit page is a 3.24 kB lazy-loaded chunk. Broad platform event auditing remains unimplemented.
