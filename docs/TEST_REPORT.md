@@ -11,6 +11,11 @@
 - Added an identity-free aggregate for each published examination and academic class section. It combines subject papers, normalizes each graded score to that paper's maximum before averaging, and returns learner and result counts plus graded/absent/excused totals. Teachers only see results from their assigned session/section/subject combinations. The dashboard displays and exports the section summary beside paper details.
 - AcademicExam tests passed (**5 tests / 96 assertions**) on in-memory SQLite and a fresh temporary PostgreSQL 17 cluster; the full Laravel suite passed on both databases (**162 tests / 1,404 assertions**). The focused Chromium dashboard/export test passed (**1 test**), and the full serial Playwright suite passed (**15 tests in 2.4 minutes**). Root typecheck, ESLint, production build (17 prerendered routes), Pint, and `git diff --check` passed. The disposable PostgreSQL cluster was stopped and removed.
 
+## Mobile examination summaries (19 November 2026)
+
+- Admin and Management mobile overviews now include the same tenant-scoped, identity-free section exam averages and published outcome counts available in the web reports. Mobile requests use the existing bearer token and organization context; no learner-level results are included.
+- `npm run typecheck` passed in `apps/mobile`; Expo Android export passed (564 modules, 1.7 MB). The available Node runtime was 20.19.1 while the app declares a minimum of 20.19.4; the local export succeeded, but native device/emulator testing was not performed.
+
 ## Manual receipt idempotency (19 November 2026)
 
 - Fee receipt POSTs now require a tenant-scoped `Idempotency-Key`. An additive migration adds a unique `(organization_id, idempotency_key)` index and stores a SHA-256 fingerprint of the fee and validated payment payload. Exact retries return the current persisted fee result without another payment notification; a key reused for different payment details or a different fee returns 409.
