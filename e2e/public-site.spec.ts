@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test'
 
 test('homepage sample courses and API-backed public course discovery both work', async ({ page }) => {
+  let enquiryPayload: Record<string, unknown> | null = null
+  await page.route('**/api/v1/enquiries', async route => {
+    enquiryPayload = route.request().postDataJSON() as Record<string, unknown>
+    await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ data: { notification_sent: false } }) })
+  })
   await page.goto('/')
   await expect(page).toHaveTitle(/edTechLive/)
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Good learning')
@@ -51,6 +56,23 @@ test('homepage sample courses and API-backed public course discovery both work',
   await expect(page).toHaveURL(/\/courses\/browser-test-school\/foundations-of-python$/)
   await expect(page.getByRole('heading', { name: 'Foundations of Python' })).toBeVisible()
   await expect(page.getByText('First steps')).toBeVisible()
+  await page.getByRole('link', { name: 'Ask about this course' }).click()
+  await expect(page).toHaveURL(/\/contact\?/)
+  await expect(page.getByText(/Course enquiry: Foundations of Python · Browser Test School/)).toBeVisible()
+  await expect(page.getByLabel('Enquiry type *')).toHaveValue('Teaching and courses')
+  const suggestedMessage = page.getByRole('textbox', { name: /What would you like us to know/ })
+  await expect(suggestedMessage).toHaveValue('I’m interested in “Foundations of Python” at Browser Test School. Please share more about availability and enrollment.')
+  await page.getByRole('textbox', { name: /Full name/ }).fill('Course Inquiry Tester')
+  await page.getByRole('textbox', { name: /Email address/ }).fill('course-inquiry@example.test')
+  await page.getByLabel('I’m a… *').selectOption('Student')
+  await page.getByRole('checkbox', { name: /I agree that my information/ }).check()
+  await page.getByRole('button', { name: 'Send enquiry' }).click()
+  await expect(page.getByRole('heading', { name: /Thanks for sharing/ })).toBeVisible()
+  expect(enquiryPayload).toMatchObject({
+    category: 'Teaching and courses',
+    message: 'I’m interested in “Foundations of Python” at Browser Test School. Please share more about availability and enrollment.',
+    consent: true,
+  })
 })
 
 test('public course catalog explains when no courses have been listed', async ({ page }) => {

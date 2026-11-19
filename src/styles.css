@@ -49,3 +49,4 @@
 @keyframes spin{to{transform:rotate(360deg)}}
 
 .contact-honeypot{position:absolute!important;left:-10000px!important;top:auto!important;width:1px!important;height:1px!important;overflow:hidden!important}
+.contact-course-context{margin:0 0 16px;padding:12px 14px;border:1px solid #d9e7dd;border-radius:7px;background:#f4f9f6;color:#476451;font-size:11px;line-height:1.6}.contact-course-context b{color:#2d4e39}

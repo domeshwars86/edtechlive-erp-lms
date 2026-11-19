@@ -2,6 +2,11 @@
 
 **Updated:** 19 November 2026
 
+## Course-specific public enquiry (19 November 2026)
+
+- Published course detail pages now provide an “Ask about this course” CTA. It carries the public course and organization names to the contact page, where the course context, enquiry category, and an editable message are shown before the visitor submits the existing consented contact form.
+- The focused Chromium course-discovery workflow passed with the contextual form submission captured and verified. Root typecheck, ESLint, production build and 17-route prerender passed; latest main JavaScript entry is 319.83 kB (gzip 99.73 kB). The complete 14-test serial E2E suite passed immediately before this change; it was not rerun after adding the contextual form.
+
 ## Academic master edit forms (19 November 2026)
 
 - Added API-backed edit forms for academic sessions, sections, and subjects alongside the existing class editor. The forms reuse the authorized tenant PATCH routes, keep archive/restore and current-session controls intact, and support cancel/reset and API error feedback. Session end dates are constrained to start dates by the browser input.
