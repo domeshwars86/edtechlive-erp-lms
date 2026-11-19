@@ -25,7 +25,7 @@ function AccountShell({ children }: { children: ReactNode }) {
 export function AuthPage({ mode }: { mode: AuthMode }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, loading, signIn, selectOrganization } = useAuth()
+  const { user, loading, activeMembership, signIn, selectOrganization } = useAuth()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -33,6 +33,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const [verificationComplete, setVerificationComplete] = useState(false)
   const [passwordResetUrl, setPasswordResetUrl] = useState('')
   const [organizations, setOrganizations] = useState<OrganizationMembership[]>([])
+  const [pendingWorkspace, setPendingWorkspace] = useState<OrganizationMembership | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
@@ -53,6 +54,11 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
         .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Could not load your organizations.'))
     }
   }, [mode, loading, user, navigate])
+
+  useEffect(() => {
+    if (mode !== 'organization' || !pendingWorkspace || activeMembership?.organization.id !== pendingWorkspace.organization.id) return
+    navigate(`/workspace/${workspaceForRole[pendingWorkspace.role]}`, { replace: true })
+  }, [activeMembership, mode, navigate, pendingWorkspace])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -164,7 +170,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   async function pickOrganization(membership: OrganizationMembership) {
     try {
       await selectOrganization(membership)
-      navigate(`/workspace/${workspaceForRole[membership.role]}`)
+      setPendingWorkspace(membership)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not select this workspace.')
     }

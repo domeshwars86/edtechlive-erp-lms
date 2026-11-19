@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { AlertCircle, Check, Download, GraduationCap, LoaderCircle, Plus, RefreshCw, Search, UsersRound } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { downloadCsv } from '../lib/csv'
+import RosterReconciliation from './RosterReconciliation'
 
 type Person = {
   id: number
@@ -265,5 +266,6 @@ export default function PeopleRoster({ organizationId, kind }: Props) {
         {isStudent && guardianStudentId !== null && <section className="guardian-manager"><header><div><h3>Parent access · {records.find(person => person.id === guardianStudentId)?.name ?? 'Student'}</h3><p>Only active, verified parent accounts in this organization can be linked.</p></div><button className="master-record-action" onClick={() => { setGuardianStudentId(null); setGuardianLinks([]) }}>Close</button></header><form className="guardian-link-form" onSubmit={event => void linkGuardian(event)}><label>Parent account<select required value={guardianUserId} onChange={event => setGuardianUserId(event.target.value)}><option value="">Choose a parent account</option>{parentAccounts.filter(parent => !guardianLinks.some(link => link.guardian_user_id === parent.id)).map(parent => <option key={parent.id} value={parent.id}>{parent.name} · {parent.email}</option>)}</select></label><label>Relationship<select value={guardianRelationship} onChange={event => setGuardianRelationship(event.target.value)}><option value="parent">Parent</option><option value="guardian">Guardian</option><option value="other">Other caregiver</option></select></label><label className="guardian-primary-option"><input type="checkbox" checked={guardianPrimary} onChange={event => setGuardianPrimary(event.target.checked)} /> Set as primary contact</label><button className="master-submit" disabled={guardianSaving || !guardianUserId}>{guardianSaving ? 'Saving…' : 'Link parent'}</button></form>{guardianLinks.length ? <ul>{guardianLinks.map(link => <li key={link.guardian_user_id}><span><b>{link.name}</b><small>{link.email} · {link.relationship}{link.is_primary ? ' · Primary' : ''}</small></span><button className="master-record-action" disabled={guardianSaving} onClick={() => void unlinkGuardian(link)}>Remove access</button></li>)}</ul> : <p className="master-empty">No parent accounts are linked.</p>}</section>}
       </div>
     </div>
+    <RosterReconciliation organizationId={organizationId} kind={kind} onApplied={() => { void load(search, branchFilter, page) }} />
   </section>
 }

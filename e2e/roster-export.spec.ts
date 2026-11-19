@@ -13,6 +13,7 @@ test('authorized organization admin exports every matching student page to a saf
     { id: 1, name: '=StudentOne', admission_number: 'ADM-001', email: 'student.one@example.test', phone: null, status: 'active', enrolled_on: '2026-04-01', branch: null, academic_class: { id: 2, name: 'Class 2' }, academic_section: { id: 3, name: 'A' }, academic_session: { id: 4, name: '2026–27' } },
     { id: 2, name: 'Second Student', admission_number: 'ADM-002', email: null, phone: '+91 1234567890', status: 'inactive', enrolled_on: null, branch: { id: 5, name: 'North', code: 'N' }, academic_class: null, academic_section: null, academic_session: null },
   ]
+  let studentPatch: Record<string, unknown> | null = null
 
   await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
   await page.route('**/api/v1/me', route => route.fulfill({
@@ -45,6 +46,13 @@ test('authorized organization admin exports every matching student page to a saf
     })
   })
 
+  await page.route('**/api/v1/organizations/18/students/1', async route => {
+    if (route.request().method() !== 'PATCH') return route.continue()
+    studentPatch = route.request().postDataJSON() as Record<string, unknown>
+    Object.assign(students[0], studentPatch)
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: students[0] }) })
+  })
+
   await page.goto('/login')
   await page.getByRole('textbox', { name: 'Email address' }).fill(account.email)
   await page.getByLabel('Password', { exact: true }).fill('LocalBrowserPass123')
@@ -57,6 +65,18 @@ test('authorized organization admin exports every matching student page to a saf
   await expect(page.getByText('Second Student')).toBeVisible()
   await expect(page.getByText('Page 2 of 2 · 2 students')).toBeVisible()
 
+  await page.getByLabel('Choose CSV').setInputFiles({
+    name: 'students-update.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('Admission number,Student name,Email,Status\r\nADM-001,"\'=StudentOne, Updated",new.student@example.test,inactive\r\nADM-999,Unmatched Student,missing@example.test,inactive\r\n'),
+  })
+  await expect(page.getByRole('status')).toContainText('Compared 2 CSV rows: 1 with changes, 1 unmatched, 0 duplicated.')
+  await expect(page.getByText('Current: student.one@example.test')).toBeVisible()
+  await expect(page.getByRole('checkbox').nth(2)).not.toBeChecked()
+  await page.getByRole('button', { name: 'Apply selected updates' }).click()
+  await expect(page.getByRole('status')).toContainText('Applied 1 record update; 0 failed.')
+  expect(studentPatch).toEqual({ name: '=StudentOne, Updated', email: 'new.student@example.test' })
+
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Export CSV' }).click()
   const download = await downloadPromise
@@ -64,7 +84,7 @@ test('authorized organization admin exports every matching student page to a saf
   const filePath = await download.path()
   expect(filePath).not.toBeNull()
   const csv = await readFile(filePath!, 'utf8')
-  expect(csv).toContain('"ADM-001","\'=StudentOne"')
+  expect(csv).toContain('"ADM-001","\'=StudentOne, Updated","new.student@example.test"')
   expect(csv).toContain('"ADM-002","Second Student"')
-  await expect(page.getByRole('status')).toContainText('Exported 2 student records')
+  await expect(page.getByText('Exported 2 student records.')).toBeVisible()
 })
