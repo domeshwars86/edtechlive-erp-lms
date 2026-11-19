@@ -23,6 +23,18 @@ test('dashboard preview offers keyboard skip navigation', async ({ page }) => {
   await expect(page.locator('#dashboard-main')).toBeFocused()
 })
 
+test('account pages expose keyboard skip navigation to the sign-in form', async ({ page }) => {
+  await page.goto('/login')
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
+  const skipLink = page.getByRole('link', { name: 'Skip to account form' })
+  await page.keyboard.press('Tab')
+  await expect(skipLink).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(/#account-main$/)
+  await expect(page.getByRole('main')).toHaveCount(1)
+  await expect(page.locator('#account-main')).toBeFocused()
+})
+
 test('homepage sample courses and API-backed public course discovery both work', async ({ page }) => {
   let enquiryPayload: Record<string, unknown> | null = null
   await page.route('**/api/v1/enquiries', async route => {

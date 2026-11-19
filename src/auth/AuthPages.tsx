@@ -19,7 +19,7 @@ function AccountBrand({ light = false }: { light?: boolean }) {
 }
 
 function AccountShell({ children }: { children: ReactNode }) {
-  return <section className="auth-page"><div className="auth-art"><AccountBrand light /><div className="auth-art-content"><div className="auth-sun">✳</div><h2>Learning is a journey<br />we take <em>together.</em></h2><p>Your community, your courses, your next step—all in one thoughtful space.</p><span className="auth-art-orbit">✦</span></div><small>LEARN. TEACH. MANAGE. GROW.</small></div><div className="auth-panel"><div className="auth-mobile-brand"><AccountBrand /></div>{children}<Link className="auth-back" to="/">← Back to edTechLive</Link></div></section>
+  return <><a className="skip-link" href="#account-main">Skip to account form</a><section className="auth-page"><div className="auth-art"><AccountBrand light /><div className="auth-art-content"><div className="auth-sun">✳</div><h2>Learning is a journey<br />we take <em>together.</em></h2><p>Your community, your courses, your next step—all in one thoughtful space.</p><span className="auth-art-orbit">✦</span></div><small>LEARN. TEACH. MANAGE. GROW.</small></div><main id="account-main" tabIndex={-1} className="auth-panel"><div className="auth-mobile-brand"><AccountBrand /></div>{children}<Link className="auth-back" to="/">← Back to edTechLive</Link></main></section></>
 }
 
 export function AuthPage({ mode }: { mode: AuthMode }) {
