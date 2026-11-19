@@ -371,6 +371,19 @@ test('delegated management sees read-only member access without audit permission
     contentType: 'application/json',
     body: JSON.stringify({ message: 'Forbidden.' }),
   }))
+  await page.route('**/api/v1/organizations/18/notifications**', route => {
+    if (route.request().method() === 'POST') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { id: 'notice-1', read_at: '2026-11-20T08:00:00.000Z' } }) })
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [{ id: 'notice-1', type: 'announcement', title: 'Updated school calendar', body: 'The new term dates are ready.', read_at: null, created_at: '2026-11-20T07:30:00.000Z' }],
+        meta: { current_page: 1, last_page: 1, total: 1, unread: 1 },
+      }),
+    })
+  })
 
   await page.goto('/login')
   await page.getByRole('textbox', { name: 'Email address' }).fill(account.email)
@@ -385,6 +398,15 @@ test('delegated management sees read-only member access without audit permission
   await expect(page.getByRole('row', { name: new RegExp(account.email) })).toBeVisible()
   await expect(page.getByText('You can view members, but your workspace role does not include access history.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Your account' })).toBeDisabled()
+  const inboxNav = page.getByRole('button', { name: 'Inbox', exact: true })
+  await expect(inboxNav).toBeVisible()
+  await inboxNav.click()
+  await expect(page.getByRole('heading', { name: 'Notices' })).toBeVisible()
+  await expect(page.getByText('Updated school calendar')).toBeVisible()
+  await expect(page.getByText('1 unread.')).toBeVisible()
+  await page.getByRole('button', { name: 'Mark read' }).click()
+  await expect(page.getByText('0 unread.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Mark read' })).toHaveCount(0)
 })
 
 test('organization administrators can grant membership permissions with required read access', async ({ page }) => {

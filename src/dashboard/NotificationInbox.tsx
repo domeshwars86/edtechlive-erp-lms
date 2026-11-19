@@ -51,7 +51,7 @@ export default function NotificationInbox({ organizationId }: { organizationId: 
   }
 
   return <section className="dash-panel dash-masters-panel notification-inbox" aria-labelledby="notification-inbox-title">
-    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">FAMILY WORKSPACE</span><h2 id="notification-inbox-title">Notices</h2><p className="dash-record-subtitle">Updates sent to your account for this organization. {unread} unread.</p></div></div>
+    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ORGANIZATION INBOX</span><h2 id="notification-inbox-title">Notices</h2><p className="dash-record-subtitle">Updates sent to your account for this organization. {unread} unread.</p></div></div>
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
     {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading notices…</p> : items.length ? <>
       <ul className="notification-inbox-list">{items.map(item => <li key={item.id} className={item.read_at ? 'notification-inbox-read' : 'notification-inbox-unread'}>
