@@ -14,6 +14,7 @@ type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused'
 type MobileRosterStudent = { id: number; name: string; admission_number: string | null; academic_class: { id: number; name: string } | null; academic_section: { id: number; name: string } | null }
 type MobileRosterTeacher = { id: number; name: string; employee_number: string | null; specialization: string | null }
 type MobileAttendanceReport = { from: string; to: string; totals: { records: number; present: number; late: number; absent: number; excused: number; attendance_rate: number }; sections: { section_id: number; class: string; section: string; records: number; attendance_rate: number; absent: number }[] }
+type MobileCourseProgressReport = { data: { course_id: number; title: string; lessons: number; learners: number; average_percent: number; completed_learners: number }[]; summary: { courses: number; learners: number; average_percent: number } }
 const attendanceStatuses: AttendanceStatus[] = ['present', 'absent', 'late', 'excused']
 function localDate() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}` }
 function organizationDate(timezone: string) {
@@ -42,6 +43,7 @@ export default function App() {
   const [rosterStudentTotal, setRosterStudentTotal] = useState(0)
   const [rosterTeacherTotal, setRosterTeacherTotal] = useState(0)
   const [attendanceReport, setAttendanceReport] = useState<MobileAttendanceReport | null>(null)
+  const [courseProgressReport, setCourseProgressReport] = useState<MobileCourseProgressReport | null>(null)
   const [studyMaterials, setStudyMaterials] = useState<StudyMaterial[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
@@ -93,7 +95,7 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
+    setSummary(null); setNotices([]); setMeetings([]); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
@@ -119,11 +121,13 @@ export default function App() {
         mobileApi.get<{ data: MobileRosterStudent[]; meta: { total: number } }>(`${base}/students?status=active&per_page=5`, token),
         mobileApi.get<{ data: MobileRosterTeacher[]; meta: { total: number } }>(`${base}/teachers?status=active&per_page=5`, token),
         mobileApi.get<{ data: MobileAttendanceReport }>(`${base}/reports/attendance?from=${today}&to=${today}`, token),
-      ]).then(([studentResult, teacherResult, attendanceResult]) => {
+        mobileApi.get<MobileCourseProgressReport>(`${base}/reports/course-progress`, token),
+      ]).then(([studentResult, teacherResult, attendanceResult, progressResult]) => {
         if (!cancelled) {
           setRosterStudents(studentResult.data); setRosterStudentTotal(studentResult.meta.total)
           setRosterTeachers(teacherResult.data); setRosterTeacherTotal(teacherResult.meta.total)
           setAttendanceReport(attendanceResult.data)
+          setCourseProgressReport(progressResult)
         }
       }))
     }
@@ -362,6 +366,8 @@ export default function App() {
           {rosterTeachers.length ? rosterTeachers.map(teacher => <View style={styles.recordCard} key={teacher.id}><Text style={styles.courseTitle}>{teacher.name}</Text><Text style={styles.courseMeta}>{teacher.employee_number ?? 'Teaching staff'}{teacher.specialization ? ` · ${teacher.specialization}` : ''}</Text></View>) : <Empty text={busy ? 'Loading teacher roster…' : 'No active teachers are on the roster.'} />}
           <Text style={styles.sectionTitle}>Attendance report · {attendanceReport?.to ?? 'today'}</Text>
           {attendanceReport ? attendanceReport.totals.records ? <><View style={styles.infoCard}><Text style={styles.courseTitle}>{attendanceReport.totals.attendance_rate}% attendance rate</Text><Text style={styles.courseMeta}>{attendanceReport.totals.records} records · {attendanceReport.totals.present} present · {attendanceReport.totals.late} late · {attendanceReport.totals.absent} absent · {attendanceReport.totals.excused} excused</Text></View>{attendanceReport.sections.slice(0, 5).map(section => <View style={styles.recordCard} key={section.section_id}><Text style={styles.courseTitle}>{section.class} · {section.section}</Text><Text style={styles.courseMeta}>{section.attendance_rate}% attendance · {section.absent} absent of {section.records} records</Text></View>)}</> : <Empty text="No attendance has been recorded today." /> : <Empty text={busy ? 'Loading attendance report…' : 'No attendance report is available.'} />}
+          <Text style={styles.sectionTitle}>Course progress · {courseProgressReport?.summary.learners ?? 0} learners</Text>
+          {courseProgressReport ? <>{courseProgressReport.summary.courses ? <View style={styles.infoCard}><Text style={styles.courseTitle}>{courseProgressReport.summary.average_percent}% average completion</Text><Text style={styles.courseMeta}>{courseProgressReport.summary.courses} published courses · {courseProgressReport.summary.learners} active course enrollments</Text></View> : null}{courseProgressReport.data.slice(0, 5).map(course => <View style={styles.recordCard} key={course.course_id}><Text style={styles.courseTitle}>{course.title}</Text><Text style={styles.courseMeta}>{course.average_percent}% average · {course.completed_learners}/{course.learners} learners completed · {course.lessons} lessons</Text></View>)}{courseProgressReport.summary.courses === 0 ? <Empty text="No published courses are available to report." /> : null}</> : <Empty text={busy ? 'Loading course progress report…' : 'No course progress report is available.'} />}
         </> : null}
         <Text style={styles.sectionTitle}>Upcoming classes and meetings</Text>
         {meetings.filter(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() > Date.now()).slice(0, 5).map(item => {

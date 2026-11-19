@@ -8,10 +8,11 @@
 - Cross-database execution found that notification organization scope used a JSON path operator unsupported for Laravel's text-backed PostgreSQL notification payload. Replacing it with Laravel's driver-aware `whereJsonContains` resolved the issue; notification and announcement tests passed on both engines.
 - `vendor/bin/pint --test` passed. The PostgreSQL 16 GitHub Actions job is configured but has not yet had a hosted run. The disposable local cluster is not a deployment database.
 
-## Mobile Admin/Management summary and attendance report (19 November 2026)
+## Mobile Admin/Management summaries and reports (19 November 2026)
 
 - Admin and Management now load five active students and five active teachers, along with total active roster counts, from their authenticated organization endpoints. They also see today's attendance totals and section breakdowns using the organization's timezone. The API remains the source of role authorization and tenant scoping.
-- Mobile TypeScript passed and Expo Android export bundled 564 modules (2.5 MB JavaScript payload). Native device verification and other mobile reporting/approval flows remain open.
+- Added an aggregate course-progress view with overall average completion and the top five published courses; it excludes learner identities and uses the existing role-authorized report API.
+- Mobile TypeScript passed and Expo Android export bundled 564 modules into a 1.7 MB Hermes bundle. Native device verification and other mobile reporting/approval flows remain open.
 
 ## Preferred organization persistence (19 November 2026)
 
