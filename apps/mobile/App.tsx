@@ -16,6 +16,7 @@ type MobileRosterStudent = { id: number; name: string; admission_number: string 
 type MobileRosterTeacher = { id: number; name: string; employee_number: string | null; specialization: string | null }
 type MobileAttendanceReport = { from: string; to: string; totals: { records: number; present: number; late: number; absent: number; excused: number; attendance_rate: number }; sections: { section_id: number; class: string; section: string; records: number; attendance_rate: number; absent: number }[] }
 type MobileCourseProgressReport = { data: { course_id: number; title: string; lessons: number; learners: number; average_percent: number; completed_learners: number }[]; summary: { courses: number; learners: number; average_percent: number } }
+type MobileFinanceReport = { as_of: string; currency: 'INR'; collections_period: { from: string; to: string; receipt_count: number; received_amount: string; expense_count: number; expense_amount: string; net_cash_flow: string }; summary: { fee_records: number; unpaid_records: number; partial_records: number; paid_records: number; issued_amount: string; received_amount: string; expense_amount: string; net_cash_flow: string; outstanding_amount: string; overdue_records: number; overdue_balance: string } }
 const attendanceStatuses: AttendanceStatus[] = ['present', 'absent', 'late', 'excused']
 const examOutcomes: { value: SchoolExamMark['outcome']; label: string }[] = [
   { value: 'graded', label: 'Graded' }, { value: 'absent', label: 'Absent' }, { value: 'excused', label: 'Excused' },
@@ -50,6 +51,7 @@ export default function App() {
   const [attendanceReport, setAttendanceReport] = useState<MobileAttendanceReport | null>(null)
   const [courseProgressReport, setCourseProgressReport] = useState<MobileCourseProgressReport | null>(null)
   const [examSectionSummaries, setExamSectionSummaries] = useState<ExamSectionSummary[]>([])
+  const [financeReport, setFinanceReport] = useState<MobileFinanceReport | null>(null)
   const [teacherExams, setTeacherExams] = useState<SchoolExam[]>([])
   const [selectedExamPaper, setSelectedExamPaper] = useState<{ exam: SchoolExam; paper: SchoolExamPaper } | null>(null)
   const [examMarks, setExamMarks] = useState<SchoolExamMark[]>([])
@@ -104,7 +106,7 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
-    setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setExamSectionSummaries([]); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
+    setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setExamSectionSummaries([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([])
     const base = `/api/v1/organizations/${active.organization.id}`
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
@@ -149,13 +151,15 @@ export default function App() {
         mobileApi.get<{ data: MobileAttendanceReport }>(`${base}/reports/attendance?from=${today}&to=${today}`, token),
         mobileApi.get<MobileCourseProgressReport>(`${base}/reports/course-progress`, token),
         mobileApi.get<{ data: ExamSectionSummary[] }>(`${base}/reports/exams/sections`, token),
-      ]).then(([studentResult, teacherResult, attendanceResult, progressResult, examResult]) => {
+        mobileApi.get<{ data: MobileFinanceReport }>(`${base}/reports/finance`, token),
+      ]).then(([studentResult, teacherResult, attendanceResult, progressResult, examResult, financeResult]) => {
         if (!cancelled) {
           setRosterStudents(studentResult.data); setRosterStudentTotal(studentResult.meta.total)
           setRosterTeachers(teacherResult.data); setRosterTeacherTotal(teacherResult.meta.total)
           setAttendanceReport(attendanceResult.data)
           setCourseProgressReport(progressResult)
           setExamSectionSummaries(examResult.data)
+          setFinanceReport(financeResult.data)
         }
       }))
     }
@@ -425,7 +429,7 @@ export default function App() {
     try { if (current) await mobileApi.post('/api/v1/auth/logout', current) }
     catch { /* Local credentials must still be removed if the API is offline. */ }
     await SecureStore.deleteItemAsync(TOKEN_KEY); await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
-    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setExamSectionSummaries([]); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
+    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setMeetings([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setExamSectionSummaries([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setBusy(false)
   }
 
   if (busy && !user) return <Splash />
@@ -507,6 +511,11 @@ export default function App() {
           {courseProgressReport ? <>{courseProgressReport.summary.courses ? <View style={styles.infoCard}><Text style={styles.courseTitle}>{courseProgressReport.summary.average_percent}% average completion</Text><Text style={styles.courseMeta}>{courseProgressReport.summary.courses} published courses · {courseProgressReport.summary.learners} active course enrollments</Text></View> : null}{courseProgressReport.data.slice(0, 5).map(course => <View style={styles.recordCard} key={course.course_id}><Text style={styles.courseTitle}>{course.title}</Text><Text style={styles.courseMeta}>{course.average_percent}% average · {course.completed_learners}/{course.learners} learners completed · {course.lessons} lessons</Text></View>)}{courseProgressReport.summary.courses === 0 ? <Empty text="No published courses are available to report." /> : null}</> : <Empty text={busy ? 'Loading course progress report…' : 'No course progress report is available.'} />}
           <Text style={styles.sectionTitle}>Examination performance</Text>
           {examSectionSummaries.length ? examSectionSummaries.slice(0, 5).map(item => <View style={styles.recordCard} key={`${item.exam_id}-${item.class_section}`}><Text style={styles.courseTitle}>{item.exam} · {item.class_section}</Text><Text style={styles.courseMeta}>{item.session} · {item.paper_count} papers · {item.subject_count} subjects · {item.student_count} learners</Text><Text style={styles.courseMeta}>{item.average_percent === null ? 'No graded marks' : `${item.average_percent}% average graded result`} · {item.graded_count} graded · {item.absent_count} absent · {item.excused_count} excused</Text></View>) : <Empty text="No published school examination results are available." />}
+          <Text style={styles.sectionTitle}>Finance snapshot · {financeReport?.as_of ?? 'today'}</Text>
+          {financeReport ? <><View style={styles.statGrid}>{[
+            ['Issued', financeReport.summary.issued_amount], ['Received', financeReport.summary.received_amount],
+            ['Outstanding', financeReport.summary.outstanding_amount], ['Overdue', financeReport.summary.overdue_balance],
+          ].map(([label, value]) => <View style={styles.statCard} key={label}><Text style={styles.statValue}>₹{Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</Text><Text style={styles.statLabel}>{label}</Text></View>)}</View><View style={styles.infoCard}><Text style={styles.courseTitle}>Period {financeReport.collections_period.from} to {financeReport.collections_period.to}</Text><Text style={styles.courseMeta}>Net cash flow ₹{Number(financeReport.collections_period.net_cash_flow).toLocaleString('en-IN', { maximumFractionDigits: 2 })} · {financeReport.collections_period.receipt_count} receipts · {financeReport.collections_period.expense_count} expenses</Text><Text style={styles.courseMeta}>All-time expenses ₹{Number(financeReport.summary.expense_amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })} · {financeReport.summary.overdue_records} overdue fee records</Text></View></> : <Empty text={busy ? 'Loading finance summary…' : 'No finance summary is available.'} />}
         </> : null}
         <Text style={styles.sectionTitle}>Recent and upcoming classes</Text>
         {meetings.filter(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000).sort((left, right) => new Date(right.starts_at).getTime() - new Date(left.starts_at).getTime()).slice(0, 10).sort((left, right) => new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime()).map(item => {

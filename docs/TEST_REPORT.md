@@ -22,6 +22,11 @@
 - Admin and Management mobile overviews now include the same tenant-scoped, identity-free section exam averages and published outcome counts available in the web reports. Mobile requests use the existing bearer token and organization context; no learner-level results are included.
 - `npm run typecheck` passed in `apps/mobile`; Expo Android export passed (564 modules, 1.7 MB). The available Node runtime was 20.19.1 while the app declares a minimum of 20.19.4; the local export succeeded, but native device/emulator testing was not performed.
 
+## Mobile finance snapshot (19 November 2026)
+
+- Admin and Management mobile overviews now display the API's role-checked, read-only aggregate finance totals and default receipt/expense period net cash flow. The view omits fee-level and student-level records.
+- `npm run typecheck` passed in `apps/mobile`; Expo Android export passed (564 modules, 1.7 MB). Device/emulator interaction was not performed.
+
 ## Mobile teacher school-exam marking (19 November 2026)
 
 - Teachers can open only their assigned school-exam papers, load the active roster, mark graded/absent/excused outcomes, enter paper totals and named paper-section scores, and save draft results. The app validates score caps and section-total consistency before sending; API assignment scope, publication locks, and score validation remain authoritative. Published paper marks are view-only.
