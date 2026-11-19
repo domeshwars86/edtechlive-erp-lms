@@ -10,6 +10,10 @@
 
 - Replaced the raw API tab opened by the development verification link with an in-page action. It confirms the signed URL through the same-origin API proxy, states that no email inbox is needed, and shows a clear “Email verified. You can log in now” result. The focused real Chromium flow passed **1 test in 39.1 seconds**, covering registration, in-place verification, sign-in and organization selection. The extended Chromium account-profile/recovery integration also passed (**1 test in 1.9 minutes**) after allowing adequate time for its complete profile, verification, reset and sign-out path. TypeScript, ESLint and the production build passed (17 public routes).
 
+## Full public-site Chromium regression after verification UX change (20 November 2026)
+
+- The complete serial Playwright public-site suite passed **16 tests in 3.0 minutes**. This includes the updated mocked registration and resend-verification flows, public course discovery and enquiry, member permissions, the Management inbox/read receipt, keyboard skip navigation, seven dashboard viewport checks, and route overflow checks at 320px and 1440px.
+
 ## Organization notification inbox (20 November 2026)
 
 - Added a full paginated inbox to signed-in Admin, Management, Teacher, Student and Independent Educator dashboards; parents retain their existing Notices entry. The inbox uses the current user's organization-scoped notification list and read receipt endpoints. The full Chromium Management flow and public-site suite passed (**16 tests in 2.4 minutes**), including notice loading and marking it read; the full API regression separately covers user and organization isolation.

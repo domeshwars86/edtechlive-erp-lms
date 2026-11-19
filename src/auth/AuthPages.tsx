@@ -122,7 +122,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       const result = await api.post<{ verification_url?: string }>('/api/v1/auth/email/verification-notification', { email })
       setVerificationUrl(result.verification_url ?? '')
       setMessage(result.verification_url
-        ? 'Open the local verification link, then return here to sign in.'
+        ? 'Use the local verification button below, then return here to sign in.'
         : `If that address has an unverified account, a new verification link has been sent.${localMailHint}`)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not send a verification link.')

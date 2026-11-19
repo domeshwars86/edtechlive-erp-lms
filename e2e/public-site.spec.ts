@@ -237,9 +237,9 @@ test('local account verification link leads back to a working sign-in flow', asy
       verification_url: 'http://127.0.0.1:8002/api/v1/auth/verify-email/42/test-hash?expires=1795093200&signature=test-signature',
     }),
   }))
-  await page.context().route('**/api/v1/auth/verify-email/**', async route => {
+  await page.route('**/api/v1/auth/verify-email/**', async route => {
     verified = true
-    await route.fulfill({ status: 200, contentType: 'text/html', body: '<main>Email address verified. You can now sign in.</main>' })
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'verified', message: 'Email address verified. You can now sign in.' }) })
   })
   await page.route('**/api/v1/auth/login', route => {
     if (!verified) {
@@ -259,12 +259,8 @@ test('local account verification link leads back to a working sign-in flow', asy
   await page.getByRole('textbox', { name: 'Confirm password' }).fill('LocalBrowserPass123')
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('heading', { name: 'You’re all set.' })).toBeVisible()
-  await expect(page.getByRole('link', { name: /Verify email to unlock sign-in/ })).toBeVisible()
-
-  const verificationTab = page.context().waitForEvent('page')
-  await page.getByRole('link', { name: /Verify email to unlock sign-in/ }).click()
-  const verifiedPage = await verificationTab
-  await expect(verifiedPage.locator('body')).toContainText('Email address verified. You can now sign in.')
+  await page.getByRole('button', { name: /Verify email to unlock sign-in/ }).click()
+  await expect(page.getByRole('status')).toContainText('Email verified. You can log in now.')
   expect(verified).toBe(true)
 
   await page.getByRole('link', { name: 'Log in', exact: true }).click()
@@ -276,7 +272,7 @@ test('local account verification link leads back to a working sign-in flow', asy
   await expect(page.getByRole('button', { name: /Browser Test School/ })).toBeVisible()
 })
 
-test('login page lets an unverified account request and open a verification link', async ({ page }) => {
+test('login page lets an unverified account request and use an in-page verification action', async ({ page }) => {
   const email = 'unverified-browser@example.test'
   await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
   await page.route('**/api/v1/me', route => route.fulfill({
@@ -292,10 +288,10 @@ test('login page lets an unverified account request and open a verification link
       verification_url: 'http://127.0.0.1:8002/api/v1/auth/verify-email/43/test-hash?expires=1795093200&signature=test-signature',
     }),
   }))
-  await page.context().route('**/api/v1/auth/verify-email/**', route => route.fulfill({
+  await page.route('**/api/v1/auth/verify-email/**', route => route.fulfill({
     status: 200,
-    contentType: 'text/html',
-    body: '<main>Email address verified. You can now sign in.</main>',
+    contentType: 'application/json',
+    body: JSON.stringify({ status: 'verified', message: 'Email address verified. You can now sign in.' }),
   }))
 
   await page.goto('/login')
@@ -303,14 +299,12 @@ test('login page lets an unverified account request and open a verification link
   await expect(page.getByRole('alert')).toContainText('Enter your email address above')
   await page.getByRole('textbox', { name: 'Email address' }).fill(email)
   await page.getByRole('button', { name: 'Need a verification link? Resend it' }).click()
-  await expect(page.getByText('Open the local verification link, then return here to sign in.')).toBeVisible()
-  const verifyLink = page.getByRole('link', { name: /Verify email to unlock sign-in/ })
-  await expect(verifyLink).toBeVisible()
+  await expect(page.getByText('Use the local verification button below, then return here to sign in.')).toBeVisible()
+  const verifyButton = page.getByRole('button', { name: /Verify email to unlock sign-in/ })
+  await expect(verifyButton).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Email address' })).toBeVisible()
-
-  const verificationTab = page.context().waitForEvent('page')
-  await verifyLink.click()
-  await expect((await verificationTab).locator('body')).toContainText('Email address verified. You can now sign in.')
+  await verifyButton.click()
+  await expect(page.getByRole('status')).toContainText('Email verified. You can log in now.')
   await expect(page.getByLabel('Password', { exact: true })).toBeVisible()
 })
 
