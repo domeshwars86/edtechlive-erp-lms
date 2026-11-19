@@ -4,20 +4,20 @@
 
 ## System context
 
-The planned system is a public React web experience, role-based web application, versioned Laravel REST API, PostgreSQL database, queue/cache infrastructure as justified, private object storage, and React Native clients. The repository currently implements the public frontend, seven dashboard roles, connected Laravel auth and tenant-scoped ERP/LMS workflows, plus an Expo mobile vertical slice. PostgreSQL production validation, full deployment, and several advanced modules remain open; see `IMPLEMENTATION_STATUS.md` for verified scope.
+The planned system is a public React web experience, role-based web application, versioned Laravel REST API, PostgreSQL database, queue/cache infrastructure as justified, private object storage, and React Native clients. The repository implements the public frontend, seven dashboard roles, connected Laravel auth and tenant-scoped ERP/LMS workflows, plus an Expo mobile vertical slice. The complete API suite and migrations pass locally on SQLite and disposable PostgreSQL 17; production database validation, hosted PostgreSQL 16 CI, deployment and several advanced modules remain open. See `IMPLEMENTATION_STATUS.md` for verified scope.
 
 ## Functional requirements
 
-1. Visitors can navigate all public product pages and use course search and level filters.
+1. Visitors can navigate the statically rendered public product pages and search, filter and paginate explicitly published public course listings by level and subject. Course detail pages show published lesson titles and offer contextual enquiry; enrollment and public educator profiles are not available yet.
 2. Visitors can submit a consented contact enquiry to the throttled API; staff review is restricted to an allowlisted verified platform operator, and email delivery requires configuration.
 3. Users can register, verify email, sign in, recover passwords, and select active organization memberships; real email delivery and broader identity controls remain deployment requirements.
-4. Authenticated users see only the workspaces and records allowed by their organization membership and permissions.
-5. Administrators maintain organization, academic session, class, section, subject, teacher and student records. Batch management remains planned.
-6. Teachers manage courses, lessons, resources, class schedules, assignments, submissions, assessments and results.
-7. Students access permitted learning content, submit work and view their own results/progress.
-8. Parents access only records of explicitly linked children permitted by the institution.
-9. Management views authorized aggregate academic and attendance reports and management meeting details.
-10. An explicitly allowlisted, verified platform operator can suspend/reactivate organizations with a required reason and audit event. Broader user, role, billing and system configuration remains planned.
+4. Authenticated users see only workspaces and records allowed by active organization membership, role/resource policy and supported membership capabilities. Organization membership and platform status changes are audited; domain authorization remains enforced by resource-specific API policies.
+5. Administrators and authorized managers maintain organization settings, academic sessions, branches, classes, sections, subjects, batches, student/teacher rosters, teaching assignments, invitations and direct guardian links. Attendance, timetable, fees, expenses, documents and organization reports are tenant-scoped; some broader attendance and roster-reconciliation workflows remain open.
+6. Course editors manage courses, ordered modules and lessons, private resources, enrollment, assignments, submissions, question banks, quizzes and results. Institution examinations support assigned-teacher mark entry, section results and controlled publication. Some storage, malware scanning and long-term retention controls remain open.
+7. Students access published learning content, submit assignments, take scheduled quizzes, complete lessons and view only their own results and progress. Course enrollment is currently assigned by authorized organization staff.
+8. Parents access only records of explicitly linked children permitted by the institution, including published academic results, attendance, homework, fees and notices.
+9. Management views authorized aggregate academic, attendance, course-progress and finance reports; can manage scoped meetings and notices; and can access membership data only where granted.
+10. An explicitly allowlisted, verified platform operator can search users/organizations, suspend or reactivate ordinary accounts and organizations with a required reason, and review the corresponding audit history. Self-service profile management and constrained organization membership permissions are implemented. Platform account creation, broader role configuration, billing controls and system settings remain planned.
 11. Integrations use provider abstractions, explicit configuration, safe failure handling and appropriate consent.
 
 ## Quality requirements
@@ -31,7 +31,7 @@ The planned system is a public React web experience, role-based web application,
 
 ## Current website acceptance
 
-All defined public routes render; nav adapts to small screens; course search and level filtering work; enquiry submission persists consented requests and reports notification status; sample course/pricing content is labelled; legal pages show draft status; unavailable routes show a useful 404; TypeScript, lint and production build pass. Authenticated backend workflows have API coverage, while a full browser end-to-end suite and persistent production-shaped database verification remain open.
+All defined public routes render; navigation adapts to small screens; public course listings use privacy-filtered API responses; consented enquiries persist and report notification status; sample course/pricing content is labelled; legal pages show draft status; and unavailable routes show a useful 404. The serial Chromium suite passes **16 tests**, including public catalog and enquiry flows, local account verification/sign-in, management inbox read receipts, keyboard skip navigation, dashboard previews and 320px/1440px route-overflow checks. TypeScript, ESLint and the production build pass. The full Laravel suite passes on in-memory SQLite and disposable PostgreSQL 17; persistent production-shaped database, hosted PostgreSQL 16 CI and production deployment verification remain open.
 
 ## Open questions
 
