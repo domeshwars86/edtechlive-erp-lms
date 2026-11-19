@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Updated:** 19 November 2026
+**Updated:** 20 November 2026
 
 ## Current milestone
 
@@ -18,6 +18,7 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 - Web client API helper uses credentialed Fetch, Laravel CSRF cookies, and same-origin Vite proxy configuration for local development.
 - Login session is restored from `/api/v1/me`; logout calls API; registration, forgot/reset password and resend verification invoke the corresponding API endpoints.
 - In local development, registration and resend-verification responses include a short-lived signed verification URL rendered as a clickable link in the auth screen. This response field is only enabled under `APP_ENV=local`; production still requires configured email delivery. Local password recovery returns an in-app reset URL only for eligible accounts; real environments continue using configured email delivery and never return reset tokens.
+- A successful password reset revokes the current browser session only when that session belongs to the reset account, while preserving a session for a different signed-in account. The auth API regression passes 10 tests / 66 assertions; the real Chromium registration, signed verification, login and password-reset session flow passes.
 - Organization selection is loaded from active memberships and the API now persists the user's preferred organization. The authenticated web client restores that organization on reload; the save endpoint revalidates active membership and organization status. Connected dashboard headers use the account and organization from API state; role-specific summaries use scoped APIs, and the platform overview uses live aggregates for verified emails on the separate `PLATFORM_ADMIN_EMAILS` allowlist.
 - Tenant-scoped academic session, class, section, and subject migrations, models, and API routes are implemented. Active organization members can read; admin, management, and independent educator roles can create/update. Cross-tenant references are rejected.
 - The admin dashboard includes create/list/edit/archive/restore flows for sessions, classes, sections, and subjects, backed by the tenant-scoped Laravel API. Sessions, sections, and subjects use the existing PATCH endpoints for edits; session date ordering is also constrained in the browser form.

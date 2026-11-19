@@ -39,8 +39,6 @@ test('real local registration, signed email verification, and browser sign-in wo
   await expectBackend(page.getByRole('button', { name: new RegExp(organization) })).toBeVisible()
   await page.getByRole('button', { name: new RegExp(organization) }).click()
   await expectBackend(page).toHaveURL(/\/workspace\/admin$/)
-  await page.getByRole('button', { name: 'Sign out' }).click()
-  await expectBackend(page).toHaveURL(/\/login$/)
 
   await page.goto('/forgot-password')
   await page.getByRole('textbox', { name: 'Email address' }).fill(email)
@@ -55,6 +53,7 @@ test('real local registration, signed email verification, and browser sign-in wo
   await page.getByRole('textbox', { name: 'Confirm password' }).fill('ResetIntegrationPass456')
   await page.getByRole('button', { name: 'Reset password' }).click()
   await expectBackend(page.getByText('Your password has been updated. You can now sign in.')).toBeVisible()
+  expect(await page.evaluate(async () => (await fetch('/api/v1/me', { credentials: 'include', headers: { Accept: 'application/json' } })).status)).toBe(401)
 
   await page.getByRole('link', { name: 'Back to log in' }).click()
   await page.getByRole('textbox', { name: 'Email address' }).fill(email)

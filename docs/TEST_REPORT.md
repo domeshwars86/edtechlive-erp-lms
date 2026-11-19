@@ -1,6 +1,10 @@
 # Test Report
 
-**Updated:** 19 November 2026
+**Updated:** 20 November 2026
+
+## Password reset session handling (20 November 2026)
+
+- A successful reset now ends the browser session when it belongs to the account whose password changed; resetting another account leaves the current session intact. Focused authentication tests passed (**10 tests / 66 assertions**), Pint passed for the changed PHP files, and the real Chromium registration, signed verification, login and password-reset session flow passed (**1 test in 1.5 minutes**). The browser check uses isolated local test services; hosted PostgreSQL 16 and production email delivery remain unverified.
 
 ## Self-service account profiles (19 November 2026)
 

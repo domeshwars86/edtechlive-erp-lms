@@ -13,6 +13,7 @@ use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
@@ -183,6 +184,42 @@ class AuthenticationTest extends TestCase
         ])->assertOk();
 
         $this->assertTrue(password_verify('NewLearningPass456', $user->fresh()->password));
+    }
+
+    public function test_password_reset_ends_only_the_matching_first_party_session(): void
+    {
+        $signedInUser = User::factory()->create(['email' => 'asha@example.com', 'password' => 'LearningPass123']);
+        $differentUser = User::factory()->create(['email' => 'different@example.com', 'password' => 'DifferentPass123']);
+        $signedInToken = Password::createToken($signedInUser);
+        $differentToken = Password::createToken($differentUser);
+        $spaRequest = $this->withHeaders([
+            'Origin' => 'http://localhost:5173',
+            'Referer' => 'http://localhost:5173/login',
+        ]);
+
+        $spaRequest->postJson('/api/v1/auth/login', [
+            'email' => $signedInUser->email,
+            'password' => 'LearningPass123',
+        ])->assertOk();
+
+        $spaRequest->postJson('/api/v1/auth/reset-password', [
+            'email' => $differentUser->email,
+            'token' => $differentToken,
+            'password' => 'DifferentUpdated456',
+            'password_confirmation' => 'DifferentUpdated456',
+        ])->assertOk();
+        $spaRequest->getJson('/api/v1/me')->assertOk()->assertJsonPath('data.id', $signedInUser->id);
+
+        $spaRequest->postJson('/api/v1/auth/reset-password', [
+            'email' => $signedInUser->email,
+            'token' => $signedInToken,
+            'password' => 'LearningUpdated456',
+            'password_confirmation' => 'LearningUpdated456',
+        ])->assertOk();
+
+        Auth::forgetGuards();
+        $spaRequest->getJson('/api/v1/me')->assertUnauthorized();
+        $this->assertTrue(password_verify('LearningUpdated456', $signedInUser->fresh()->password));
     }
 
     public function test_local_password_reset_returns_a_clickable_link_and_resets_without_sending_email(): void
