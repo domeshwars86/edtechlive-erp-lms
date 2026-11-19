@@ -199,6 +199,19 @@ class AttendanceTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('to');
     }
 
+    public function test_independent_educator_can_read_date_filtered_attendance_summary(): void
+    {
+        [$user, $organization] = $this->classroom(OrganizationRole::IndependentEducator);
+        Sanctum::actingAs($user);
+
+        $this->getJson("/api/v1/organizations/{$organization->id}/reports/attendance?from=2026-11-18&to=2026-11-24")
+            ->assertOk()
+            ->assertJsonPath('data.from', '2026-11-18')
+            ->assertJsonPath('data.to', '2026-11-24')
+            ->assertJsonPath('data.totals.records', 0)
+            ->assertJsonPath('data.sections', []);
+    }
+
     private function classroom(OrganizationRole $role = OrganizationRole::Admin): array
     {
         $user = User::factory()->create();

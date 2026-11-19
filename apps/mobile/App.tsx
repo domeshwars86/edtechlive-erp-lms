@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
 import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type ExamSectionSummary, type ExamSeriesComparison, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type SchoolExam, type SchoolExamMark, type SchoolExamPaper, type StudentAttendance, type StudentProgress, type StudyMaterial, type TeachingAssignment } from './src/api'
@@ -29,6 +29,16 @@ function organizationDate(timezone: string) {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
   const values = Object.fromEntries(parts.map(part => [part.type, part.value]))
   return `${values.year}-${values.month}-${values.day}`
+}
+function shiftDate(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+function isIsoDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const date = new Date(`${value}T00:00:00Z`)
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value
 }
 
 export default function App() {
@@ -65,6 +75,11 @@ export default function App() {
   const [rosterStudentTotal, setRosterStudentTotal] = useState(0)
   const [rosterTeacherTotal, setRosterTeacherTotal] = useState(0)
   const [attendanceReport, setAttendanceReport] = useState<MobileAttendanceReport | null>(null)
+  const [attendanceFrom, setAttendanceFrom] = useState(localDate())
+  const [attendanceTo, setAttendanceTo] = useState(localDate())
+  const [attendanceReportLoading, setAttendanceReportLoading] = useState(false)
+  const [attendanceReportError, setAttendanceReportError] = useState('')
+  const attendanceReportRequestRef = useRef(0)
   const [courseProgressReport, setCourseProgressReport] = useState<MobileCourseProgressReport | null>(null)
   const [examSectionSummaries, setExamSectionSummaries] = useState<ExamSectionSummary[]>([])
   const [examSeriesComparisons, setExamSeriesComparisons] = useState<ExamSeriesComparison[]>([])
@@ -100,6 +115,39 @@ export default function App() {
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [verificationUrl, setVerificationUrl] = useState('')
 
+  const fetchAttendanceReport = useCallback(async (from: string, to: string) => {
+    if (!active || !token) return
+    if (!isIsoDate(from) || !isIsoDate(to)) {
+      setAttendanceReportError('Enter dates in YYYY-MM-DD format.')
+      return
+    }
+    if (from > to) {
+      setAttendanceReportError('The end date must be on or after the start date.')
+      return
+    }
+    const requestId = ++attendanceReportRequestRef.current
+    const workspaceContext = `${user?.id ?? ''}:${active.organization.id}`
+    setAttendanceReportLoading(true)
+    setAttendanceReportError('')
+    try {
+      const base = `/api/v1/organizations/${active.organization.id}`
+      const result = await mobileApi.get<{ data: MobileAttendanceReport }>(`${base}/reports/attendance?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, token)
+      if (requestId === attendanceReportRequestRef.current && workspaceContextRef.current === workspaceContext) setAttendanceReport(result.data)
+    } catch (reason) {
+      if (requestId === attendanceReportRequestRef.current && workspaceContextRef.current === workspaceContext) {
+        setAttendanceReportError(reason instanceof Error ? reason.message : 'Could not load the attendance report.')
+      }
+    } finally {
+      if (requestId === attendanceReportRequestRef.current && workspaceContextRef.current === workspaceContext) setAttendanceReportLoading(false)
+    }
+  }, [active, token, user?.id])
+
+  function applyAttendanceRange(from = attendanceFrom, to = attendanceTo) {
+    setAttendanceFrom(from)
+    setAttendanceTo(to)
+    void fetchAttendanceReport(from, to)
+  }
+
   useEffect(() => {
     let cancelled = false
     async function restore() {
@@ -133,8 +181,15 @@ export default function App() {
     if (!token || !active) { setSummary(null); setCourses([]); return }
     let cancelled = false
     setBusy(true); setError(''); setSelectedCourse(null)
+    attendanceReportRequestRef.current += 1
+    setAttendanceReportLoading(false); setAttendanceReportError('')
     setSummary(null); setNotices([]); setNoticePage(1); setNoticeLastPage(1); setNoticeLoading(false); setMeetings([]); setMeetingSections([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setMeetingFormOpen(false)
     const base = `/api/v1/organizations/${active.organization.id}`
+    if (['admin', 'management', 'independent_educator'].includes(active.role)) {
+      const today = organizationDate(active.organization.timezone)
+      setAttendanceFrom(today); setAttendanceTo(today)
+      void fetchAttendanceReport(today, today)
+    }
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
     mobileApi.get<{ data: MobileNotice[]; meta: { current_page: number; last_page: number } }>(`${base}/notifications?per_page=10&page=1`, token)
@@ -188,20 +243,17 @@ export default function App() {
         .then(result => { if (!cancelled) setFinanceReport(result.data) }))
     }
     if (active.role === 'admin' || active.role === 'management') {
-      const today = organizationDate(active.organization.timezone)
       tasks.push(Promise.all([
         mobileApi.get<{ data: MobileRosterStudent[]; meta: { total: number } }>(`${base}/students?status=active&per_page=5`, token),
         mobileApi.get<{ data: MobileRosterTeacher[]; meta: { total: number } }>(`${base}/teachers?status=active&per_page=5`, token),
-        mobileApi.get<{ data: MobileAttendanceReport }>(`${base}/reports/attendance?from=${today}&to=${today}`, token),
         mobileApi.get<MobileCourseProgressReport>(`${base}/reports/course-progress`, token),
         mobileApi.get<{ data: ExamSectionSummary[] }>(`${base}/reports/exams/sections`, token),
         mobileApi.get<{ data: ExamSeriesComparison[] }>(`${base}/reports/exams/comparisons`, token).catch(() => ({ data: [] as ExamSeriesComparison[] })),
         mobileApi.get<{ data: MobileFinanceReport }>(`${base}/reports/finance`, token),
-      ]).then(([studentResult, teacherResult, attendanceResult, progressResult, examResult, comparisonResult, financeResult]) => {
+      ]).then(([studentResult, teacherResult, progressResult, examResult, comparisonResult, financeResult]) => {
         if (!cancelled) {
           setRosterStudents(studentResult.data); setRosterStudentTotal(studentResult.meta.total)
           setRosterTeachers(teacherResult.data); setRosterTeacherTotal(teacherResult.meta.total)
-          setAttendanceReport(attendanceResult.data)
           setCourseProgressReport(progressResult)
           setExamSectionSummaries(examResult.data)
           setExamSeriesComparisons(comparisonResult.data)
@@ -243,7 +295,7 @@ export default function App() {
       if (!cancelled) setError(reason instanceof Error ? reason.message : 'Could not load your learning workspace.')
     }).finally(() => { if (!cancelled) setBusy(false) })
     return () => { cancelled = true }
-  }, [active, token])
+  }, [active, token, fetchAttendanceReport])
 
   async function signIn() {
     setBusy(true); setError(''); setSuccess(''); setVerificationNeeded(false)
@@ -680,8 +732,10 @@ export default function App() {
           {rosterStudents.length ? rosterStudents.map(student => <View style={styles.recordCard} key={student.id}><Text style={styles.courseTitle}>{student.name}</Text><Text style={styles.courseMeta}>{student.admission_number ?? 'Active learner'}{student.academic_class?.name ? ` · ${student.academic_class.name}` : ''}{student.academic_section?.name ? ` · ${student.academic_section.name}` : ''}</Text></View>) : <Empty text={busy ? 'Loading student roster…' : 'No active students are on the roster.'} />}
           <Text style={styles.sectionTitle}>Teacher overview · {rosterTeacherTotal} active</Text>
           {rosterTeachers.length ? rosterTeachers.map(teacher => <View style={styles.recordCard} key={teacher.id}><Text style={styles.courseTitle}>{teacher.name}</Text><Text style={styles.courseMeta}>{teacher.employee_number ?? 'Teaching staff'}{teacher.specialization ? ` · ${teacher.specialization}` : ''}</Text></View>) : <Empty text={busy ? 'Loading teacher roster…' : 'No active teachers are on the roster.'} />}
-          <Text style={styles.sectionTitle}>Attendance report · {attendanceReport?.to ?? 'today'}</Text>
-          {attendanceReport ? attendanceReport.totals.records ? <><View style={styles.infoCard}><Text style={styles.courseTitle}>{attendanceReport.totals.attendance_rate}% attendance rate</Text><Text style={styles.courseMeta}>{attendanceReport.totals.records} records · {attendanceReport.totals.present} present · {attendanceReport.totals.late} late · {attendanceReport.totals.absent} absent · {attendanceReport.totals.excused} excused</Text></View>{attendanceReport.sections.slice(0, 5).map(section => <View style={styles.recordCard} key={section.section_id}><Text style={styles.courseTitle}>{section.class} · {section.section}</Text><Text style={styles.courseMeta}>{section.attendance_rate}% attendance · {section.absent} absent of {section.records} records</Text></View>)}</> : <Empty text="No attendance has been recorded today." /> : <Empty text={busy ? 'Loading attendance report…' : 'No attendance report is available.'} />}
+          <AttendanceReportPanel report={attendanceReport} from={attendanceFrom} to={attendanceTo} loading={attendanceReportLoading} error={attendanceReportError}
+            onChangeFrom={setAttendanceFrom} onChangeTo={setAttendanceTo} onApply={() => applyAttendanceRange()}
+            onToday={() => { const today = organizationDate(active.organization.timezone); applyAttendanceRange(today, today) }}
+            onWeek={() => { const today = organizationDate(active.organization.timezone); applyAttendanceRange(shiftDate(today, -6), today) }} />
           <Text style={styles.sectionTitle}>Course progress · {courseProgressReport?.summary.learners ?? 0} learners</Text>
           {courseProgressReport ? <>{courseProgressReport.summary.courses ? <View style={styles.infoCard}><Text style={styles.courseTitle}>{courseProgressReport.summary.average_percent}% average completion</Text><Text style={styles.courseMeta}>{courseProgressReport.summary.courses} published courses · {courseProgressReport.summary.learners} active course enrollments</Text></View> : null}{courseProgressReport.data.slice(0, 5).map(course => <View style={styles.recordCard} key={course.course_id}><Text style={styles.courseTitle}>{course.title}</Text><Text style={styles.courseMeta}>{course.average_percent}% average · {course.completed_learners}/{course.learners} learners completed · {course.lessons} lessons</Text></View>)}{courseProgressReport.summary.courses === 0 ? <Empty text="No published courses are available to report." /> : null}</> : <Empty text={busy ? 'Loading course progress report…' : 'No course progress report is available.'} />}
           <Text style={styles.sectionTitle}>Examination performance</Text>
@@ -689,6 +743,10 @@ export default function App() {
           <Text style={styles.sectionTitle}>Exam series progress</Text>
           <ExamSeriesHistory items={examSeriesComparisons} emptyText="No published exams are available in a named series." />
         </> : null}
+        {active.role === 'independent_educator' ? <AttendanceReportPanel report={attendanceReport} from={attendanceFrom} to={attendanceTo} loading={attendanceReportLoading} error={attendanceReportError}
+          onChangeFrom={setAttendanceFrom} onChangeTo={setAttendanceTo} onApply={() => applyAttendanceRange()}
+          onToday={() => { const today = organizationDate(active.organization.timezone); applyAttendanceRange(today, today) }}
+          onWeek={() => { const today = organizationDate(active.organization.timezone); applyAttendanceRange(shiftDate(today, -6), today) }} /> : null}
         {['admin', 'management', 'independent_educator'].includes(active.role) ? <FinanceSnapshot report={financeReport} busy={busy} /> : null}
         {canScheduleMeetings ? <>
           <Text style={styles.sectionTitle}>Meeting schedule</Text>
@@ -874,6 +932,39 @@ function OrganizationPicker({ user, memberships, busy, error, onChoose, onSignOu
 
 function Empty({ text }: { text: string }) { return <View style={styles.empty}><Text style={styles.courseMeta}>{text}</Text></View> }
 
+function AttendanceReportPanel({ report, from, to, loading, error, onChangeFrom, onChangeTo, onApply, onToday, onWeek }: {
+  report: MobileAttendanceReport | null
+  from: string
+  to: string
+  loading: boolean
+  error: string
+  onChangeFrom: (value: string) => void
+  onChangeTo: (value: string) => void
+  onApply: () => void
+  onToday: () => void
+  onWeek: () => void
+}) {
+  return <>
+    <Text style={styles.sectionTitle}>Attendance report{report ? ` · ${report.from} to ${report.to}` : ''}</Text>
+    <View style={styles.activityCard}>
+      <Text style={styles.inputLabel}>From date</Text>
+      <TextInput value={from} onChangeText={onChangeFrom} placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation" maxLength={10} style={styles.input} accessibilityLabel="Attendance report start date" />
+      <Text style={styles.inputLabel}>To date</Text>
+      <TextInput value={to} onChangeText={onChangeTo} placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation" maxLength={10} style={styles.input} accessibilityLabel="Attendance report end date" />
+      <View style={styles.examOutcomeRow}>
+        <Pressable style={styles.examOutcome} onPress={onToday} disabled={loading} accessibilityRole="button"><Text style={styles.examOutcomeText}>Today</Text></Pressable>
+        <Pressable style={styles.examOutcome} onPress={onWeek} disabled={loading} accessibilityRole="button"><Text style={styles.examOutcomeText}>Last 7 days</Text></Pressable>
+        <Pressable style={[styles.primaryButton, styles.dateRangeApply, loading && styles.disabled]} onPress={onApply} disabled={loading} accessibilityRole="button"><Text style={styles.primaryButtonText}>{loading ? 'Loading…' : 'Apply date range'}</Text></Pressable>
+      </View>
+      {error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}
+    </View>
+    {report ? report.totals.records ? <>
+      <View style={styles.infoCard}><Text style={styles.courseTitle}>{report.totals.attendance_rate}% attendance rate</Text><Text style={styles.courseMeta}>{report.totals.records} records · {report.totals.present} present · {report.totals.late} late · {report.totals.absent} absent · {report.totals.excused} excused</Text></View>
+      {report.sections.map(section => <View style={styles.recordCard} key={section.section_id}><Text style={styles.courseTitle}>{section.class} · {section.section}</Text><Text style={styles.courseMeta}>{section.attendance_rate}% attendance · {section.absent} absent of {section.records} records</Text></View>)}
+    </> : <Empty text={`No attendance was recorded from ${report.from} to ${report.to}.`} /> : <Empty text={loading ? 'Loading attendance report…' : 'Apply a date range to view attendance.'} />}
+  </>
+}
+
 function AssessmentHistory({ results }: { results: AssessmentResults }) {
   const items = [
     ...results.exams.map(result => ({ id: result.id, title: `${result.exam} · ${result.subject}`, kind: 'School exam', course: `${result.session} · ${result.class_section}`, score: result.score, max_score: result.max_marks, detail: result.outcome === 'graded' ? result.remarks || 'Published result' : result.outcome, completed_at: result.exam_on })),
@@ -909,6 +1000,7 @@ const styles = StyleSheet.create({
   inputLabel: { color: '#425c77', fontSize: 11, fontWeight: '700', marginTop: 18, marginBottom: 7 },
   input: { height: 48, borderRadius: 9, borderColor: '#dfe7f0', borderWidth: 1, paddingHorizontal: 12, backgroundColor: '#fff', color: '#304d6b', fontSize: 13 },
   primaryButton: { height: 48, borderRadius: 9, backgroundColor: '#2c61c2', alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  dateRangeApply: { flexGrow: 1, minWidth: 150, paddingHorizontal: 12, marginTop: 0 },
   primaryButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   disabled: { opacity: 0.6 },
   error: { marginTop: 13, padding: 10, borderRadius: 8, overflow: 'hidden', color: '#9c4141', backgroundColor: '#fff0f0', fontSize: 11, lineHeight: 17 },
