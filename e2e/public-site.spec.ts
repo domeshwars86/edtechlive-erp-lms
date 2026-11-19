@@ -146,6 +146,44 @@ test('local account verification link leads back to a working sign-in flow', asy
   await expect(page.getByRole('button', { name: /Browser Test School/ })).toBeVisible()
 })
 
+test('login page lets an unverified account request and open a verification link', async ({ page }) => {
+  const email = 'unverified-browser@example.test'
+  await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
+  await page.route('**/api/v1/me', route => route.fulfill({
+    status: 401,
+    contentType: 'application/json',
+    body: JSON.stringify({ message: 'Unauthenticated.' }),
+  }))
+  await page.route('**/api/v1/auth/email/verification-notification', route => route.fulfill({
+    status: 202,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      message: 'If the address has an unverified account, a verification link has been sent.',
+      verification_url: 'http://127.0.0.1:8002/api/v1/auth/verify-email/43/test-hash?expires=1795093200&signature=test-signature',
+    }),
+  }))
+  await page.context().route('**/api/v1/auth/verify-email/**', route => route.fulfill({
+    status: 200,
+    contentType: 'text/html',
+    body: '<main>Email address verified. You can now sign in.</main>',
+  }))
+
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Need a verification link? Resend it' }).click()
+  await expect(page.getByRole('alert')).toContainText('Enter your email address above')
+  await page.getByRole('textbox', { name: 'Email address' }).fill(email)
+  await page.getByRole('button', { name: 'Need a verification link? Resend it' }).click()
+  await expect(page.getByText('Open the local verification link, then return here to sign in.')).toBeVisible()
+  const verifyLink = page.getByRole('link', { name: /Verify email to unlock sign-in/ })
+  await expect(verifyLink).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Email address' })).toBeVisible()
+
+  const verificationTab = page.context().waitForEvent('page')
+  await verifyLink.click()
+  await expect((await verificationTab).locator('body')).toContainText('Email address verified. You can now sign in.')
+  await expect(page.getByLabel('Password', { exact: true })).toBeVisible()
+})
+
 test('all seven dashboard previews fit narrow and desktop viewports', async ({ page }) => {
   test.setTimeout(120_000)
   const roles = ['super-admin', 'admin', 'management', 'teacher', 'student', 'parent', 'educator']

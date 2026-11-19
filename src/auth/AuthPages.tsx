@@ -104,9 +104,15 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
 
   async function resendVerification() {
     const email = formRef.current ? new FormData(formRef.current).get('email') : null
-    if (typeof email !== 'string') return
+    if (typeof email !== 'string' || !email.trim()) {
+      setError('Enter your email address above to request a verification link.')
+      formRef.current?.querySelector<HTMLInputElement>('input[name="email"]')?.focus()
+      return
+    }
     setBusy(true)
     setError('')
+    setMessage('')
+    setVerificationUrl('')
     try {
       const result = await api.post<{ verification_url?: string }>('/api/v1/auth/email/verification-notification', { email })
       setVerificationUrl(result.verification_url ?? '')
@@ -146,9 +152,9 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
 
   return <AccountShell><form ref={formRef} className="auth-form" onSubmit={submit}>
     <div className="eyebrow"><span />EDTECHLIVE ACCOUNT</div>
-    <h1>{message ? 'You’re all set.' : title}</h1>
+    <h1>{message && mode !== 'login' ? 'You’re all set.' : title}</h1>
     <p>{message || intro}</p>
-    {!message && <>
+    {(!message || mode === 'login') && <>
       {mode === 'register' && <label>Full name<input name="name" autoComplete="name" required minLength={2} maxLength={120} placeholder="Your name" /></label>}
       <label>Email address<input name="email" autoComplete="email" type="email" required maxLength={254} defaultValue={mode === 'reset' ? new URLSearchParams(location.search).get('email') ?? '' : ''} placeholder="you@example.com" /></label>
       {(mode === 'login' || mode === 'register') && <label>Password<input name="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} type="password" required minLength={mode === 'register' ? 12 : 1} placeholder={mode === 'register' ? 'At least 12 characters, with letters and numbers' : 'Your password'} /></label>}
@@ -156,14 +162,14 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       {mode === 'register' && <label>Organization type<select name="organization_type" required defaultValue="school"><option value="school">School</option><option value="college">College</option><option value="coaching_institute">Coaching institute</option><option value="academy">Academy</option><option value="independent_educator">Independent educator</option></select></label>}
       {(mode === 'register' || mode === 'reset') && <label>Confirm password<input name="password_confirmation" autoComplete="new-password" type="password" required minLength={12} placeholder="Enter the password again" /></label>}
       {mode === 'login' && <label className="auth-remember"><input name="remember" type="checkbox" /> Keep me signed in</label>}
-      {error && <div className="auth-error" role="alert">{error}{mode === 'login' && error.includes('Verify your email') && <button type="button" disabled={busy} onClick={resendVerification}>Send a new verification link</button>}</div>}
+      {error && <div className="auth-error" role="alert">{error}</div>}
       <button className="button button-primary" type="submit" disabled={busy}>{busy ? <><LoaderCircle className="spin" /> Working…</> : <>{ { login: 'Log in', register: 'Create account', forgot: 'Send reset link', reset: 'Reset password' }[mode]} <ArrowUpRight size={16} /></>}</button>
     </>}
     {message && <div className="auth-success"><Check />{verificationUrl ? 'Email verification is required before sign-in. Use the action below first.' : passwordResetUrl ? 'A local reset link is ready below.' : mode === 'register' ? 'Email verification is required before you can sign in.' : 'The request was sent securely.'}</div>}
     {verificationUrl && <div className="local-verification-link"><p>Step 1: Verify your email address.</p><a href={verificationUrl} target="_blank" rel="noreferrer">Verify email to unlock sign-in <ArrowUpRight size={16} /></a><small>Step 2: Return to this page and log in. This development link expires in 60 minutes.</small></div>}
     {passwordResetUrl && <div className="local-verification-link"><p>Open your local reset link to choose a new password.</p><a href={passwordResetUrl}>Reset your password <ArrowUpRight size={16} /></a><small>This local reset link expires in 60 minutes.</small></div>}
     {error && !message && mode !== 'login' && <div className="auth-error" role="alert">{error}</div>}
-    <div className="auth-links">{mode === 'login' && <><Link to="/forgot-password">Forgot password?</Link><span>New here? <Link to="/register">Create an account</Link></span></>}{mode === 'register' && <span>Already have an account? <Link to="/login">Log in</Link></span>}{mode === 'forgot' && <Link to="/login">Back to log in</Link>}{mode === 'reset' && <Link to="/login">Back to log in</Link>}</div>
+    <div className="auth-links">{mode === 'login' && <><Link to="/forgot-password">Forgot password?</Link><button type="button" disabled={busy} onClick={resendVerification}>Need a verification link? Resend it</button><span>New here? <Link to="/register">Create an account</Link></span></>}{mode === 'register' && <span>Already have an account? <Link to="/login">Log in</Link></span>}{mode === 'forgot' && <Link to="/login">Back to log in</Link>}{mode === 'reset' && <Link to="/login">Back to log in</Link>}</div>
     <small className="auth-demo-note"><ShieldCheck size={13} />Your account requests are sent to the edTechLive API.</small>
   </form></AccountShell>
 }

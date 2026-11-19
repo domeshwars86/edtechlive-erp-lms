@@ -38,6 +38,8 @@ try {
     cwd: apiDirectory,
     env: {
       ...process.env, APP_ENV: 'local', APP_URL: `http://127.0.0.1:${apiPort}`, DB_CONNECTION: 'sqlite', DB_DATABASE: apiDatabase, DB_URL: '',
+      FRONTEND_URL: `http://127.0.0.1:${webPort}`,
+      SANCTUM_STATEFUL_DOMAINS: `127.0.0.1:${webPort},localhost:${webPort}`,
       SESSION_DRIVER: 'file', CACHE_STORE: 'file', QUEUE_CONNECTION: 'sync',
     },
     stdio: 'inherit',

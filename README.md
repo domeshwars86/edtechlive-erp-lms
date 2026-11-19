@@ -40,7 +40,7 @@ npm run setup:local
 npm run dev:stack
 ```
 
-Open [http://127.0.0.1:4173](http://127.0.0.1:4173). The launcher starts Laravel on port 8001 and Vite on port 4173, and stops both when you press Ctrl+C. If either port is already in use, set `EDTECHLIVE_API_PORT` or `EDTECHLIVE_WEB_PORT` before running it; the Vite API proxy is adjusted to match.
+Open the website URL printed by the launcher (defaults: [http://127.0.0.1:4173](http://127.0.0.1:4173)). It starts Laravel on port 8001 and Vite on port 4173, and stops both when you press Ctrl+C. If either port is already in use, set `EDTECHLIVE_API_PORT` or `EDTECHLIVE_WEB_PORT` before running it; the API proxy, local password-reset URL and Sanctum session allowlist follow the selected ports.
 
 `setup:local` creates `apps/api/.env` only when it is missing, then uses the isolated `apps/api/database/local-dev.sqlite` file, generates an app key if needed, and applies outstanding local migrations. It refuses non-local or non-SQLite database settings and never runs migrations against a server database. If an existing `.env` needs adjustment, keep `APP_ENV=local`, `DB_CONNECTION=sqlite`, `DB_DATABASE=database/local-dev.sqlite`, and leave `DB_URL` empty. Local registration/resend-verification and password-recovery responses show clickable account links in the auth screen; reset links are shown only under `APP_ENV=local` and do not send email. Production inbox delivery requires a configured mail transport.
 
