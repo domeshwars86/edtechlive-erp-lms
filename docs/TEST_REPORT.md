@@ -2,6 +2,10 @@
 
 **Updated:** 20 November 2026
 
+## Full Laravel API regression (20 November 2026)
+
+- The complete Laravel API suite passed **177 tests / 1,547 assertions** on in-memory SQLite (**72.99 seconds**) and a fresh disposable PostgreSQL 17 cluster (**39.87 seconds**); all migrations applied on PostgreSQL. The cluster was isolated to a unique system-temp path on loopback, then stopped and removed. The local development SQLite database and production databases were not used. Hosted PostgreSQL 16 CI remains unverified.
+
 ## Keyboard navigation landmarks (20 November 2026)
 
 - Added visible-on-focus skip links before the public header, account form and dashboard sidebar; each link focuses its main landmark. Course detail content uses a section container rather than a nested `main` landmark. Dashboard sidebar buttons announce the selected section with `aria-current`. TypeScript, ESLint, and the production build passed; the complete public-site Chromium spec passed (**16 tests in 2.0 minutes**), including first-tab focus, fragment navigation, target focus, active-section announcement and exactly one main landmark on public, account and dashboard shells.
