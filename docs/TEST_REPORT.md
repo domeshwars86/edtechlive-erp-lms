@@ -24,7 +24,7 @@
 
 ## Mobile finance snapshot (19 November 2026)
 
-- Admin and Management mobile overviews now display the API's role-checked, read-only aggregate finance totals and default receipt/expense period net cash flow. The view omits fee-level and student-level records.
+- Admin, Management and Independent Educator mobile overviews now display the API's role-checked, read-only aggregate finance totals and default receipt/expense period net cash flow. The view omits fee-level and student-level records.
 - `npm run typecheck` passed in `apps/mobile`; Expo Android export passed (564 modules, 1.7 MB). Device/emulator interaction was not performed.
 
 ## Mobile teacher school-exam marking (19 November 2026)

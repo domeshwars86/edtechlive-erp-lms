@@ -143,6 +143,10 @@ export default function App() {
       tasks.push(mobileApi.get<{ data: SchoolExam[] }>(`${base}/exams`, token)
         .then(result => { if (!cancelled) setTeacherExams(result.data) }))
     }
+    if (active.role === 'independent_educator') {
+      tasks.push(mobileApi.get<{ data: MobileFinanceReport }>(`${base}/reports/finance`, token)
+        .then(result => { if (!cancelled) setFinanceReport(result.data) }))
+    }
     if (active.role === 'admin' || active.role === 'management') {
       const today = organizationDate(active.organization.timezone)
       tasks.push(Promise.all([
@@ -511,12 +515,8 @@ export default function App() {
           {courseProgressReport ? <>{courseProgressReport.summary.courses ? <View style={styles.infoCard}><Text style={styles.courseTitle}>{courseProgressReport.summary.average_percent}% average completion</Text><Text style={styles.courseMeta}>{courseProgressReport.summary.courses} published courses · {courseProgressReport.summary.learners} active course enrollments</Text></View> : null}{courseProgressReport.data.slice(0, 5).map(course => <View style={styles.recordCard} key={course.course_id}><Text style={styles.courseTitle}>{course.title}</Text><Text style={styles.courseMeta}>{course.average_percent}% average · {course.completed_learners}/{course.learners} learners completed · {course.lessons} lessons</Text></View>)}{courseProgressReport.summary.courses === 0 ? <Empty text="No published courses are available to report." /> : null}</> : <Empty text={busy ? 'Loading course progress report…' : 'No course progress report is available.'} />}
           <Text style={styles.sectionTitle}>Examination performance</Text>
           {examSectionSummaries.length ? examSectionSummaries.slice(0, 5).map(item => <View style={styles.recordCard} key={`${item.exam_id}-${item.class_section}`}><Text style={styles.courseTitle}>{item.exam} · {item.class_section}</Text><Text style={styles.courseMeta}>{item.session} · {item.paper_count} papers · {item.subject_count} subjects · {item.student_count} learners</Text><Text style={styles.courseMeta}>{item.average_percent === null ? 'No graded marks' : `${item.average_percent}% average graded result`} · {item.graded_count} graded · {item.absent_count} absent · {item.excused_count} excused</Text></View>) : <Empty text="No published school examination results are available." />}
-          <Text style={styles.sectionTitle}>Finance snapshot · {financeReport?.as_of ?? 'today'}</Text>
-          {financeReport ? <><View style={styles.statGrid}>{[
-            ['Issued', financeReport.summary.issued_amount], ['Received', financeReport.summary.received_amount],
-            ['Outstanding', financeReport.summary.outstanding_amount], ['Overdue', financeReport.summary.overdue_balance],
-          ].map(([label, value]) => <View style={styles.statCard} key={label}><Text style={styles.statValue}>₹{Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</Text><Text style={styles.statLabel}>{label}</Text></View>)}</View><View style={styles.infoCard}><Text style={styles.courseTitle}>Period {financeReport.collections_period.from} to {financeReport.collections_period.to}</Text><Text style={styles.courseMeta}>Net cash flow ₹{Number(financeReport.collections_period.net_cash_flow).toLocaleString('en-IN', { maximumFractionDigits: 2 })} · {financeReport.collections_period.receipt_count} receipts · {financeReport.collections_period.expense_count} expenses</Text><Text style={styles.courseMeta}>All-time expenses ₹{Number(financeReport.summary.expense_amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })} · {financeReport.summary.overdue_records} overdue fee records</Text></View></> : <Empty text={busy ? 'Loading finance summary…' : 'No finance summary is available.'} />}
         </> : null}
+        {['admin', 'management', 'independent_educator'].includes(active.role) ? <FinanceSnapshot report={financeReport} busy={busy} /> : null}
         <Text style={styles.sectionTitle}>Recent and upcoming classes</Text>
         {meetings.filter(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000).sort((left, right) => new Date(right.starts_at).getTime() - new Date(left.starts_at).getTime()).slice(0, 10).sort((left, right) => new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime()).map(item => {
           const startsAt = new Date(item.starts_at).getTime()
@@ -626,6 +626,16 @@ function summaryCards(summary: DashboardSummary, role: OrganizationMembership['r
     { label: 'Classes today', value: String(summary.classes_today ?? 0) },
     { label: 'Attendance today', value: rate((summary.attendance_today as { rate?: number | null } | undefined)?.rate) },
   ]
+}
+
+function FinanceSnapshot({ report, busy }: { report: MobileFinanceReport | null; busy: boolean }) {
+  return <>
+    <Text style={styles.sectionTitle}>Finance snapshot · {report?.as_of ?? 'today'}</Text>
+    {report ? <><View style={styles.statGrid}>{[
+      ['Issued', report.summary.issued_amount], ['Received', report.summary.received_amount],
+      ['Outstanding', report.summary.outstanding_amount], ['Overdue', report.summary.overdue_balance],
+    ].map(([label, value]) => <View style={styles.statCard} key={label}><Text style={styles.statValue}>₹{Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</Text><Text style={styles.statLabel}>{label}</Text></View>)}</View><View style={styles.infoCard}><Text style={styles.courseTitle}>Period {report.collections_period.from} to {report.collections_period.to}</Text><Text style={styles.courseMeta}>Net cash flow ₹{Number(report.collections_period.net_cash_flow).toLocaleString('en-IN', { maximumFractionDigits: 2 })} · {report.collections_period.receipt_count} receipts · {report.collections_period.expense_count} expenses</Text><Text style={styles.courseMeta}>All-time expenses ₹{Number(report.summary.expense_amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })} · {report.summary.overdue_records} overdue fee records</Text></View></> : <Empty text={busy ? 'Loading finance summary…' : 'No finance summary is available.'} />}
+  </>
 }
 
 function Splash() { return <View style={styles.splash}><ActivityIndicator color="#2d63c7" size="large" /><Text style={styles.subtitle}>Connecting to edTechLive…</Text></View> }
