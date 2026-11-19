@@ -245,7 +245,7 @@ class CourseQuizController
             'options' => $source->options,
             'question_type' => $source->question_type,
             'difficulty' => $source->difficulty,
-            'correct_option' => $source->correct_options[0],
+            'correct_option' => $source->correct_options[0] ?? 0,
             'correct_options' => $source->correct_options,
             'points' => $source->points,
             'sort_order' => $record->questions()->count(),
@@ -304,16 +304,27 @@ class CourseQuizController
             'answers.*.selected_option' => ['sometimes', 'integer', 'min:0', 'max:5'],
             'answers.*.selected_options' => ['sometimes', 'array', 'min:1', 'max:6'],
             'answers.*.selected_options.*' => ['required', 'integer', 'min:0', 'max:5', 'distinct'],
+            'answers.*.answer_text' => ['sometimes', 'string', 'max:10000'],
         ]);
         $questions = $record->quiz->questions->keyBy('id');
         $answers = [];
         foreach ($data['answers'] as $answer) {
             $question = $questions->get($answer['question_id']);
+            $isShortAnswer = $question?->question_type === 'short_answer';
             $isMultiple = $question?->question_type === 'multiple_select';
             $hasSingle = array_key_exists('selected_option', $answer);
+            if ($isShortAnswer) {
+                if ($hasSingle || array_key_exists('selected_options', $answer) || ! array_key_exists('answer_text', $answer)) {
+                    throw ValidationException::withMessages(['answers' => ['Written questions require answer_text and cannot include selected options.']]);
+                }
+                $answers[$question->id] = trim($answer['answer_text']);
+
+                continue;
+            }
             $selectedOptions = $isMultiple ? ($answer['selected_options'] ?? []) : (isset($answer['selected_option']) ? [$answer['selected_option']] : []);
             if (! $question || ($isMultiple && ($hasSingle || ! array_key_exists('selected_options', $answer)))
                 || (! $isMultiple && (array_key_exists('selected_options', $answer) || ! $hasSingle))
+                || array_key_exists('answer_text', $answer)
                 || collect($selectedOptions)->contains(fn ($option) => $option >= count($question->options))) {
                 throw ValidationException::withMessages(['answers' => ['Answers must reference this quiz and a valid option.']]);
             }
@@ -322,6 +333,9 @@ class CourseQuizController
         }
         $maxScore = $record->quiz->questions->sum('points');
         $score = $record->quiz->questions->sum(function (QuizQuestion $question) use ($answers): int {
+            if ($question->question_type === 'short_answer') {
+                return 0;
+            }
             $submitted = $answers[$question->id] ?? null;
             $expected = $question->question_type === 'multiple_select'
                 ? ($question->correct_options ?? [])
@@ -335,14 +349,65 @@ class CourseQuizController
             && now()->gt($record->started_at->addMinutes($record->quiz->time_limit_minutes));
         $scheduleExpired = $record->quiz->closes_at !== null && now()->gte($record->quiz->closes_at);
         if ($timeLimitExpired || $scheduleExpired) {
-            $record->update(['answers' => [], 'score' => 0, 'max_score' => $maxScore, 'submitted_at' => now()]);
+            $record->update(['answers' => [], 'manual_grades' => [], 'review_status' => 'not_required', 'score' => 0, 'max_score' => $maxScore, 'submitted_at' => now()]);
             abort(409, $scheduleExpired
                 ? 'The quiz availability window closed; this attempt was submitted with no answers.'
                 : 'The quiz time limit expired; this attempt was submitted with no answers.');
         }
-        $record->update(['answers' => $answers, 'score' => $score, 'max_score' => $maxScore, 'submitted_at' => now()]);
+        $needsReview = $record->quiz->questions->contains(fn (QuizQuestion $question): bool => $question->question_type === 'short_answer' && filled($answers[$question->id] ?? null));
+        $record->update(['answers' => $answers, 'manual_grades' => [], 'review_status' => $needsReview ? 'pending' : 'not_required', 'score' => $score, 'max_score' => $maxScore, 'submitted_at' => now()]);
 
         return response()->json(['data' => $this->attemptData($record->refresh())]);
+    }
+
+    public function gradeShortAnswer(Request $request, int $organization, int $quiz, int $attempt, int $question): JsonResponse
+    {
+        $record = CourseQuiz::query()->where('organization_id', $organization)->with('course')->findOrFail($quiz);
+        $membership = $this->access->membership($request, $organization);
+        $this->assertCourseEditor($request, $membership->role, $organization, $record->course);
+        $questionRecord = $record->questions()->where('question_type', 'short_answer')->findOrFail($question);
+        $attemptRecord = QuizAttempt::query()->where('organization_id', $organization)->where('quiz_id', $record->id)->findOrFail($attempt);
+        abort_if($attemptRecord->submitted_at === null, 409, 'Only submitted attempts can be reviewed.');
+        $answers = $attemptRecord->answers ?? [];
+        abort_unless(is_string($answers[$questionRecord->id] ?? null) && filled($answers[$questionRecord->id]), 409, 'This attempt has no written response for this question.');
+        $data = $request->validate([
+            'awarded_points' => ['required', 'integer', 'min:0', 'max:'.$questionRecord->points],
+            'feedback' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $grades = $attemptRecord->manual_grades ?? [];
+        $grades[$questionRecord->id] = [
+            'awarded_points' => $data['awarded_points'],
+            'feedback' => $data['feedback'] ?? null,
+            'graded_at' => now()->toISOString(),
+            'graded_by' => $request->user()->id,
+        ];
+        $pendingCount = $record->questions()->where('question_type', 'short_answer')->get()->filter(
+            fn (QuizQuestion $item): bool => filled($answers[$item->id] ?? null) && ! array_key_exists($item->id, $grades),
+        )->count();
+        $gradedCount = count($grades);
+        $status = $pendingCount > 0 ? ($gradedCount > 0 ? 'partial' : 'pending') : 'graded';
+        $recordQuestions = $record->questions()->get();
+        $objectiveScore = $recordQuestions->sum(function (QuizQuestion $item) use ($answers): int {
+            if ($item->question_type === 'short_answer') {
+                return 0;
+            }
+            $submitted = $answers[$item->id] ?? null;
+            $expected = $item->question_type === 'multiple_select' ? ($item->correct_options ?? []) : [$item->correct_option];
+            sort($expected);
+            $selected = is_array($submitted) ? $submitted : (is_int($submitted) ? [$submitted] : []);
+            sort($selected);
+
+            return $selected === $expected ? $item->points : 0;
+        });
+        $manualScore = collect($grades)->sum(fn (array $grade): int => (int) ($grade['awarded_points'] ?? 0));
+        $attemptRecord->update([
+            'manual_grades' => $grades,
+            'review_status' => $status,
+            'score' => $objectiveScore + $manualScore,
+            'max_score' => $recordQuestions->sum('points'),
+        ]);
+
+        return response()->json(['data' => $this->attemptData($attemptRecord->refresh())]);
     }
 
     public function attempts(Request $request, int $organization, int $quiz): JsonResponse
@@ -461,18 +526,38 @@ class CourseQuizController
 
     private function validatedQuestionData(Request $request): array
     {
-        $data = $request->validate([
+        $questionType = $request->input('question_type', 'single_choice');
+        $rules = [
             'prompt' => ['required', 'string', 'min:3', 'max:2000'],
-            'options' => ['required', 'array', 'min:2', 'max:6'],
-            'options.*' => ['required', 'string', 'min:1', 'max:500', 'distinct'],
-            'correct_option' => ['sometimes', 'integer', 'min:0', 'max:5'],
-            'question_type' => ['sometimes', Rule::in(['single_choice', 'multiple_select'])],
+            'question_type' => ['sometimes', Rule::in(['single_choice', 'multiple_select', 'short_answer'])],
             'difficulty' => ['sometimes', Rule::in(['easy', 'medium', 'hard'])],
-            'correct_options' => ['sometimes', 'array', 'min:2', 'max:6'],
-            'correct_options.*' => ['required', 'integer', 'min:0', 'max:5', 'distinct'],
             'points' => ['sometimes', 'integer', 'min:1', 'max:1000'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:10000'],
-        ]);
+        ];
+        if ($questionType === 'short_answer') {
+            $rules['options'] = ['sometimes', 'array', 'max:0'];
+            $rules['correct_option'] = ['prohibited'];
+            $rules['correct_options'] = ['prohibited'];
+        } else {
+            $rules['options'] = ['required', 'array', 'min:2', 'max:6'];
+            $rules['options.*'] = ['required', 'string', 'min:1', 'max:500', 'distinct'];
+            $rules['correct_option'] = ['sometimes', 'integer', 'min:0', 'max:5'];
+            $rules['correct_options'] = ['sometimes', 'array', 'min:2', 'max:6'];
+            $rules['correct_options.*'] = ['required', 'integer', 'min:0', 'max:5', 'distinct'];
+        }
+        $data = $request->validate($rules);
+        if ($questionType === 'short_answer') {
+            return [
+                'prompt' => $data['prompt'],
+                'options' => [],
+                'question_type' => $questionType,
+                'difficulty' => $data['difficulty'] ?? 'medium',
+                'correct_option' => 0,
+                'correct_options' => [],
+                'points' => $data['points'] ?? 1,
+                ...(array_key_exists('sort_order', $data) ? ['sort_order' => $data['sort_order']] : []),
+            ];
+        }
         $questionType = $data['question_type'] ?? 'single_choice';
         $correctOptions = $questionType === 'multiple_select'
             ? ($data['correct_options'] ?? [])
@@ -509,10 +594,18 @@ class CourseQuizController
 
     private function attemptData(QuizAttempt $attempt): array
     {
+        $manualGrades = collect($attempt->manual_grades ?? [])->map(fn (array $grade): array => [
+            'awarded_points' => $grade['awarded_points'],
+            'feedback' => $grade['feedback'] ?? null,
+            'graded_at' => $grade['graded_at'] ?? null,
+        ]);
+
         return [
             'id' => $attempt->id,
             'attempt_number' => $attempt->attempt_number,
             'answers' => $attempt->answers,
+            'manual_grades' => $manualGrades,
+            'review_status' => $attempt->review_status,
             'score' => $attempt->score,
             'max_score' => $attempt->max_score,
             'started_at' => $attempt->started_at?->toISOString(),

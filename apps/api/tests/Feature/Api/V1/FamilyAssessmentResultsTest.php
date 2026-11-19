@@ -31,7 +31,7 @@ class FamilyAssessmentResultsTest extends TestCase
         [$parent, $organization, $child, $unlinked] = $this->family();
         $course = Course::query()->create(['organization_id' => $organization->id, 'created_by' => $parent->id, 'title' => 'Biology', 'status' => 'published']);
         $quiz = CourseQuiz::query()->create(['organization_id' => $organization->id, 'course_id' => $course->id, 'created_by' => $parent->id, 'title' => 'Cells quiz', 'status' => 'published']);
-        QuizAttempt::query()->create(['organization_id' => $organization->id, 'quiz_id' => $quiz->id, 'student_id' => $child->id, 'attempt_number' => 1, 'answers' => [['secret' => 'answer key detail']], 'score' => 8, 'max_score' => 10, 'started_at' => now(), 'submitted_at' => now()]);
+        QuizAttempt::query()->create(['organization_id' => $organization->id, 'quiz_id' => $quiz->id, 'student_id' => $child->id, 'attempt_number' => 1, 'answers' => [['secret' => 'answer key detail']], 'review_status' => 'pending', 'score' => 8, 'max_score' => 10, 'started_at' => now(), 'submitted_at' => now()]);
         $assignment = CourseAssignment::query()->create(['organization_id' => $organization->id, 'course_id' => $course->id, 'created_by' => $parent->id, 'title' => 'Cell report', 'max_points' => 20, 'status' => 'published']);
         AssignmentSubmission::query()->create(['organization_id' => $organization->id, 'assignment_id' => $assignment->id, 'student_id' => $child->id, 'answer' => 'Private submitted work', 'submitted_at' => now(), 'awarded_points' => 18, 'feedback' => 'Clear explanation', 'graded_by' => $parent->id, 'graded_at' => now()]);
         $unlinkedQuiz = CourseQuiz::query()->create(['organization_id' => $organization->id, 'course_id' => $course->id, 'created_by' => $parent->id, 'title' => 'Unlinked result', 'status' => 'published']);
@@ -41,6 +41,7 @@ class FamilyAssessmentResultsTest extends TestCase
         $this->getJson("/api/v1/organizations/{$organization->id}/my/children/{$child->id}/results")
             ->assertOk()->assertJsonCount(1, 'data.quizzes')->assertJsonCount(1, 'data.assignments')
             ->assertJsonPath('data.quizzes.0.title', 'Cells quiz')
+            ->assertJsonPath('data.quizzes.0.review_status', 'pending')
             ->assertJsonPath('data.assignments.0.feedback', 'Clear explanation')
             ->assertJsonMissing(['Private submitted work', 'answer key detail', 'Unlinked result']);
         $this->getJson("/api/v1/organizations/{$organization->id}/my/children/{$unlinked->id}/results")->assertNotFound();

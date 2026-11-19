@@ -213,6 +213,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('/quizzes/{quiz}/questions/from-bank', [CourseQuizController::class, 'addQuestionFromBank'])->whereNumber('quiz');
                 Route::post('/quizzes/{quiz}/attempts', [CourseQuizController::class, 'startAttempt'])->whereNumber('quiz');
                 Route::patch('/quizzes/{quiz}/attempts/{attempt}', [CourseQuizController::class, 'submitAttempt'])->whereNumber('quiz')->whereNumber('attempt');
+                Route::patch('/quizzes/{quiz}/attempts/{attempt}/questions/{question}/grade', [CourseQuizController::class, 'gradeShortAnswer'])->whereNumber('quiz')->whereNumber('attempt')->whereNumber('question');
                 Route::get('/quizzes/{quiz}/attempts', [CourseQuizController::class, 'attempts'])->whereNumber('quiz');
                 Route::get('/courses/{course}/assets', [CourseAssetController::class, 'index'])->whereNumber('course');
                 Route::post('/courses/{course}/assets', [CourseAssetController::class, 'store'])->whereNumber('course');

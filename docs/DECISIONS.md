@@ -31,3 +31,7 @@
 ## 2026-11-19 — Scope reusable question banks to a course
 
 **Context:** Course quizzes need reusable questions while preserving tenant and course boundaries. **Decision:** Store banks and bank questions under a course, authorize every operation through the existing course editor check, and copy a selected question into a draft quiz as a snapshot. **Trade-off:** Later bank edits or deletion do not silently change existing quizzes; detailed bank change history is not implemented.
+
+## 2026-11-19 — Keep subjective quiz grading separate from student answers
+
+**Context:** Quizzes need teacher-reviewed written responses without leaking answer keys or marking a partial score as final. **Decision:** Keep submitted text in the attempt answer map, store per-question grades/feedback and reviewer metadata separately, and expose a pending/partial/graded state. Only course editors can grade; aggregate score averages omit pending and partial attempts. **Trade-off:** The browser quiz workspace is the grading interface; bulk review and grade-change history remain future work.

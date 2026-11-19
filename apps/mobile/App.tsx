@@ -51,7 +51,7 @@ export default function App() {
   const [assignments, setAssignments] = useState<CourseAssignment[]>([])
   const [quizzes, setQuizzes] = useState<CourseQuiz[]>([])
   const [quizRun, setQuizRun] = useState<QuizRun | null>(null)
-  const [quizAnswers, setQuizAnswers] = useState<Record<number, number[]>>({})
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, number[] | string>>({})
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<number, string>>({})
   const [gradingDrafts, setGradingDrafts] = useState<Record<number, { score: string; feedback: string }>>({})
   const [teachingAssignments, setTeachingAssignments] = useState<TeachingAssignment[]>([])
@@ -274,9 +274,11 @@ export default function App() {
     try {
       const answers = Object.entries(quizAnswers).map(([questionId, selectedOptions]) => {
         const question = quizRun.questions.find(item => item.id === Number(questionId))
+        if (question?.question_type === 'short_answer') return { question_id: Number(questionId), answer_text: typeof selectedOptions === 'string' ? selectedOptions : '' }
+        const selected = Array.isArray(selectedOptions) ? selectedOptions : []
         return question?.question_type === 'multiple_select'
-          ? { question_id: Number(questionId), selected_options: selectedOptions }
-          : { question_id: Number(questionId), selected_option: selectedOptions[0] }
+          ? { question_id: Number(questionId), selected_options: selected }
+          : { question_id: Number(questionId), selected_option: selected[0] }
       })
       const result = await mobileApi.patch<{ data: QuizRun['attempt'] }>(`/api/v1/organizations/${active.organization.id}/quizzes/${quizRun.quiz.id}/attempts/${quizRun.attempt.id}`, token, { answers })
       setQuizzes(items => items.map(item => item.id === quizRun.quiz.id ? { ...item, attempts_used: (item.attempts_used ?? 0) + 1, latest_result: result.data } : item))
@@ -353,14 +355,16 @@ export default function App() {
           {quizRun.quiz.instructions ? <Text style={styles.courseMeta}>{quizRun.quiz.instructions}</Text> : null}
           {quizRun.questions.map((question, index) => <View key={question.id} style={styles.questionBlock}>
             <Text style={styles.courseTitle}>{index + 1}. {question.prompt} · {question.difficulty}</Text>
+            {question.question_type === 'short_answer' ? <Text style={styles.courseMeta}>Written response · {question.points} points · teacher reviewed</Text> : null}
+            {question.question_type === 'short_answer' ? <TextInput multiline maxLength={10000} value={typeof quizAnswers[question.id] === 'string' ? quizAnswers[question.id] as string : ''} onChangeText={value => setQuizAnswers(current => ({ ...current, [question.id]: value }))} placeholder="Write your response" style={styles.answerInput} editable={!busy} /> : null}
             {question.question_type === 'multiple_select' ? <Text style={styles.courseMeta}>Select all that apply.</Text> : null}
-            {question.options.map((option, optionIndex) => <Pressable key={optionIndex} onPress={() => setQuizAnswers(current => {
+            {question.question_type !== 'short_answer' && question.options.map((option, optionIndex) => <Pressable key={optionIndex} onPress={() => setQuizAnswers(current => {
               const selected = current[question.id] ?? []
               const next = question.question_type === 'multiple_select'
-                ? (selected.includes(optionIndex) ? selected.filter(item => item !== optionIndex) : [...selected, optionIndex].sort())
+                ? (Array.isArray(selected) && selected.includes(optionIndex) ? selected.filter(item => item !== optionIndex) : [...(Array.isArray(selected) ? selected : []), optionIndex].sort())
                 : [optionIndex]
               return { ...current, [question.id]: next }
-            })} style={[styles.option, (quizAnswers[question.id] ?? []).includes(optionIndex) && styles.optionSelected]}>
+            })} style={[styles.option, Array.isArray(quizAnswers[question.id]) && (quizAnswers[question.id] as number[]).includes(optionIndex) && styles.optionSelected]}>
               <Text style={styles.courseMeta}>{String.fromCharCode(65 + optionIndex)}. {option}</Text>
             </Pressable>)}
           </View>)}
@@ -385,7 +389,7 @@ export default function App() {
             <Text style={styles.courseMeta}>{quiz.questions.length} questions · {quiz.time_limit_minutes ? `${quiz.time_limit_minutes} minutes` : 'No time limit'} · {quiz.attempts_used ?? 0}/{quiz.max_attempts} attempts</Text>
             {quiz.opens_at ? <Text style={styles.courseMeta}>Opens {new Date(quiz.opens_at).toLocaleString()}</Text> : null}
             {quiz.closes_at ? <Text style={styles.courseMeta}>Closes {new Date(quiz.closes_at).toLocaleString()}</Text> : null}
-            {quiz.latest_result?.submitted_at ? <Text style={styles.resultText}>Latest result: {quiz.latest_result.score}/{quiz.latest_result.max_score}</Text> : null}
+            {quiz.latest_result?.submitted_at ? <Text style={styles.resultText}>{quiz.latest_result.review_status === 'pending' || quiz.latest_result.review_status === 'partial' ? 'Awaiting teacher review' : 'Latest result'}: {quiz.latest_result.score}/{quiz.latest_result.max_score}</Text> : null}
             {active.role === 'student' && (quiz.attempts_used ?? 0) < quiz.max_attempts ? <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void startQuiz(quiz)} disabled={busy || notOpen || closed}><Text style={styles.primaryButtonText}>{notOpen ? 'Quiz not open yet' : closed ? 'Quiz closed' : 'Start quiz'}</Text></Pressable> : null}
           </View>
         }) : <Empty text="No published quizzes in this course." />}
@@ -508,7 +512,7 @@ function Empty({ text }: { text: string }) { return <View style={styles.empty}><
 function AssessmentHistory({ results }: { results: AssessmentResults }) {
   const items = [
     ...results.exams.map(result => ({ id: result.id, title: `${result.exam} · ${result.subject}`, kind: 'School exam', course: `${result.session} · ${result.class_section}`, score: result.score, max_score: result.max_marks, detail: result.outcome === 'graded' ? result.remarks || 'Published result' : result.outcome, completed_at: result.exam_on })),
-    ...results.quizzes.map(result => ({ ...result, kind: 'Quiz', detail: `Attempt ${result.attempt_number ?? 1}` })),
+    ...results.quizzes.map(result => ({ ...result, kind: 'Quiz', detail: result.review_status === 'pending' || result.review_status === 'partial' ? 'Awaiting teacher review' : `Attempt ${result.attempt_number ?? 1}` })),
     ...results.assignments.map(result => ({ ...result, kind: 'Assignment', detail: result.feedback || 'Graded' })),
   ]
   if (!items.length) return <Text style={styles.courseMeta}>No completed or graded assessments yet.</Text>

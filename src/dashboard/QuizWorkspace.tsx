@@ -4,10 +4,10 @@ import { AlertCircle, Check, ClipboardList, LoaderCircle, Pencil, Play, Plus, Sa
 import { api } from '../lib/api'
 
 type Course = { id: number; title: string }
-type Question = { id: number; prompt: string; options: string[]; points: number; question_type: 'single_choice' | 'multiple_select'; difficulty: 'easy' | 'medium' | 'hard'; question_bank_question_id?: number | null; correct_option?: number; correct_options?: number[] }
+type Question = { id: number; prompt: string; options: string[]; points: number; question_type: 'single_choice' | 'multiple_select' | 'short_answer'; difficulty: 'easy' | 'medium' | 'hard'; question_bank_question_id?: number | null; correct_option?: number; correct_options?: number[] }
 type QuestionBank = { id: number; title: string; description: string | null; questions_count: number }
 type BankQuestion = { id: number; prompt: string; options: string[]; points: number; sort_order: number; question_type: Question['question_type']; difficulty: Question['difficulty']; correct_options: number[] }
-type AttemptResult = { id: number; attempt_number: number; score: string | null; max_score: string | null; submitted_at: string | null; student?: { name: string; admission_number: string } | null }
+type AttemptResult = { id: number; attempt_number: number; answers?: Record<number, number | number[] | string> | null; manual_grades?: Record<number, { awarded_points: number; feedback: string | null; graded_at: string | null }> | null; review_status?: 'not_required' | 'pending' | 'partial' | 'graded'; score: string | null; max_score: string | null; submitted_at: string | null; student?: { name: string; admission_number: string } | null }
 type Quiz = { id: number; course_id: number; title: string; instructions: string | null; time_limit_minutes: number | null; max_attempts: number; opens_at: string | null; closes_at: string | null; status: 'draft' | 'published' | 'archived'; questions: Question[]; attempts_used?: number; latest_result?: AttemptResult | null }
 type ActiveAttempt = { id: number; attempt_number: number }
 type AttemptPage = { data: AttemptResult[]; meta: { current_page: number; last_page: number; total: number } }
@@ -43,7 +43,7 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
   const [resultsLastPage, setResultsLastPage] = useState(1)
   const [resultsTotal, setResultsTotal] = useState(0)
   const [attempt, setAttempt] = useState<ActiveAttempt | null>(null)
-  const [answers, setAnswers] = useState<Record<number, number[]>>({})
+  const [answers, setAnswers] = useState<Record<number, number[] | string>>({})
   const [title, setTitle] = useState('')
   const [instructions, setInstructions] = useState('')
   const [timeLimit, setTimeLimit] = useState('20')
@@ -57,6 +57,9 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
   const [questionType, setQuestionType] = useState<Question['question_type']>('single_choice')
   const [difficulty, setDifficulty] = useState<Question['difficulty']>('medium')
   const [points, setPoints] = useState('1')
+  const [manualReviewAttempt, setManualReviewAttempt] = useState<AttemptResult | null>(null)
+  const [reviewScores, setReviewScores] = useState<Record<number, string>>({})
+  const [reviewFeedback, setReviewFeedback] = useState<Record<number, string>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -177,7 +180,7 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
     const options = optionsText.split('\n').map(option => option.trim()).filter(Boolean)
     setSaving(true); setError(''); setMessage('')
     try {
-      const question = { prompt, options, question_type: questionType, difficulty, points: Number(points), sort_order: quiz.questions.length, ...(questionType === 'multiple_select' ? { correct_options: correctOptions } : { correct_option: Number(correctOption) }) }
+      const question = { prompt, ...(questionType === 'short_answer' ? {} : { options }), question_type: questionType, difficulty, points: Number(points), sort_order: quiz.questions.length, ...(questionType === 'multiple_select' ? { correct_options: correctOptions } : questionType === 'single_choice' ? { correct_option: Number(correctOption) } : {}) }
       if (saveToBank && selectedBankId) {
         const bankQuestion = await api.post<{ data: BankQuestion }>(`${base}/question-banks/${selectedBankId}/questions`, question)
         await api.post(`${base}/quizzes/${quiz.id}/questions/from-bank`, { question_bank_question_id: bankQuestion.data.id })
@@ -217,11 +220,11 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
     try {
       await api.patch(`${base}/question-banks/${selectedBankId}/questions/${questionId}`, {
         prompt: bankEditPrompt,
-        options,
+        ...(bankEditType === 'short_answer' ? {} : { options }),
         question_type: bankEditType,
         difficulty: bankEditDifficulty,
         points: Number(bankEditPoints),
-        ...(bankEditType === 'multiple_select' ? { correct_options: bankEditCorrectOptions } : { correct_option: bankEditCorrectOptions[0] }),
+        ...(bankEditType === 'multiple_select' ? { correct_options: bankEditCorrectOptions } : bankEditType === 'single_choice' ? { correct_option: bankEditCorrectOptions[0] } : {}),
       })
       setEditingBankQuestion(null)
       await Promise.all([loadQuestionBanks(), loadQuizzes()])
@@ -264,13 +267,34 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
     try {
       const payload = Object.entries(answers).map(([question_id, selected_options]) => {
         const question = quiz.questions.find(item => item.id === Number(question_id))
+        if (question?.question_type === 'short_answer') return { question_id: Number(question_id), answer_text: typeof selected_options === 'string' ? selected_options : '' }
+        const selected = Array.isArray(selected_options) ? selected_options : []
         return question?.question_type === 'multiple_select'
-          ? { question_id: Number(question_id), selected_options }
-          : { question_id: Number(question_id), selected_option: selected_options[0] }
+          ? { question_id: Number(question_id), selected_options: selected }
+          : { question_id: Number(question_id), selected_option: selected[0] }
       })
       const result = await api.patch<{ data: AttemptResult }>(`${base}/quizzes/${quiz.id}/attempts/${attempt.id}`, { answers: payload })
       setAttempt(null); setAnswers({}); await loadQuizzes(); setMessage(`Attempt submitted. Score: ${result.data.score} / ${result.data.max_score}.`)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not submit quiz attempt.') } finally { setSaving(false) }
+  }
+
+  function beginQuizReview(result: AttemptResult) {
+    setManualReviewAttempt(result)
+    setReviewScores(Object.fromEntries(quiz?.questions.filter(question => question.question_type === 'short_answer').map(question => [question.id, String(result.manual_grades?.[question.id]?.awarded_points ?? '')] ) ?? []))
+    setReviewFeedback(Object.fromEntries(quiz?.questions.filter(question => question.question_type === 'short_answer').map(question => [question.id, result.manual_grades?.[question.id]?.feedback ?? '']) ?? []))
+  }
+
+  async function gradeQuizResponse(questionId: number) {
+    if (!quiz || !manualReviewAttempt) return
+    const rawScore = reviewScores[questionId]
+    if (rawScore === undefined || rawScore.trim() === '' || !Number.isInteger(Number(rawScore))) { setError('Enter a whole number score for this response.'); return }
+    setSaving(true); setError(''); setMessage('')
+    try {
+      const result = await api.patch<{ data: AttemptResult }>(`${base}/quizzes/${quiz.id}/attempts/${manualReviewAttempt.id}/questions/${questionId}/grade`, { awarded_points: Number(rawScore), feedback: reviewFeedback[questionId]?.trim() || null })
+      setManualReviewAttempt(result.data)
+      setResults(current => current.map(item => item.id === result.data.id ? { ...item, ...result.data } : item))
+      setMessage(result.data.review_status === 'graded' ? 'Written responses reviewed. The final quiz score is updated.' : 'Response reviewed. More written answers are still waiting for review.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not review this response.') } finally { setSaving(false) }
   }
 
   return <div className="quiz-workspace">
@@ -307,8 +331,8 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
           {bankQuestions.length ? <div className="quiz-bank-questions">{bankQuestions.map(question => {
             const added = quiz?.questions.some(item => item.question_bank_question_id === question.id) ?? false
             const options = bankEditOptions.split('\n').map(option => option.trim()).filter(Boolean)
-            return <div className="quiz-bank-question-entry" key={question.id}><article><div><b>{question.prompt}</b><small>{question.question_type === 'multiple_select' ? 'Multiple select' : 'Single choice'} · {question.difficulty} · {question.points} pt{question.points === 1 ? '' : 's'}</small></div><div className="quiz-bank-question-actions"><button type="button" className="master-action" disabled={saving} onClick={() => editingBankQuestion === question.id ? setEditingBankQuestion(null) : beginBankQuestionEdit(question)}><Pencil size={13} />{editingBankQuestion === question.id ? 'Cancel' : 'Edit'}</button><button type="button" className="master-action" disabled={saving} onClick={() => void deleteBankQuestion(question)}><Trash2 size={13} />Remove</button><button type="button" className="master-action" disabled={!quiz || quiz.status !== 'draft' || saving || added} onClick={() => void addBankQuestion(question)}>{added ? 'Added' : 'Add to quiz'}</button></div></article>
-              {editingBankQuestion === question.id && <form className="course-form quiz-bank-edit-form" onSubmit={event => void updateBankQuestion(event, question.id)}><label>Prompt<input required minLength={3} maxLength={2000} value={bankEditPrompt} onChange={event => setBankEditPrompt(event.target.value)} /></label><label>Answer choices, one per line<textarea required rows={3} value={bankEditOptions} onChange={event => setBankEditOptions(event.target.value)} /></label><div className="assignment-form-row"><label>Question type<select value={bankEditType} onChange={event => setBankEditType(event.target.value as Question['question_type'])}><option value="single_choice">Single choice</option><option value="multiple_select">Select all that apply</option></select></label><label>Difficulty<select value={bankEditDifficulty} onChange={event => setBankEditDifficulty(event.target.value as Question['difficulty'])}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label><label>Points<input type="number" min="1" max="1000" value={bankEditPoints} onChange={event => setBankEditPoints(event.target.value)} /></label></div>{bankEditType === 'multiple_select' ? <fieldset className="quiz-correct-options"><legend>Correct answers (choose at least two)</legend>{options.map((option, index) => <label key={`bank-edit-${index}`}><input type="checkbox" checked={bankEditCorrectOptions.includes(index)} onChange={event => setBankEditCorrectOptions(current => event.target.checked ? [...current, index].sort() : current.filter(item => item !== index))} />{index + 1}. {option}</label>)}</fieldset> : <label>Correct answer number<input type="number" min="1" max={options.length} value={(bankEditCorrectOptions[0] ?? 0) + 1} onChange={event => setBankEditCorrectOptions([Number(event.target.value) - 1])} /></label>}<button className="master-submit" disabled={saving || options.length < 2 || (bankEditType === 'multiple_select' && bankEditCorrectOptions.length < 2)}><Save size={14} />Save question</button></form>}
+            return <div className="quiz-bank-question-entry" key={question.id}><article><div><b>{question.prompt}</b><small>{question.question_type === 'multiple_select' ? 'Multiple select' : question.question_type === 'short_answer' ? 'Written response' : 'Single choice'} · {question.difficulty} · {question.points} pt{question.points === 1 ? '' : 's'}</small></div><div className="quiz-bank-question-actions"><button type="button" className="master-action" disabled={saving} onClick={() => editingBankQuestion === question.id ? setEditingBankQuestion(null) : beginBankQuestionEdit(question)}><Pencil size={13} />{editingBankQuestion === question.id ? 'Cancel' : 'Edit'}</button><button type="button" className="master-action" disabled={saving} onClick={() => void deleteBankQuestion(question)}><Trash2 size={13} />Remove</button><button type="button" className="master-action" disabled={!quiz || quiz.status !== 'draft' || saving || added} onClick={() => void addBankQuestion(question)}>{added ? 'Added' : 'Add to quiz'}</button></div></article>
+              {editingBankQuestion === question.id && <form className="course-form quiz-bank-edit-form" onSubmit={event => void updateBankQuestion(event, question.id)}><label>Prompt<input required minLength={3} maxLength={2000} value={bankEditPrompt} onChange={event => setBankEditPrompt(event.target.value)} /></label>{bankEditType !== 'short_answer' && <label>Answer choices, one per line<textarea required rows={3} value={bankEditOptions} onChange={event => setBankEditOptions(event.target.value)} /></label>}<div className="assignment-form-row"><label>Question type<select value={bankEditType} onChange={event => setBankEditType(event.target.value as Question['question_type'])}><option value="single_choice">Single choice</option><option value="multiple_select">Select all that apply</option><option value="short_answer">Written response</option></select></label><label>Difficulty<select value={bankEditDifficulty} onChange={event => setBankEditDifficulty(event.target.value as Question['difficulty'])}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label><label>Points<input type="number" min="1" max="1000" value={bankEditPoints} onChange={event => setBankEditPoints(event.target.value)} /></label></div>{bankEditType === 'multiple_select' ? <fieldset className="quiz-correct-options"><legend>Correct answers (choose at least two)</legend>{options.map((option, index) => <label key={`bank-edit-${index}`}><input type="checkbox" checked={bankEditCorrectOptions.includes(index)} onChange={event => setBankEditCorrectOptions(current => event.target.checked ? [...current, index].sort() : current.filter(item => item !== index))} />{index + 1}. {option}</label>)}</fieldset> : bankEditType === 'single_choice' ? <label>Correct answer number<input type="number" min="1" max={options.length} value={(bankEditCorrectOptions[0] ?? 0) + 1} onChange={event => setBankEditCorrectOptions([Number(event.target.value) - 1])} /></label> : <p className="quiz-schedule-hint">The course teacher will review written responses after students submit.</p>}<button className="master-submit" disabled={saving || (bankEditType !== 'short_answer' && options.length < 2) || (bankEditType === 'multiple_select' && bankEditCorrectOptions.length < 2)}><Save size={14} />Save question</button></form>}
             </div>
           })}</div> : <p className="master-empty">{bankSearch.trim() ? 'No bank questions match this search.' : 'This bank has no questions yet.'}</p>}
           {bankLastPage > 1 && <div className="platform-directory-pagination"><span>Page {bankPage} of {bankLastPage} · {bankTotal} questions</span><button className="master-action" type="button" disabled={bankPage <= 1} onClick={() => setBankPage(page => page - 1)}>Previous</button><button className="master-action" type="button" disabled={bankPage >= bankLastPage} onClick={() => setBankPage(page => page + 1)}>Next</button></div>}
@@ -318,27 +342,56 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
         {mode === 'manage' && quiz.status === 'draft' && <form className="course-form quiz-question-form" onSubmit={event => void addQuestion(event)}>
           <h4>Add an objective question</h4>
           <label>Prompt<input required minLength={3} maxLength={2000} value={prompt} onChange={event => setPrompt(event.target.value)} /></label>
-          <label>Answer choices, one per line<textarea rows={4} value={optionsText} onChange={event => setOptionsText(event.target.value)} /></label>
+          {questionType !== 'short_answer' && <label>Answer choices, one per line<textarea rows={4} value={optionsText} onChange={event => setOptionsText(event.target.value)} /></label>}
           <div className="assignment-form-row">
-            <label>Question type<select value={questionType} onChange={event => setQuestionType(event.target.value as Question['question_type'])}><option value="single_choice">Single choice</option><option value="multiple_select">Select all that apply</option></select></label>
+            <label>Question type<select value={questionType} onChange={event => setQuestionType(event.target.value as Question['question_type'])}><option value="single_choice">Single choice</option><option value="multiple_select">Select all that apply</option><option value="short_answer">Written response</option></select></label>
             <label>Difficulty<select value={difficulty} onChange={event => setDifficulty(event.target.value as Question['difficulty'])}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label>
           </div>
-          {questionType === 'single_choice' ? <label>Correct answer number<input type="number" min="1" max={parsedOptions.length} value={Number(correctOption) + 1} onChange={event => setCorrectOption(String(Number(event.target.value) - 1))} /></label> : <fieldset className="quiz-correct-options"><legend>Correct answers (choose at least two)</legend>{parsedOptions.map((option, index) => <label key={`correct-${index}`}><input type="checkbox" checked={correctOptions.includes(index)} onChange={event => setCorrectOptions(current => event.target.checked ? [...current, index].sort() : current.filter(item => item !== index))} />{index + 1}. {option}</label>)}</fieldset>}
+          {questionType === 'single_choice' ? <label>Correct answer number<input type="number" min="1" max={parsedOptions.length} value={Number(correctOption) + 1} onChange={event => setCorrectOption(String(Number(event.target.value) - 1))} /></label> : questionType === 'multiple_select' ? <fieldset className="quiz-correct-options"><legend>Correct answers (choose at least two)</legend>{parsedOptions.map((option, index) => <label key={`correct-${index}`}><input type="checkbox" checked={correctOptions.includes(index)} onChange={event => setCorrectOptions(current => event.target.checked ? [...current, index].sort() : current.filter(item => item !== index))} />{index + 1}. {option}</label>)}</fieldset> : <p className="quiz-schedule-hint">Written responses are marked by a course teacher after submission.</p>}
           {selectedBankId !== null && <label className="quiz-save-bank"><input type="checkbox" checked={saveToBank} onChange={event => setSaveToBank(event.target.checked)} />Save this question in the selected course bank for reuse</label>}
           <label>Points<input type="number" min="1" max="1000" value={points} onChange={event => setPoints(event.target.value)} /></label>
-          <button className="master-submit" disabled={saving || parsedOptions.length < 2 || (questionType === 'multiple_select' && correctOptions.length < 2)}><Plus size={15} />Add question</button>
+          <button className="master-submit" disabled={saving || (questionType !== 'short_answer' && parsedOptions.length < 2) || (questionType === 'multiple_select' && correctOptions.length < 2)}><Plus size={15} />Add question</button>
         </form>}
-        {mode === 'manage' && quiz.questions.length > 0 && <div className="quiz-question-list"><h4>{quiz.questions.length} question{quiz.questions.length === 1 ? '' : 's'}</h4>{quiz.questions.map((question, index) => <article key={question.id}><b>{index + 1}. {question.prompt}</b><small>{question.question_type === 'multiple_select' ? 'Select all that apply' : 'Single choice'} · {question.difficulty} · {question.points} pt{question.points === 1 ? '' : 's'}</small><ol>{question.options.map((option, optionIndex) => <li key={`${question.id}-${optionIndex}`}>{option}{(question.correct_options ?? [question.correct_option]).includes(optionIndex) && <strong> · Answer</strong>}</li>)}</ol></article>)}</div>}
+        {mode === 'manage' && quiz.questions.length > 0 && <div className="quiz-question-list"><h4>{quiz.questions.length} question{quiz.questions.length === 1 ? '' : 's'}</h4>{quiz.questions.map((question, index) => <article key={question.id}><b>{index + 1}. {question.prompt}</b><small>{question.question_type === 'multiple_select' ? 'Select all that apply' : question.question_type === 'short_answer' ? 'Written response · teacher reviewed' : 'Single choice'} · {question.difficulty} · {question.points} pt{question.points === 1 ? '' : 's'}</small>{question.question_type !== 'short_answer' && <ol>{question.options.map((option, optionIndex) => <li key={`${question.id}-${optionIndex}`}>{option}{(question.correct_options ?? [question.correct_option]).includes(optionIndex) && <strong> · Answer</strong>}</li>)}</ol>}</article>)}</div>}
         {mode === 'student' && !attempt && <div className="quiz-start"><p>{quiz.latest_result?.submitted_at ? `Latest result: ${quiz.latest_result.score} / ${quiz.latest_result.max_score}` : `Attempts used: ${quiz.attempts_used ?? 0} / ${quiz.max_attempts}`}</p><button className="master-submit" onClick={() => void startAttempt()} disabled={saving || (quiz.attempts_used ?? 0) >= quiz.max_attempts || (quiz.opens_at !== null && Date.now() < Date.parse(quiz.opens_at)) || (quiz.closes_at !== null && Date.now() >= Date.parse(quiz.closes_at))}><Play size={15} />Start attempt</button></div>}
-        {mode === 'student' && attempt && <form className="quiz-attempt-form" onSubmit={event => void submitAttempt(event)}><p>Attempt {attempt.attempt_number}{quiz.time_limit_minutes ? ` · Time limit ${quiz.time_limit_minutes} minutes` : ''}</p>{quiz.questions.map((question, index) => <fieldset key={question.id}><legend>{index + 1}. {question.prompt} <small>({question.points} pts · {question.difficulty})</small></legend>{question.question_type === 'multiple_select' && <p className="quiz-select-hint">Select all that apply.</p>}{question.options.map((option, optionIndex) => <label key={`${question.id}-${optionIndex}`}><input type={question.question_type === 'multiple_select' ? 'checkbox' : 'radio'} name={`question-${question.id}`} checked={(answers[question.id] ?? []).includes(optionIndex)} onChange={event => setAnswers(current => {
+        {mode === 'student' && attempt && <form className="quiz-attempt-form" onSubmit={event => void submitAttempt(event)}><p>Attempt {attempt.attempt_number}{quiz.time_limit_minutes ? ` · Time limit ${quiz.time_limit_minutes} minutes` : ''}</p>{quiz.questions.map((question, index) => <fieldset key={question.id}><legend>{index + 1}. {question.prompt} <small>({question.points} pts · {question.difficulty})</small></legend>{question.question_type === 'short_answer' ? <><p className="quiz-select-hint">Written response · reviewed by your course teacher.</p><textarea required maxLength={10000} value={typeof answers[question.id] === 'string' ? answers[question.id] as string : ''} onChange={event => setAnswers(current => ({ ...current, [question.id]: event.target.value }))} /></> : <>{question.question_type === 'multiple_select' && <p className="quiz-select-hint">Select all that apply.</p>}{question.options.map((option, optionIndex) => <label key={`${question.id}-${optionIndex}`}><input type={question.question_type === 'multiple_select' ? 'checkbox' : 'radio'} name={`question-${question.id}`} checked={Array.isArray(answers[question.id]) && (answers[question.id] as number[]).includes(optionIndex)} onChange={event => setAnswers(current => {
           const selected = current[question.id] ?? []
           const next = question.question_type === 'multiple_select'
-            ? (event.target.checked ? [...selected, optionIndex].sort() : selected.filter(item => item !== optionIndex))
+            ? (event.target.checked ? [...(Array.isArray(selected) ? selected : []), optionIndex].sort() : (Array.isArray(selected) ? selected : []).filter(item => item !== optionIndex))
             : [optionIndex]
           return { ...current, [question.id]: next }
-        })} />{option}</label>)}</fieldset>)}<button className="master-submit" disabled={saving}><Save size={15} />Submit answers</button></form>}
-        {mode === 'student' && quiz.status === 'published' && <div className="quiz-results"><h4>Your submitted results</h4>{results.length ? <><div className="dash-table-scroll"><table><thead><tr><th>ATTEMPT</th><th>SCORE</th><th>SUBMITTED</th></tr></thead><tbody>{results.map(result => <tr key={result.id}><td>{result.attempt_number}</td><td>{result.score} / {result.max_score}</td><td>{result.submitted_at ? new Date(result.submitted_at).toLocaleString() : '—'}</td></tr>)}</tbody></table></div>{resultsLastPage > 1 && <div className="platform-directory-pagination"><span>Page {resultsPage} of {resultsLastPage} · {resultsTotal} results</span><button className="master-action" type="button" aria-label="Previous result page" disabled={resultsPage <= 1} onClick={() => setResultsPage(page => page - 1)}>Previous</button><button className="master-action" type="button" aria-label="Next result page" disabled={resultsPage >= resultsLastPage} onClick={() => setResultsPage(page => page + 1)}>Next</button></div>}</> : <p className="master-empty">No attempts have been submitted yet.</p>}</div>}
-        {mode === 'manage' && quiz.status === 'published' && <div className="quiz-results"><h4>Submitted results</h4>{results.length ? <><div className="dash-table-scroll"><table><thead><tr><th>STUDENT</th><th>ATTEMPT</th><th>SCORE</th><th>SUBMITTED</th></tr></thead><tbody>{results.map(result => <tr key={result.id}><td>{result.student?.name} · {result.student?.admission_number}</td><td>{result.attempt_number}</td><td>{result.score} / {result.max_score}</td><td>{result.submitted_at ? new Date(result.submitted_at).toLocaleString() : '—'}</td></tr>)}</tbody></table></div>{resultsLastPage > 1 && <div className="platform-directory-pagination"><span>Page {resultsPage} of {resultsLastPage} · {resultsTotal} results</span><button className="master-action" type="button" aria-label="Previous result page" disabled={resultsPage <= 1} onClick={() => setResultsPage(page => page - 1)}>Previous</button><button className="master-action" type="button" aria-label="Next result page" disabled={resultsPage >= resultsLastPage} onClick={() => setResultsPage(page => page + 1)}>Next</button></div>}</> : <p className="master-empty">No quiz attempts have been submitted.</p>}</div>}
+        })} />{option}</label>)}</>}</fieldset>)}<button className="master-submit" disabled={saving}><Save size={15} />Submit answers</button></form>}
+        {mode === 'student' && quiz.status === 'published' && <div className="quiz-results"><h4>Your submitted results</h4>{results.length ? <><div className="dash-table-scroll"><table><thead><tr><th>ATTEMPT</th><th>SCORE</th><th>REVIEW</th><th>SUBMITTED</th></tr></thead><tbody>{results.map(result => <tr key={result.id}><td>{result.attempt_number}</td><td>{result.score} / {result.max_score}</td><td>{result.review_status === 'pending' || result.review_status === 'partial' ? 'Awaiting teacher review' : result.review_status === 'graded' ? 'Reviewed' : 'Complete'}</td><td>{result.submitted_at ? new Date(result.submitted_at).toLocaleString() : '—'}</td></tr>)}</tbody></table></div>{results.some(result => result.review_status === 'graded') && <div className="quiz-review-feedback">{results.filter(result => result.review_status === 'graded').flatMap(result => Object.entries(result.manual_grades ?? {}).map(([questionId, grade]) => <p key={`${result.id}-${questionId}`}><b>Question feedback:</b> {grade.feedback || 'No feedback provided.'} · {grade.awarded_points} points</p>))}</div>}{resultsLastPage > 1 && <div className="platform-directory-pagination"><span>Page {resultsPage} of {resultsLastPage} · {resultsTotal} results</span><button className="master-action" type="button" aria-label="Previous result page" disabled={resultsPage <= 1} onClick={() => setResultsPage(page => page - 1)}>Previous</button><button className="master-action" type="button" aria-label="Next result page" disabled={resultsPage >= resultsLastPage} onClick={() => setResultsPage(page => page + 1)}>Next</button></div>}</> : <p className="master-empty">No attempts have been submitted yet.</p>}</div>}
+        {mode === 'manage' && quiz.status === 'published' && <div className="quiz-results">
+          <h4>Submitted results</h4>
+          {results.length ? <>
+            <div className="dash-table-scroll"><table><thead><tr><th>STUDENT</th><th>ATTEMPT</th><th>SCORE</th><th>REVIEW</th><th>SUBMITTED</th><th></th></tr></thead><tbody>
+              {results.map(result => <tr key={result.id}>
+                <td>{result.student?.name} · {result.student?.admission_number}</td><td>{result.attempt_number}</td><td>{result.score} / {result.max_score}</td>
+                <td>{result.review_status === 'pending' ? 'Needs review' : result.review_status === 'partial' ? 'Partially reviewed' : result.review_status === 'graded' ? 'Reviewed' : 'Complete'}</td>
+                <td>{result.submitted_at ? new Date(result.submitted_at).toLocaleString() : '—'}</td>
+                <td>{quiz.questions.some(question => question.question_type === 'short_answer') && <button className="master-action" type="button" onClick={() => beginQuizReview(result)}>Review responses</button>}</td>
+              </tr>)}
+            </tbody></table></div>
+            {manualReviewAttempt && <div className="quiz-review-panel">
+              <div className="quiz-review-heading"><h4>Written responses · {manualReviewAttempt.student?.name}</h4><button type="button" className="master-action" onClick={() => setManualReviewAttempt(null)}>Close review</button></div>
+              {quiz.questions.filter(question => question.question_type === 'short_answer').map(question => {
+                const answer = manualReviewAttempt.answers?.[question.id]
+                const grade = manualReviewAttempt.manual_grades?.[question.id]
+                return <article key={question.id}>
+                  <b>{question.prompt} · {question.points} points</b>
+                  <p>{typeof answer === 'string' && answer ? answer : 'No response submitted.'}</p>
+                  {typeof answer === 'string' && answer.trim() && <>
+                    <label>Score<input type="number" min="0" max={question.points} step="1" value={reviewScores[question.id] ?? ''} onChange={event => setReviewScores(current => ({ ...current, [question.id]: event.target.value }))} /></label>
+                    <label>Feedback<textarea rows={3} maxLength={2000} value={reviewFeedback[question.id] ?? ''} onChange={event => setReviewFeedback(current => ({ ...current, [question.id]: event.target.value }))} /></label>
+                    <button type="button" className="master-submit" disabled={saving} onClick={() => void gradeQuizResponse(question.id)}><Save size={14} />{grade ? 'Update review' : 'Save review'}</button>
+                  </>}
+                </article>
+              })}
+            </div>}
+            {resultsLastPage > 1 && <div className="platform-directory-pagination"><span>Page {resultsPage} of {resultsLastPage} · {resultsTotal} results</span><button className="master-action" type="button" aria-label="Previous result page" disabled={resultsPage <= 1} onClick={() => setResultsPage(page => page - 1)}>Previous</button><button className="master-action" type="button" aria-label="Next result page" disabled={resultsPage >= resultsLastPage} onClick={() => setResultsPage(page => page + 1)}>Next</button></div>}
+          </> : <p className="master-empty">No quiz attempts have been submitted.</p>}
+        </div>}
       </div>}
     </section>}
   </div>

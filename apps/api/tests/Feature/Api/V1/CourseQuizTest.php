@@ -139,6 +139,53 @@ class CourseQuizTest extends TestCase
         ])->assertOk()->assertJsonPath('data.score', '0.00');
     }
 
+    public function test_short_answer_responses_wait_for_course_teacher_review_and_update_the_final_score(): void
+    {
+        [, $teacherUser, $studentUser, $organization, $course] = $this->classroom();
+        $base = "/api/v1/organizations/{$organization->id}";
+        Sanctum::actingAs($teacherUser);
+        $quizId = $this->postJson("{$base}/courses/{$course->id}/quizzes", ['title' => 'Written response quiz'])
+            ->assertCreated()->json('data.id');
+        $objectiveQuestion = $this->postJson("{$base}/quizzes/{$quizId}/questions", [
+            'prompt' => 'Which planet is known as the red planet?', 'options' => ['Mars', 'Venus'], 'correct_option' => 0, 'points' => 2,
+        ])->assertCreated()->json('data.id');
+        $writtenQuestion = $this->postJson("{$base}/quizzes/{$quizId}/questions", [
+            'prompt' => 'Explain one effect of the greenhouse effect.', 'question_type' => 'short_answer', 'points' => 3,
+        ])->assertCreated()->assertJsonPath('data.question_type', 'short_answer')->json('data.id');
+        $this->patchJson("{$base}/quizzes/{$quizId}", ['status' => 'published'])->assertOk();
+
+        Sanctum::actingAs($studentUser);
+        $started = $this->postJson("{$base}/quizzes/{$quizId}/attempts")->assertCreated()
+            ->assertJsonPath('data.questions.1.options', [])->assertJsonMissingPath('data.questions.1.correct_option');
+        $attemptId = $started->json('data.attempt.id');
+        $this->patchJson("{$base}/quizzes/{$quizId}/attempts/{$attemptId}", [
+            'answers' => [
+                ['question_id' => $objectiveQuestion, 'selected_option' => 0],
+                ['question_id' => $writtenQuestion, 'answer_text' => 'It traps heat in the atmosphere.'],
+            ],
+        ])->assertOk()->assertJsonPath('data.score', '2.00')->assertJsonPath('data.max_score', '5.00')
+            ->assertJsonPath('data.review_status', 'pending');
+        $this->patchJson("{$base}/quizzes/{$quizId}/attempts/{$attemptId}/questions/{$writtenQuestion}/grade", [
+            'awarded_points' => 3, 'feedback' => 'Clear and accurate explanation.',
+        ])->assertForbidden();
+
+        Sanctum::actingAs($teacherUser);
+        $this->patchJson("{$base}/quizzes/{$quizId}/attempts/{$attemptId}/questions/{$writtenQuestion}/grade", [
+            'awarded_points' => 4,
+        ])->assertUnprocessable()->assertJsonValidationErrors('awarded_points');
+        $this->patchJson("{$base}/quizzes/{$quizId}/attempts/{$attemptId}/questions/{$writtenQuestion}/grade", [
+            'awarded_points' => 3, 'feedback' => 'Clear and accurate explanation.',
+        ])->assertOk()->assertJsonPath('data.score', '5.00')->assertJsonPath('data.review_status', 'graded')
+            ->assertJsonPath("data.manual_grades.{$writtenQuestion}.feedback", 'Clear and accurate explanation.');
+        $this->getJson("{$base}/quizzes/{$quizId}/attempts")
+            ->assertOk()->assertJsonPath("data.0.answers.{$writtenQuestion}", 'It traps heat in the atmosphere.')
+            ->assertJsonPath('data.0.review_status', 'graded');
+
+        Sanctum::actingAs($studentUser);
+        $this->getJson("{$base}/quizzes/{$quizId}/attempts")
+            ->assertOk()->assertJsonPath("data.0.manual_grades.{$writtenQuestion}.feedback", 'Clear and accurate explanation.');
+    }
+
     public function test_scheduled_quiz_blocks_early_starts_and_closes_active_attempts_at_deadline(): void
     {
         [, $teacherUser, $studentUser, $organization, $course] = $this->classroom();

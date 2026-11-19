@@ -233,11 +233,12 @@ class FamilyController
             ->where('course_quizzes.status', 'published')->where('courses.status', 'published')
             ->join('course_quizzes', 'course_quizzes.id', '=', 'quiz_attempts.quiz_id')
             ->join('courses', 'courses.id', '=', 'course_quizzes.course_id')
-            ->select('quiz_attempts.id', 'quiz_attempts.score', 'quiz_attempts.max_score', 'quiz_attempts.attempt_number', 'quiz_attempts.submitted_at', 'course_quizzes.title', 'courses.title as course_title')
+            ->select('quiz_attempts.id', 'quiz_attempts.score', 'quiz_attempts.max_score', 'quiz_attempts.review_status', 'quiz_attempts.attempt_number', 'quiz_attempts.submitted_at', 'course_quizzes.title', 'courses.title as course_title')
             ->orderByDesc('quiz_attempts.submitted_at')->limit(100)->get()
             ->map(fn (QuizAttempt $attempt): array => [
                 'id' => $attempt->id, 'title' => $attempt->title, 'course' => $attempt->course_title,
                 'score' => $attempt->score, 'max_score' => $attempt->max_score,
+                'review_status' => $attempt->review_status,
                 'attempt_number' => $attempt->attempt_number, 'completed_at' => $attempt->submitted_at?->toISOString(),
             ])->values();
 

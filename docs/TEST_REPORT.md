@@ -355,7 +355,7 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Added single-choice and multiple-select questions with easy/medium/hard difficulty, exact-set server-side scoring, optional opening/closing timestamps, and schedule enforcement alongside existing attempt/time limits. The web and Expo clients support multi-select input and display schedule availability; answer keys remain private.
 - PostgreSQL 17 testing exposed a timestamp offset when the database session inherited the host timezone. Laravel's PostgreSQL connector now explicitly sets the session to UTC. Focused quiz tests passed after the fix (**5 tests / 84 assertions**); complete suite passed on SQLite and disposable PostgreSQL 17 (**121 tests / 917 assertions** each).
 - `npm run typecheck`, `npm run lint`, `npm run build`, `vendor/bin/pint --test`, mobile TypeScript, and Android export passed. The web build prerendered 14 routes with a 492.35 kB main bundle; Expo bundled 564 modules into a 2.5 MB Android JavaScript bundle. The quiz migration was applied to the isolated local SQLite database.
-- Subjective review, device/browser QA and native builds remain open.
+- Board-style exams, device/browser QA and native builds remain open.
 
 ## Course-scoped reusable question banks (19 November 2026)
 
@@ -363,4 +363,12 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Editors can rename/remove banks and update/remove bank questions. Snapshot imports keep their copied quiz content and do not change when the source bank question is edited or deleted. Course authorization, student denial, duplicate import and cross-course protections are covered.
 - Focused bank tests passed (**3 tests / 38 assertions**). The complete suite passed on in-memory SQLite and a fresh disposable PostgreSQL 17 cluster (**124 tests / 955 assertions** each); Pint passed.
 - Web typecheck, ESLint, and production build passed. The build prerendered 14 public routes; the main JavaScript bundle is 478.15 kB and the lazy-loaded quiz workspace is 47.64 kB. The bank migration was applied to isolated local SQLite through guarded setup.
-- Detailed bank change history, subjective review, device/browser QA and native builds remain open. No authenticated browser visual review was performed.
+- Detailed bank change history, device/browser QA and native builds remain open. No authenticated browser visual review was performed.
+
+## Written-response quiz review (19 November 2026)
+
+- Added teacher-reviewed written-response questions to course quizzes and question banks. Students submit up to 10,000 characters; objective portions are scored immediately, while the API marks written submissions pending or partial until the course editor grades each answered response. Grades are capped at question points and support feedback; review metadata includes the grader and timestamp, while responses expose only points/feedback.
+- Web and Expo students can answer written questions; course editors review answers in the web quiz workspace. Student and linked-parent result views show pending/reviewed status. Aggregate reports count pending reviews and exclude pending/partial scores from averages.
+- Focused subjective, family privacy and assessment aggregate tests passed (**3 tests / 53 assertions**). Full API suite passed on SQLite and disposable PostgreSQL 17 (**125 tests / 983 assertions** each); Pint passed.
+- Web typecheck, ESLint and production build passed (14 public routes; 478.34 kB main bundle, 56.00 kB lazy quiz workspace). Expo typecheck and Android export passed (564 modules; 1.7 MB bundle). Local migration was applied with guarded `npm run setup:local`.
+- Authenticated visual browser and native-device review remain open.

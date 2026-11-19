@@ -38,6 +38,11 @@ class AssessmentReportTest extends TestCase
         ]);
         QuizAttempt::query()->create([
             'organization_id' => $organization->id, 'quiz_id' => $quiz->id, 'student_id' => $student->id,
+            'attempt_number' => 3, 'answers' => [], 'score' => '3.00', 'max_score' => '10.00',
+            'review_status' => 'pending', 'started_at' => now()->subHour(), 'submitted_at' => now(),
+        ]);
+        QuizAttempt::query()->create([
+            'organization_id' => $organization->id, 'quiz_id' => $quiz->id, 'student_id' => $student->id,
             'attempt_number' => 2, 'started_at' => now(),
         ]);
         $secondStudent = Student::query()->create([
@@ -56,12 +61,14 @@ class AssessmentReportTest extends TestCase
 
         $this->getJson("/api/v1/organizations/{$organization->id}/reports/assessments")->assertOk()
             ->assertJsonPath('data.summary.published_quizzes', 2)
-            ->assertJsonPath('data.summary.submitted_attempts', 1)
+            ->assertJsonPath('data.summary.submitted_attempts', 2)
             ->assertJsonPath('data.summary.in_progress_attempts', 1)
+            ->assertJsonPath('data.summary.awaiting_review', 1)
             ->assertJsonPath('data.summary.learner_quiz_participations', 1)
             ->assertJsonPath('data.summary.average_score_percent', 80)
             ->assertJsonPath('data.quizzes.0.course', 'Algebra')
             ->assertJsonPath('data.quizzes.0.average_score_percent', 80)
+            ->assertJsonPath('data.quizzes.0.awaiting_review', 1)
             ->assertJsonPath('data.assignment_summary.published_assignments', 1)
             ->assertJsonPath('data.assignment_summary.submissions', 2)
             ->assertJsonPath('data.assignment_summary.graded_submissions', 1)

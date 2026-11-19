@@ -46,9 +46,10 @@ class AssessmentReportController
             ->selectRaw('COUNT(*) as attempt_count')
             ->selectRaw('SUM(CASE WHEN submitted_at IS NOT NULL THEN 1 ELSE 0 END) as submitted_attempts')
             ->selectRaw('SUM(CASE WHEN submitted_at IS NULL THEN 1 ELSE 0 END) as in_progress_attempts')
+            ->selectRaw("SUM(CASE WHEN submitted_at IS NOT NULL AND review_status IN ('pending', 'partial') THEN 1 ELSE 0 END) as awaiting_review")
             ->selectRaw('COUNT(DISTINCT CASE WHEN submitted_at IS NOT NULL THEN student_id END) as learners')
-            ->selectRaw('COALESCE(SUM(CASE WHEN submitted_at IS NOT NULL THEN score ELSE 0 END), 0) as earned_points')
-            ->selectRaw('COALESCE(SUM(CASE WHEN submitted_at IS NOT NULL THEN max_score ELSE 0 END), 0) as possible_points')
+            ->selectRaw("COALESCE(SUM(CASE WHEN submitted_at IS NOT NULL AND review_status NOT IN ('pending', 'partial') THEN score ELSE 0 END), 0) as earned_points")
+            ->selectRaw("COALESCE(SUM(CASE WHEN submitted_at IS NOT NULL AND review_status NOT IN ('pending', 'partial') THEN max_score ELSE 0 END), 0) as possible_points")
             ->groupBy('quiz_id')->get()->keyBy('quiz_id');
         $assignments = CourseAssignment::query()->where('organization_id', $organization)->where('status', 'published')
             ->whereHas('course', function ($query) use ($teacherId): void {
@@ -82,6 +83,7 @@ class AssessmentReportController
                 'quiz' => $quiz->title,
                 'submitted_attempts' => (int) ($stats?->submitted_attempts ?? 0),
                 'in_progress_attempts' => (int) ($stats?->in_progress_attempts ?? 0),
+                'awaiting_review' => (int) ($stats?->awaiting_review ?? 0),
                 'learners' => (int) ($stats?->learners ?? 0),
                 'average_score_percent' => $possible > 0 ? round($earned / $possible * 100, 1) : null,
             ];
@@ -118,6 +120,7 @@ class AssessmentReportController
                 'published_quizzes' => $quizzes->count(),
                 'submitted_attempts' => $submitted,
                 'in_progress_attempts' => $inProgress,
+                'awaiting_review' => $rows->sum('awaiting_review'),
                 'learner_quiz_participations' => $attemptedLearners,
                 'average_score_percent' => $weightedTotal > 0 ? round($weightedEarned / $weightedTotal * 100, 1) : null,
                 'quizzes_with_submissions' => $scoredQuizRows->count(),
