@@ -51,6 +51,35 @@ class ContactEnquiryController
         return response()->json(['data' => $enquiry->refresh()->load('reviewer:id,name')]);
     }
 
+    public function reply(Request $request, ContactEnquiry $enquiry): JsonResponse
+    {
+        $this->authorizeInbox($request);
+        $data = $request->validate([
+            'message' => ['required', 'string', 'min:10', 'max:5000'],
+        ]);
+
+        try {
+            Mail::raw(trim($data['message']), function (Message $mail) use ($enquiry): void {
+                $mail->to($enquiry->email)
+                    ->subject("Re: edTechLive enquiry #{$enquiry->id}");
+            });
+        } catch (Throwable $exception) {
+            Log::warning('Contact enquiry reply could not be sent.', ['enquiry_id' => $enquiry->id]);
+
+            return response()->json(['message' => 'The reply could not be sent. No response was recorded.'], 503);
+        }
+
+        $enquiry->forceFill([
+            'status' => $enquiry->status === 'new' ? 'in_progress' : $enquiry->status,
+            'reviewed_by' => $request->user()->id,
+            'reviewed_at' => now(),
+            'responded_by' => $request->user()->id,
+            'responded_at' => now(),
+        ])->save();
+
+        return response()->json(['data' => $enquiry->refresh()->load(['reviewer:id,name', 'responder:id,name'])]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([

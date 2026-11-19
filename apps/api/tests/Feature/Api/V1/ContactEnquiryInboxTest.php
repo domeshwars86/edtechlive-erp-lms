@@ -5,6 +5,10 @@ namespace Tests\Feature\Api\V1;
 use App\Models\ContactEnquiry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Mail\Message;
+use Illuminate\Support\Facades\Mail;
+use Mockery;
+use RuntimeException;
 use Tests\TestCase;
 
 class ContactEnquiryInboxTest extends TestCase
@@ -58,6 +62,66 @@ class ContactEnquiryInboxTest extends TestCase
         $this->actingAs($operator)->getJson('/api/v1/enquiries?status=unknown')->assertUnprocessable();
         $this->actingAs($operator)->patchJson("/api/v1/enquiries/{$enquiry->id}", ['status' => 'deleted'])
             ->assertUnprocessable()->assertJsonValidationErrors('status');
+    }
+
+    public function test_allowlisted_operator_can_send_and_track_an_enquiry_reply(): void
+    {
+        config(['services.enquiries.admin_emails' => ['ops@example.test']]);
+        $operator = User::factory()->create(['email' => 'ops@example.test', 'email_verified_at' => now()]);
+        $enquiry = ContactEnquiry::query()->create($this->payload());
+        $callback = Mockery::on(function (callable $configure) use ($enquiry): bool {
+            $message = Mockery::mock(Message::class);
+            $message->shouldReceive('to')->once()->with($enquiry->email)->andReturnSelf();
+            $message->shouldReceive('subject')->once()->with("Re: edTechLive enquiry #{$enquiry->id}")->andReturnSelf();
+            $configure($message);
+
+            return true;
+        });
+        Mail::shouldReceive('raw')->once()->with('We can arrange a short call this week.', $callback);
+
+        $this->actingAs($operator)->postJson("/api/v1/enquiries/{$enquiry->id}/reply", [
+            'message' => 'We can arrange a short call this week.',
+        ])->assertOk()->assertJsonPath('data.status', 'in_progress')
+            ->assertJsonPath('data.responder.id', $operator->id);
+
+        $this->assertDatabaseHas('contact_enquiries', [
+            'id' => $enquiry->id,
+            'status' => 'in_progress',
+            'reviewed_by' => $operator->id,
+            'responded_by' => $operator->id,
+        ]);
+        $this->assertNotNull($enquiry->fresh()->responded_at);
+        $this->assertArrayNotHasKey('response_body', $enquiry->fresh()->getAttributes());
+    }
+
+    public function test_failed_reply_is_not_recorded(): void
+    {
+        config(['services.enquiries.admin_emails' => ['ops@example.test']]);
+        $operator = User::factory()->create(['email' => 'ops@example.test', 'email_verified_at' => now()]);
+        $enquiry = ContactEnquiry::query()->create($this->payload());
+        Mail::shouldReceive('raw')->once()->andThrow(new RuntimeException('Transport offline'));
+
+        $this->actingAs($operator)->postJson("/api/v1/enquiries/{$enquiry->id}/reply", [
+            'message' => 'We can arrange a short call this week.',
+        ])->assertServiceUnavailable();
+
+        $this->assertNull($enquiry->fresh()->responded_at);
+        $this->assertSame('new', $enquiry->fresh()->status);
+    }
+
+    public function test_reply_requires_allowlisted_operator_and_valid_message(): void
+    {
+        config(['services.enquiries.admin_emails' => ['ops@example.test']]);
+        $operator = User::factory()->create(['email' => 'ops@example.test', 'email_verified_at' => now()]);
+        $other = User::factory()->create(['email' => 'teacher@example.test', 'email_verified_at' => now()]);
+        $enquiry = ContactEnquiry::query()->create($this->payload());
+
+        $this->actingAs($other)->postJson("/api/v1/enquiries/{$enquiry->id}/reply", [
+            'message' => 'A valid response message.',
+        ])->assertForbidden();
+        $this->actingAs($operator)->postJson("/api/v1/enquiries/{$enquiry->id}/reply", [
+            'message' => 'Short',
+        ])->assertUnprocessable()->assertJsonValidationErrors('message');
     }
 
     private function payload(array $overrides = []): array

@@ -343,3 +343,9 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 
 - Registration, resend-verification, and password-reset success messages now explain in Vite development mode that the default local mailer writes signed links to `apps/api/storage/logs/laravel.log`. Production copy is unchanged and still depends on configured mail delivery.
 - `npm run typecheck`, `npm run lint`, and `npm run build` passed. This is presentation/documentation only; no email was sent and no account data was created. The production build prerendered 14 routes and produced a 488.13 kB main JavaScript bundle.
+
+## Contact enquiry replies (19 November 2026)
+
+- Added a verified allowlisted operator reply endpoint and inbox composer. Replies go to the stored enquiry email through Laravel's configured mail transport; only responder/time metadata is saved, not the reply body. Transport exceptions return 503 without marking a reply.
+- Focused API suite: **7 tests / 31 assertions** passed. Full API suite passed on in-memory SQLite and a fresh disposable PostgreSQL 17 cluster: **119 tests / 884 assertions** on each. Pint, web typecheck, ESLint and production build passed; 14 public routes prerendered and the main web bundle is 489.52 kB.
+- The additive response metadata migration was applied to the isolated local SQLite development database. No real email was sent in verification; outbound production delivery still depends on approved mail configuration.

@@ -11,11 +11,16 @@ class ContactEnquiry extends Model
 
     protected function casts(): array
     {
-        return ['consented_at' => 'immutable_datetime', 'notified_at' => 'immutable_datetime', 'reviewed_at' => 'immutable_datetime'];
+        return ['consented_at' => 'immutable_datetime', 'notified_at' => 'immutable_datetime', 'reviewed_at' => 'immutable_datetime', 'responded_at' => 'immutable_datetime'];
     }
 
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function responder(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'responded_by');
     }
 }

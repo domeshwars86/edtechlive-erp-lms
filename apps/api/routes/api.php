@@ -65,6 +65,8 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/enquiries', [ContactEnquiryController::class, 'index'])->name('api.v1.enquiries.index');
         Route::patch('/enquiries/{enquiry}', [ContactEnquiryController::class, 'update'])
             ->whereNumber('enquiry')->name('api.v1.enquiries.update');
+        Route::post('/enquiries/{enquiry}/reply', [ContactEnquiryController::class, 'reply'])
+            ->whereNumber('enquiry')->middleware('throttle:20,1')->name('api.v1.enquiries.reply');
     });
 
     Route::prefix('auth')->group(function (): void {

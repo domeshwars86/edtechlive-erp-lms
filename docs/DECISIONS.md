@@ -19,3 +19,7 @@
 ## 2026-11-19 — Record the boundary of platform administration
 
 **Context:** Platform operators need a way to manage organization availability. **Decision:** Only an explicitly allowlisted, verified operator may suspend/reactivate an organization, with a required reason and transactional audit event. **Trade-off:** Broader account, role, billing and support administration is still planned; this control does not imply access to learner records.
+
+## 2026-11-19 — Send enquiry replies without retaining reply content
+
+**Context:** Prospective contacts need a usable follow-up path, and enquiry data requires minimal retention. **Decision:** Verified allowlisted inbox operators can send plain-text email replies through the configured transport; store only the latest responder and timestamp, not the reply body. A transport failure does not mark the enquiry replied. **Trade-off:** The system does not provide a content transcript or delivery/read receipts.
