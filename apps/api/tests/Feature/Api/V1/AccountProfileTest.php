@@ -7,6 +7,7 @@ use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
@@ -104,5 +105,39 @@ class AccountProfileTest extends TestCase
         $this->actingAs($operator, 'sanctum')->patchJson('/api/v1/me/profile', [
             'name' => 'Operator', 'email' => 'new-address@example.com', 'current_password' => 'LearningPass123',
         ])->assertUnprocessable()->assertJsonValidationErrors('email');
+    }
+
+    public function test_password_change_requires_confirmation_and_revokes_other_api_tokens(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'asha@example.com',
+            'password' => 'LearningPass123',
+            'email_verified_at' => now(),
+        ]);
+        $currentToken = $user->createToken('current device')->plainTextToken;
+        $otherToken = $user->createToken('other device')->plainTextToken;
+
+        $this->withToken($currentToken)->patchJson('/api/v1/me/profile', [
+            'name' => $user->name,
+            'email' => $user->email,
+            'current_password' => 'LearningPass123',
+            'password' => 'UpdatedPassword456',
+            'password_confirmation' => 'DifferentPassword789',
+        ])->assertUnprocessable()->assertJsonValidationErrors('password');
+
+        $this->patchJson('/api/v1/me/profile', [
+            'name' => $user->name,
+            'email' => $user->email,
+            'current_password' => 'LearningPass123',
+            'password' => 'UpdatedPassword456',
+            'password_confirmation' => 'UpdatedPassword456',
+        ])->assertOk()->assertJsonPath('password_changed', true);
+
+        $this->assertTrue(Hash::check('UpdatedPassword456', $user->fresh()->password));
+        $this->assertDatabaseCount('personal_access_tokens', 1);
+        Auth::forgetGuards();
+        $this->withToken($currentToken)->getJson('/api/v1/me')->assertOk();
+        Auth::forgetGuards();
+        $this->withToken($otherToken)->getJson('/api/v1/me')->assertUnauthorized();
     }
 }

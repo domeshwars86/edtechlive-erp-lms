@@ -6,6 +6,7 @@ test('real local registration, signed email verification, and browser sign-in wo
   const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
   const email = `browser-${unique}@example.test`
   const updatedEmail = `browser-updated-${unique}@example.test`
+  const updatedPassword = 'ProfileUpdatedPass789'
   const organization = `Browser Test School ${unique}`
   const password = 'LocalIntegrationPass123'
 
@@ -36,6 +37,10 @@ test('real local registration, signed email verification, and browser sign-in wo
   await expectBackend(page).toHaveURL(/\/select-organization$/)
   await expectBackend(page.getByRole('heading', { name: 'Choose your workspace' })).toBeVisible()
   await expectBackend(page.getByRole('button', { name: new RegExp(organization) })).toBeVisible()
+  await page.getByRole('button', { name: new RegExp(organization) }).click()
+  await expectBackend(page).toHaveURL(/\/workspace\/admin$/)
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await expectBackend(page).toHaveURL(/\/login$/)
 
   await page.goto('/forgot-password')
   await page.getByRole('textbox', { name: 'Email address' }).fill(email)
@@ -88,6 +93,8 @@ test('real local registration, signed email verification, and browser sign-in wo
   await page.getByRole('textbox', { name: 'Full name' }).fill('E2E Profile Updated')
   await page.getByRole('textbox', { name: 'Email address' }).fill(updatedEmail)
   await page.getByLabel('Current password').fill('ResetIntegrationPass456')
+  await page.getByRole('textbox', { name: 'New password (optional)' }).fill(updatedPassword)
+  await page.getByLabel('Confirm new password').fill(updatedPassword)
   await page.getByRole('button', { name: 'Save account details' }).click()
   await expectBackend(page.getByText(/Your email was updated/)).toBeVisible()
   const profileVerificationTab = page.context().waitForEvent('page')
@@ -99,5 +106,13 @@ test('real local registration, signed email verification, and browser sign-in wo
   await page.getByRole('button', { name: new RegExp(organization) }).click()
   await expectBackend(page).toHaveURL(/\/workspace\/admin$/)
   await expectBackend(page.getByText(updatedEmail)).toBeVisible()
+  await expectBackend(page.getByRole('heading', { name: 'Welcome, E2E Profile Updated' })).toBeVisible()
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await expectBackend(page).toHaveURL(/\/login$/)
+  await page.getByRole('textbox', { name: 'Email address' }).fill(updatedEmail)
+  await page.getByLabel('Password', { exact: true }).fill(updatedPassword)
+  await page.getByRole('button', { name: 'Log in' }).click()
+  await expectBackend(page).toHaveURL(/\/select-organization$/)
+  await page.getByRole('button', { name: new RegExp(organization) }).click()
   await expectBackend(page.getByRole('heading', { name: 'Welcome, E2E Profile Updated' })).toBeVisible()
 })
