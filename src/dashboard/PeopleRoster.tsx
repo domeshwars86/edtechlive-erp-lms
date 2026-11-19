@@ -39,6 +39,9 @@ export default function PeopleRoster({ organizationId, kind }: Props) {
   const [editingPerson, setEditingPerson] = useState<Person | null>(null)
   const [search, setSearch] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [lastPage, setLastPage] = useState(1)
+  const [totalRecords, setTotalRecords] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -80,16 +83,19 @@ export default function PeopleRoster({ organizationId, kind }: Props) {
     return () => { cancelled = true }
   }, [fields.academic_class_id, isStudent, organizationBase])
 
-  const load = useCallback(async (query: string, branchId = '') => {
+  const load = useCallback(async (query: string, branchId = '', requestedPage = 1) => {
     setLoading(true)
     setError('')
     try {
-      const parameters = new URLSearchParams()
+      const parameters = new URLSearchParams({ page: String(requestedPage), per_page: '25' })
       if (query) parameters.set('search', query)
       if (branchId) parameters.set('organization_branch_id', branchId)
       const suffix = parameters.toString()
       const result = await api.get<RosterResponse>(`${base}${suffix ? `?${suffix}` : ''}`)
       setRecords(result.data)
+      setPage(result.meta.current_page)
+      setLastPage(Math.max(1, result.meta.last_page))
+      setTotalRecords(result.meta.total)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not load this roster.')
     } finally {
@@ -136,7 +142,7 @@ export default function PeopleRoster({ organizationId, kind }: Props) {
       setFields({})
       setEditingPerson(null)
       setMessage(`${isStudent ? 'Student' : 'Teacher'} ${editingPerson ? 'updated in' : 'added to'} the organization roster.`)
-      await load('', branchFilter)
+      await load('', branchFilter, 1)
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : reason instanceof Error ? reason.message : 'Could not save the record.')
     } finally {
@@ -198,7 +204,7 @@ export default function PeopleRoster({ organizationId, kind }: Props) {
     try {
       await api.patch(`${base}/${person.id}`, { status: person.status === 'active' ? 'inactive' : 'active' })
       setMessage(`${person.name} marked ${person.status === 'active' ? 'inactive' : 'active'}.`)
-      await load(search, branchFilter)
+      await load(search, branchFilter, page)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not update the record.')
     }
@@ -231,7 +237,7 @@ export default function PeopleRoster({ organizationId, kind }: Props) {
   }
 
   return <section className="dash-panel dash-masters-panel">
-    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ORGANIZATION ROSTER</span><h2>{isStudent ? 'Students' : 'Teachers'}</h2><p className="dash-record-subtitle">Manage records for this organization. Student and staff login invitations are a separate workflow.</p></div><div className="report-actions"><button className="dash-secondary-button" type="button" disabled={exporting || loading} onClick={() => void exportRoster()}><Download size={14} />{exporting ? 'Preparing CSV…' : 'Export CSV'}</button><button className="dash-icon-button" type="button" onClick={() => void load(search, branchFilter)} aria-label={`Refresh ${kind}`}><RefreshCw size={16} /></button></div></div>
+    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ORGANIZATION ROSTER</span><h2>{isStudent ? 'Students' : 'Teachers'}</h2><p className="dash-record-subtitle">Manage records for this organization. Student and staff login invitations are a separate workflow.</p></div><div className="report-actions"><button className="dash-secondary-button" type="button" disabled={exporting || loading} onClick={() => void exportRoster()}><Download size={14} />{exporting ? 'Preparing CSV…' : 'Export CSV'}</button><button className="dash-icon-button" type="button" disabled={loading} onClick={() => void load(search, branchFilter, page)} aria-label={`Refresh ${kind}`}><RefreshCw size={16} /></button></div></div>
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
     {message && <div className="master-feedback master-success" role="status"><Check size={16} />{message}</div>}
     <div className="master-content">
@@ -252,9 +258,10 @@ export default function PeopleRoster({ organizationId, kind }: Props) {
         <div className="master-form-actions"><button className="master-submit" disabled={saving}>{saving ? <><LoaderCircle className="master-spin" size={16} />Saving…</> : <><Plus size={16} />{editingPerson ? 'Update record' : 'Save record'}</>}</button>{editingPerson && <button type="button" className="master-record-action" onClick={() => { setEditingPerson(null); setFields({}) }}>Cancel</button>}</div>
       </form>
       <div className="master-list">
-        <div className="master-list-heading"><div><h3>{isStudent ? 'Student roster' : 'Teaching staff'}</h3><span>{records.length} record{records.length === 1 ? '' : 's'} on this page</span></div></div>
-        <form className="roster-search" onSubmit={event => { event.preventDefault(); void load(search, branchFilter) }}><label><Search size={15} /><input aria-label={`Search ${kind}`} value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${isStudent ? 'name, email, or admission number' : 'name, email, or employee number'}`} /></label><label><span className="sr-only">Filter by branch</span><select aria-label="Filter roster by branch" value={branchFilter} onChange={e => { setBranchFilter(e.target.value); void load(search, e.target.value) }}><option value="">All branches</option>{branches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label><button>Search</button></form>
+        <div className="master-list-heading"><div><h3>{isStudent ? 'Student roster' : 'Teaching staff'}</h3><span>{totalRecords} total · {records.length} on this page</span></div></div>
+        <form className="roster-search" onSubmit={event => { event.preventDefault(); void load(search, branchFilter, 1) }}><label><Search size={15} /><input aria-label={`Search ${kind}`} value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${isStudent ? 'name, email, or admission number' : 'name, email, or employee number'}`} /></label><label><span className="sr-only">Filter by branch</span><select aria-label="Filter roster by branch" value={branchFilter} onChange={e => { setBranchFilter(e.target.value); void load(search, e.target.value, 1) }}><option value="">All branches</option>{branches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label><button>Search</button></form>
         {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading roster…</p> : records.length === 0 ? <p className="master-empty"><UsersRound size={18} />No {kind} found. Add a record or change the search.</p> : <ul>{records.map(person => <li key={person.id}><span className="master-record-icon">{isStudent ? <UsersRound size={17} /> : <GraduationCap size={17} />}</span><span className="master-record-main"><b>{person.name}</b><small>{isStudent ? person.admission_number : person.employee_number || 'No employee number'}{person.email ? ` · ${person.email}` : ''}{person.branch ? ` · ${person.branch.name}` : ''}{person.academic_class ? ` · ${person.academic_class.name}` : ''}{person.academic_section ? ` · Section ${person.academic_section.name}` : ''}{person.academic_session ? ` · ${person.academic_session.name}` : ''}</small></span><span className={`master-status ${person.status === 'active' ? 'active' : ''}`}>{person.status.replace('_', ' ')}</span>{isStudent && <button className="master-record-action" onClick={() => { setGuardianStudentId(person.id); setError(''); setMessage('') }}>Parents</button>}<button className="master-record-action" onClick={() => editPerson(person)}>Edit</button><button className="master-record-action" onClick={() => void toggleStatus(person)}>{person.status === 'active' ? 'Deactivate' : 'Activate'}</button></li>)}</ul>}
+        {lastPage > 1 && <div className="dash-table-footer" aria-label={`${isStudent ? 'Student' : 'Teacher'} roster pagination`}><button type="button" disabled={page <= 1 || loading} onClick={() => void load(search, branchFilter, page - 1)}>Previous</button><span>Page {page} of {lastPage} · {totalRecords} {isStudent ? 'students' : 'teachers'}</span><button type="button" disabled={page >= lastPage || loading} onClick={() => void load(search, branchFilter, page + 1)}>Next</button></div>}
         {isStudent && guardianStudentId !== null && <section className="guardian-manager"><header><div><h3>Parent access · {records.find(person => person.id === guardianStudentId)?.name ?? 'Student'}</h3><p>Only active, verified parent accounts in this organization can be linked.</p></div><button className="master-record-action" onClick={() => { setGuardianStudentId(null); setGuardianLinks([]) }}>Close</button></header><form className="guardian-link-form" onSubmit={event => void linkGuardian(event)}><label>Parent account<select required value={guardianUserId} onChange={event => setGuardianUserId(event.target.value)}><option value="">Choose a parent account</option>{parentAccounts.filter(parent => !guardianLinks.some(link => link.guardian_user_id === parent.id)).map(parent => <option key={parent.id} value={parent.id}>{parent.name} · {parent.email}</option>)}</select></label><label>Relationship<select value={guardianRelationship} onChange={event => setGuardianRelationship(event.target.value)}><option value="parent">Parent</option><option value="guardian">Guardian</option><option value="other">Other caregiver</option></select></label><label className="guardian-primary-option"><input type="checkbox" checked={guardianPrimary} onChange={event => setGuardianPrimary(event.target.checked)} /> Set as primary contact</label><button className="master-submit" disabled={guardianSaving || !guardianUserId}>{guardianSaving ? 'Saving…' : 'Link parent'}</button></form>{guardianLinks.length ? <ul>{guardianLinks.map(link => <li key={link.guardian_user_id}><span><b>{link.name}</b><small>{link.email} · {link.relationship}{link.is_primary ? ' · Primary' : ''}</small></span><button className="master-record-action" disabled={guardianSaving} onClick={() => void unlinkGuardian(link)}>Remove access</button></li>)}</ul> : <p className="master-empty">No parent accounts are linked.</p>}</section>}
       </div>
     </div>

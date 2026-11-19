@@ -26,7 +26,7 @@ class PeopleController
             ->with(['branch:id,name,code', 'academicClass:id,name,organization_branch_id', 'academicClass.branch:id,name,code', 'academicSection:id,name', 'academicSession:id,name']);
         $this->filter($request, $query, ['name', 'email', 'admission_number'], $organization);
 
-        return $this->collection($query->orderBy('name'));
+        return $this->collection($query->orderBy('name')->orderBy('id'));
     }
 
     public function storeStudent(Request $request, int $organization): JsonResponse
@@ -93,7 +93,7 @@ class PeopleController
         $query = Teacher::query()->where('organization_id', $organization)->with('branch:id,name,code');
         $this->filter($request, $query, ['name', 'email', 'employee_number'], $organization);
 
-        return $this->collection($query->orderBy('name'));
+        return $this->collection($query->orderBy('name')->orderBy('id'));
     }
 
     public function storeTeacher(Request $request, int $organization): JsonResponse

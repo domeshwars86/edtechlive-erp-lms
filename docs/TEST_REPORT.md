@@ -24,7 +24,7 @@
 
 ## Organization roster CSV export (20 November 2026)
 
-- Admins, Management, and Independent Educators can download a CSV for the full student or teacher roster matching the current search and branch filters. The export follows the existing tenant-authorized roster API page by page and checks the result total remains stable; output uses the shared spreadsheet-formula-safe CSV writer. The focused Chromium test passed (**1 test**) and verifies the second API page is included and formula-like names are escaped. Web typecheck, ESLint, production build and the complete Chromium suite passed (**23 tests in 4.7 minutes**). This supports manual roster reconciliation; it does not update records.
+- Admins, Management, and Independent Educators can download a CSV for the full student or teacher roster matching the current search and branch filters. The export follows the existing tenant-authorized roster API page by page and checks the result total remains stable; output uses the shared spreadsheet-formula-safe CSV writer. The focused Chromium test passed (**1 test**) and verifies navigation between roster pages, inclusion of later pages in the export, and escaping formula-like names. The focused People API regression passed (**5 tests / 37 assertions**). Web typecheck, ESLint, production build and the complete Chromium suite passed (**23 tests in 4.9 minutes**); the real registration, verification, sign-in and reset flow also passed in a focused rerun. This supports manual roster reconciliation; it does not update records.
 
 ## Keyboard navigation landmarks (20 November 2026)
 

@@ -37,11 +37,11 @@ test('authorized organization admin exports every matching student page to a saf
     const url = new URL(route.request().url())
     const pageNumber = Number(url.searchParams.get('page') ?? 1)
     const perPage = Number(url.searchParams.get('per_page') ?? 25)
-    const data = perPage === 100 ? [students[pageNumber - 1]].filter(Boolean) : students.slice(0, 1)
+    const data = [students[pageNumber - 1]].filter(Boolean)
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ data, meta: { current_page: pageNumber, last_page: perPage === 100 ? 2 : 1, per_page: perPage, total: 2 } }),
+      body: JSON.stringify({ data, meta: { current_page: pageNumber, last_page: 2, per_page: perPage, total: 2 } }),
     })
   })
 
@@ -52,6 +52,10 @@ test('authorized organization admin exports every matching student page to a saf
   await page.getByRole('button', { name: /Browser Test School/ }).click()
   await page.getByRole('button', { name: 'Students', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Students', level: 2 })).toBeVisible()
+  await expect(page.getByText('Page 1 of 2 · 2 students')).toBeVisible()
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await expect(page.getByText('Second Student')).toBeVisible()
+  await expect(page.getByText('Page 2 of 2 · 2 students')).toBeVisible()
 
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Export CSV' }).click()
