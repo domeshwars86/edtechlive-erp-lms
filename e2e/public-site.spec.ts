@@ -158,3 +158,24 @@ test('all seven dashboard previews fit narrow and desktop viewports', async ({ p
     }
   }
 })
+
+const publicAndAccountRoutes = [
+  '/', '/about', '/features', '/courses', '/courses/python-foundations',
+  '/courses/algebra-step-by-step', '/courses/living-world-stories',
+  '/solutions/institutions', '/solutions/teachers', '/solutions/students',
+  '/pricing', '/contact', '/privacy', '/terms', '/cookies', '/acceptable-use',
+  '/refund-policy', '/login', '/register',
+]
+
+for (const width of [320, 1440]) {
+  test(`all public and account routes fit ${width}px viewport`, async ({ page }) => {
+    test.setTimeout(120_000)
+    await page.setViewportSize({ width, height: 900 })
+    for (const route of publicAndAccountRoutes) {
+      await page.goto(route, { waitUntil: 'domcontentloaded' })
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth)
+      expect(pageWidth, `${route} overflows at ${width}px`).toBeLessThanOrEqual(width)
+    }
+  })
+}
