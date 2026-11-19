@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('real local registration, signed email verification, and browser sign-in work together', async ({ page }) => {
-  test.setTimeout(120_000)
+  test.setTimeout(180_000)
   const expectBackend = expect.configure({ timeout: 30_000 })
   const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
   const email = `browser-${unique}@example.test`

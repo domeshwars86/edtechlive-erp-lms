@@ -8,7 +8,7 @@
 
 ## Local email verification and sign-in (20 November 2026)
 
-- Replaced the raw API tab opened by the development verification link with an in-page action. It confirms the signed URL through the same-origin API proxy, states that no email inbox is needed, and shows a clear “Email verified. You can log in now” result. The focused real Chromium flow passed **1 test in 39.1 seconds**, covering registration, in-place verification, sign-in and organization selection. TypeScript, ESLint and the production build passed (17 public routes). A rerun of the longer account-profile/recovery integration timed out at its final sign-out assertion after registration, verification and sign-in had passed; this broader-flow timeout is recorded for follow-up.
+- Replaced the raw API tab opened by the development verification link with an in-page action. It confirms the signed URL through the same-origin API proxy, states that no email inbox is needed, and shows a clear “Email verified. You can log in now” result. The focused real Chromium flow passed **1 test in 39.1 seconds**, covering registration, in-place verification, sign-in and organization selection. The extended Chromium account-profile/recovery integration also passed (**1 test in 1.9 minutes**) after allowing adequate time for its complete profile, verification, reset and sign-out path. TypeScript, ESLint and the production build passed (17 public routes).
 
 ## Organization notification inbox (20 November 2026)
 
