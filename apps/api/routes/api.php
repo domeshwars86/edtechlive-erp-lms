@@ -200,8 +200,13 @@ Route::prefix('v1')->group(function (): void {
                 Route::patch('/submissions/{submission}/grade', [CourseAssignmentController::class, 'grade'])->whereNumber('submission');
                 Route::get('/courses/{course}/quizzes', [CourseQuizController::class, 'index'])->whereNumber('course');
                 Route::post('/courses/{course}/quizzes', [CourseQuizController::class, 'store'])->whereNumber('course');
+                Route::get('/courses/{course}/question-banks', [CourseQuizController::class, 'questionBanks'])->whereNumber('course');
+                Route::post('/courses/{course}/question-banks', [CourseQuizController::class, 'storeQuestionBank'])->whereNumber('course');
+                Route::get('/question-banks/{bank}/questions', [CourseQuizController::class, 'questionBankQuestions'])->whereNumber('bank');
+                Route::post('/question-banks/{bank}/questions', [CourseQuizController::class, 'storeQuestionBankQuestion'])->whereNumber('bank');
                 Route::patch('/quizzes/{quiz}', [CourseQuizController::class, 'update'])->whereNumber('quiz');
                 Route::post('/quizzes/{quiz}/questions', [CourseQuizController::class, 'addQuestion'])->whereNumber('quiz');
+                Route::post('/quizzes/{quiz}/questions/from-bank', [CourseQuizController::class, 'addQuestionFromBank'])->whereNumber('quiz');
                 Route::post('/quizzes/{quiz}/attempts', [CourseQuizController::class, 'startAttempt'])->whereNumber('quiz');
                 Route::patch('/quizzes/{quiz}/attempts/{attempt}', [CourseQuizController::class, 'submitAttempt'])->whereNumber('quiz')->whereNumber('attempt');
                 Route::get('/quizzes/{quiz}/attempts', [CourseQuizController::class, 'attempts'])->whereNumber('quiz');

@@ -172,6 +172,58 @@ class CourseQuizTest extends TestCase
         $this->postJson("{$base}/quizzes/{$quizId}/attempts")->assertConflict();
     }
 
+    public function test_course_question_bank_questions_can_be_reused_only_within_their_course(): void
+    {
+        [, $teacherUser, , $organization, $course] = $this->classroom();
+        $base = "/api/v1/organizations/{$organization->id}";
+        Sanctum::actingAs($teacherUser);
+        $bank = $this->postJson("{$base}/courses/{$course->id}/question-banks", [
+            'title' => 'Earth systems', 'description' => 'Reusable course questions.',
+        ])->assertCreated()->json('data.id');
+        $bankQuestion = $this->postJson("{$base}/question-banks/{$bank}/questions", [
+            'prompt' => 'Select both renewable sources.',
+            'options' => ['Solar', 'Coal', 'Wind'],
+            'question_type' => 'multiple_select',
+            'difficulty' => 'medium',
+            'correct_options' => [0, 2],
+            'points' => 4,
+        ])->assertCreated()->assertJsonPath('data.question_type', 'multiple_select')->json('data.id');
+        $this->getJson("{$base}/courses/{$course->id}/question-banks")
+            ->assertOk()->assertJsonPath('data.0.id', $bank)->assertJsonPath('data.0.questions_count', 1);
+        $this->getJson("{$base}/question-banks/{$bank}/questions?q=renewable")
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.correct_options', [0, 2]);
+
+        $quizIds = [];
+        foreach (['First quiz', 'Second quiz'] as $title) {
+            $quizIds[] = $this->postJson("{$base}/courses/{$course->id}/quizzes", ['title' => $title])
+                ->assertCreated()->json('data.id');
+        }
+        foreach ($quizIds as $quizId) {
+            $this->postJson("{$base}/quizzes/{$quizId}/questions/from-bank", ['question_bank_question_id' => $bankQuestion])
+                ->assertCreated()->assertJsonPath('data.correct_options', [0, 2]);
+        }
+        $this->postJson("{$base}/quizzes/{$quizIds[0]}/questions/from-bank", ['question_bank_question_id' => $bankQuestion])
+            ->assertConflict();
+
+        $otherCourse = Course::query()->create([
+            'organization_id' => $organization->id, 'teacher_id' => Teacher::query()->where('user_id', $teacherUser->id)->value('id'),
+            'created_by' => $teacherUser->id, 'title' => 'Other course', 'status' => 'published', 'published_at' => now(),
+        ]);
+        $otherQuiz = $this->postJson("{$base}/courses/{$otherCourse->id}/quizzes", ['title' => 'Other course quiz'])
+            ->assertCreated()->json('data.id');
+        $this->postJson("{$base}/quizzes/{$otherQuiz}/questions/from-bank", ['question_bank_question_id' => $bankQuestion])
+            ->assertNotFound();
+    }
+
+    public function test_students_cannot_read_course_question_banks(): void
+    {
+        [, , $studentUser, $organization, $course] = $this->classroom();
+        Sanctum::actingAs($studentUser);
+
+        $this->getJson("/api/v1/organizations/{$organization->id}/courses/{$course->id}/question-banks")
+            ->assertForbidden();
+    }
+
     public function test_submitted_attempt_history_is_paginated_without_cross_student_results(): void
     {
         [$admin, $teacherUser, $studentUser, $organization, $course] = $this->classroom();

@@ -27,3 +27,7 @@
 ## 2026-11-19 — Keep PostgreSQL sessions in UTC
 
 **Context:** Scheduled quizzes compare persisted timestamps with Laravel's UTC timestamps. **Decision:** Configure Laravel's PostgreSQL connector to set every database session to UTC. **Trade-off:** Organization-local schedules must be converted at the client/API boundary and localized for display; PostgreSQL host timezone settings no longer affect timestamp interpretation.
+
+## 2026-11-19 — Scope reusable question banks to a course
+
+**Context:** Course quizzes need reusable questions while preserving tenant and course boundaries. **Decision:** Store banks and bank questions under a course, authorize every list/create/import through the existing course editor check, and copy a selected question into a draft quiz as a snapshot. **Trade-off:** Later bank edits do not silently change existing quizzes; bank question editing/deletion and change history are not implemented yet.

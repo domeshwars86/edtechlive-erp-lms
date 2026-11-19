@@ -4,7 +4,9 @@ import { AlertCircle, Check, ClipboardList, LoaderCircle, Play, Plus, Save } fro
 import { api } from '../lib/api'
 
 type Course = { id: number; title: string }
-type Question = { id: number; prompt: string; options: string[]; points: number; question_type: 'single_choice' | 'multiple_select'; difficulty: 'easy' | 'medium' | 'hard'; correct_option?: number; correct_options?: number[] }
+type Question = { id: number; prompt: string; options: string[]; points: number; question_type: 'single_choice' | 'multiple_select'; difficulty: 'easy' | 'medium' | 'hard'; question_bank_question_id?: number | null; correct_option?: number; correct_options?: number[] }
+type QuestionBank = { id: number; title: string; description: string | null; questions_count: number }
+type BankQuestion = { id: number; prompt: string; options: string[]; points: number; sort_order: number; question_type: Question['question_type']; difficulty: Question['difficulty']; correct_options: number[] }
 type AttemptResult = { id: number; attempt_number: number; score: string | null; max_score: string | null; submitted_at: string | null; student?: { name: string; admission_number: string } | null }
 type Quiz = { id: number; course_id: number; title: string; instructions: string | null; time_limit_minutes: number | null; max_attempts: number; opens_at: string | null; closes_at: string | null; status: 'draft' | 'published' | 'archived'; questions: Question[]; attempts_used?: number; latest_result?: AttemptResult | null }
 type ActiveAttempt = { id: number; attempt_number: number }
@@ -15,6 +17,16 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
   const [courses, setCourses] = useState<Course[]>([])
   const [courseId, setCourseId] = useState<number | null>(null)
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
+  const [questionBanks, setQuestionBanks] = useState<QuestionBank[]>([])
+  const [bankQuestions, setBankQuestions] = useState<BankQuestion[]>([])
+  const [selectedBankId, setSelectedBankId] = useState<number | null>(null)
+  const [bankSearch, setBankSearch] = useState('')
+  const [bankPage, setBankPage] = useState(1)
+  const [bankLastPage, setBankLastPage] = useState(1)
+  const [bankTotal, setBankTotal] = useState(0)
+  const [bankTitle, setBankTitle] = useState('')
+  const [bankDescription, setBankDescription] = useState('')
+  const [saveToBank, setSaveToBank] = useState(false)
   const [quizId, setQuizId] = useState<number | null>(null)
   const [results, setResults] = useState<AttemptResult[]>([])
   const [resultsPage, setResultsPage] = useState(1)
@@ -51,6 +63,34 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
 
   const course = courses.find(item => item.id === courseId) ?? null
   const parsedOptions = optionsText.split('\n').map(option => option.trim()).filter(Boolean)
+
+  const loadQuestionBanks = useCallback(async () => {
+    if (!course || mode !== 'manage') { setQuestionBanks([]); setBankQuestions([]); setSelectedBankId(null); return }
+    const result = await api.get<{ data: QuestionBank[] }>(`${base}/courses/${course.id}/question-banks`)
+    setQuestionBanks(result.data)
+    setSelectedBankId(current => result.data.some(bank => bank.id === current) ? current : result.data[0]?.id ?? null)
+  }, [base, course, mode])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!course || mode !== 'manage') { setQuestionBanks([]); setBankQuestions([]); setSelectedBankId(null); return }
+    setQuestionBanks([]); setBankQuestions([]); setSelectedBankId(null)
+    api.get<{ data: QuestionBank[] }>(`${base}/courses/${course.id}/question-banks`)
+      .then(result => { if (!cancelled) { setQuestionBanks(result.data); setSelectedBankId(result.data[0]?.id ?? null) } })
+      .catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : 'Could not load question banks.') })
+    return () => { cancelled = true }
+  }, [base, course, mode])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!selectedBankId || mode !== 'manage') { setBankQuestions([]); return }
+    const params = new URLSearchParams({ per_page: '50', page: String(bankPage) })
+    if (bankSearch.trim()) params.set('q', bankSearch.trim())
+    api.get<{ data: BankQuestion[]; meta: { last_page: number; total: number } }>(`${base}/question-banks/${selectedBankId}/questions?${params}`)
+      .then(result => { if (!cancelled) { setBankQuestions(result.data); setBankLastPage(result.meta.last_page); setBankTotal(result.meta.total) } })
+      .catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : 'Could not load bank questions.') })
+    return () => { cancelled = true }
+  }, [base, mode, selectedBankId, bankSearch, bankPage])
   const loadQuizzes = useCallback(async () => {
     if (!course) { setQuizzes([]); setQuizId(null); return }
     const result = await api.get<{ data: Quiz[] }>(`${base}/courses/${course.id}/quizzes`)
@@ -86,15 +126,42 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not create quiz.') } finally { setSaving(false) }
   }
 
+  async function createQuestionBank(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!course) return
+    setSaving(true); setError(''); setMessage('')
+    try {
+      const result = await api.post<{ data: QuestionBank }>(`${base}/courses/${course.id}/question-banks`, { title: bankTitle.trim(), description: bankDescription.trim() || null })
+      await loadQuestionBanks()
+      setSelectedBankId(result.data.id); setBankTitle(''); setBankDescription(''); setMessage('Question bank created for this course.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not create the question bank.') } finally { setSaving(false) }
+  }
+
   async function addQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!quiz) return
     const options = optionsText.split('\n').map(option => option.trim()).filter(Boolean)
     setSaving(true); setError(''); setMessage('')
     try {
       const question = { prompt, options, question_type: questionType, difficulty, points: Number(points), sort_order: quiz.questions.length, ...(questionType === 'multiple_select' ? { correct_options: correctOptions } : { correct_option: Number(correctOption) }) }
-      await api.post(`${base}/quizzes/${quiz.id}/questions`, question)
-      await loadQuizzes(); setPrompt(''); setCorrectOptions([]); setMessage('Question saved to the draft quiz.')
+      if (saveToBank && selectedBankId) {
+        const bankQuestion = await api.post<{ data: BankQuestion }>(`${base}/question-banks/${selectedBankId}/questions`, question)
+        await api.post(`${base}/quizzes/${quiz.id}/questions/from-bank`, { question_bank_question_id: bankQuestion.data.id })
+        await Promise.all([loadQuizzes(), loadQuestionBanks()])
+        setMessage('Question added to the quiz and saved in the course bank.')
+      } else {
+        await api.post(`${base}/quizzes/${quiz.id}/questions`, question)
+        await loadQuizzes(); setMessage('Question saved to the draft quiz.')
+      }
+      setPrompt(''); setCorrectOptions([]); setSaveToBank(false)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not save question.') } finally { setSaving(false) }
+  }
+
+  async function addBankQuestion(question: BankQuestion) {
+    if (!quiz) return
+    setSaving(true); setError(''); setMessage('')
+    try {
+      await api.post(`${base}/quizzes/${quiz.id}/questions/from-bank`, { question_bank_question_id: question.id })
+      await loadQuizzes(); setMessage('Question copied from the course bank into this quiz draft.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not add this bank question.') } finally { setSaving(false) }
   }
 
   async function publishQuiz() {
@@ -151,6 +218,22 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
         <p className="quiz-schedule-hint">Times use your device timezone and are stored as UTC. Students can start attempts only inside this window.</p>
         <button className="master-submit" disabled={saving}><Plus size={15} />Create draft quiz</button>
       </form>}
+      {mode === 'manage' && course && <section className="quiz-bank-panel" aria-labelledby="question-bank-title">
+        <div><h3 id="question-bank-title">Course question bank</h3><p>Reuse questions across this course’s quizzes. Imported questions are copied into a draft, so published assessment content stays fixed.</p></div>
+        <form className="quiz-bank-create" onSubmit={event => void createQuestionBank(event)}>
+          <label>Bank name<input required minLength={2} maxLength={150} value={bankTitle} onChange={event => setBankTitle(event.target.value)} placeholder="Unit 1 questions" /></label>
+          <label>Description<input maxLength={1000} value={bankDescription} onChange={event => setBankDescription(event.target.value)} placeholder="Optional notes for course staff" /></label>
+          <button className="master-submit" disabled={saving}><Plus size={14} />Create bank</button>
+        </form>
+        {questionBanks.length > 0 ? <>
+          <div className="quiz-bank-toolbar"><label>Bank<select aria-label="Select course question bank" value={selectedBankId ?? ''} onChange={event => { setSelectedBankId(Number(event.target.value)); setBankPage(1) }}>{questionBanks.map(bank => <option key={bank.id} value={bank.id}>{bank.title} · {bank.questions_count} questions</option>)}</select></label><label>Search questions<input aria-label="Search bank questions" value={bankSearch} onChange={event => { setBankSearch(event.target.value); setBankPage(1) }} placeholder="Search prompts" /></label></div>
+          {bankQuestions.length ? <div className="quiz-bank-questions">{bankQuestions.map(question => {
+            const added = quiz?.questions.some(item => item.question_bank_question_id === question.id) ?? false
+            return <article key={question.id}><div><b>{question.prompt}</b><small>{question.question_type === 'multiple_select' ? 'Multiple select' : 'Single choice'} · {question.difficulty} · {question.points} pt{question.points === 1 ? '' : 's'}</small></div><button type="button" className="master-action" disabled={!quiz || quiz.status !== 'draft' || saving || added} onClick={() => void addBankQuestion(question)}>{added ? 'Added' : 'Add to quiz'}</button></article>
+          })}</div> : <p className="master-empty">{bankSearch.trim() ? 'No bank questions match this search.' : 'This bank has no questions yet.'}</p>}
+          {bankLastPage > 1 && <div className="platform-directory-pagination"><span>Page {bankPage} of {bankLastPage} · {bankTotal} questions</span><button className="master-action" type="button" disabled={bankPage <= 1} onClick={() => setBankPage(page => page - 1)}>Previous</button><button className="master-action" type="button" disabled={bankPage >= bankLastPage} onClick={() => setBankPage(page => page + 1)}>Next</button></div>}
+        </> : <p className="master-empty">Create a bank to store and reuse course questions.</p>}
+      </section>}
       {quiz && <div className="quiz-detail"><div className="course-detail-heading"><div><span className={`course-status ${quiz.status}`}>{quiz.status}</span><h3>{quiz.title}</h3><p>{quiz.instructions || 'No extra instructions.'}{quiz.time_limit_minutes ? ` · ${quiz.time_limit_minutes} minute time limit` : ''} · {quiz.max_attempts} attempt{quiz.max_attempts === 1 ? '' : 's'}{quiz.opens_at ? ` · Opens ${new Date(quiz.opens_at).toLocaleString()}` : ''}{quiz.closes_at ? ` · Closes ${new Date(quiz.closes_at).toLocaleString()}` : ''}</p></div>{mode === 'manage' && quiz.status === 'draft' && <button className="master-submit" onClick={() => void publishQuiz()} disabled={saving || quiz.questions.length === 0}>Publish quiz</button>}</div>
         {mode === 'manage' && quiz.status === 'draft' && <form className="course-form quiz-question-form" onSubmit={event => void addQuestion(event)}>
           <h4>Add an objective question</h4>
@@ -161,6 +244,7 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
             <label>Difficulty<select value={difficulty} onChange={event => setDifficulty(event.target.value as Question['difficulty'])}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label>
           </div>
           {questionType === 'single_choice' ? <label>Correct answer number<input type="number" min="1" max={parsedOptions.length} value={Number(correctOption) + 1} onChange={event => setCorrectOption(String(Number(event.target.value) - 1))} /></label> : <fieldset className="quiz-correct-options"><legend>Correct answers (choose at least two)</legend>{parsedOptions.map((option, index) => <label key={`correct-${index}`}><input type="checkbox" checked={correctOptions.includes(index)} onChange={event => setCorrectOptions(current => event.target.checked ? [...current, index].sort() : current.filter(item => item !== index))} />{index + 1}. {option}</label>)}</fieldset>}
+          {selectedBankId !== null && <label className="quiz-save-bank"><input type="checkbox" checked={saveToBank} onChange={event => setSaveToBank(event.target.checked)} />Save this question in the selected course bank for reuse</label>}
           <label>Points<input type="number" min="1" max="1000" value={points} onChange={event => setPoints(event.target.value)} /></label>
           <button className="master-submit" disabled={saving || parsedOptions.length < 2 || (questionType === 'multiple_select' && correctOptions.length < 2)}><Plus size={15} />Add question</button>
         </form>}

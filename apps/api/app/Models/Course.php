@@ -50,6 +50,11 @@ class Course extends Model
         return $this->hasMany(CourseQuiz::class);
     }
 
+    public function questionBanks(): HasMany
+    {
+        return $this->hasMany(CourseQuestionBank::class);
+    }
+
     public function assets(): HasMany
     {
         return $this->hasMany(CourseAsset::class);

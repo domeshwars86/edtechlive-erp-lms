@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\OrganizationRole;
 use App\Models\Course;
+use App\Models\CourseQuestionBank;
+use App\Models\CourseQuestionBankQuestion;
 use App\Models\CourseQuiz;
 use App\Models\QuizAttempt;
 use App\Models\QuizQuestion;
@@ -100,41 +102,106 @@ class CourseQuizController
         $membership = $this->access->membership($request, $organization);
         $this->assertCourseEditor($request, $membership->role, $organization, $record->course);
         abort_unless($record->status === 'draft', 409, 'Questions cannot be changed after the quiz is published.');
-        $data = $request->validate([
-            'prompt' => ['required', 'string', 'min:3', 'max:2000'],
-            'options' => ['required', 'array', 'min:2', 'max:6'],
-            'options.*' => ['required', 'string', 'min:1', 'max:500', 'distinct'],
-            'correct_option' => ['sometimes', 'integer', 'min:0', 'max:5'],
-            'question_type' => ['sometimes', Rule::in(['single_choice', 'multiple_select'])],
-            'difficulty' => ['sometimes', Rule::in(['easy', 'medium', 'hard'])],
-            'correct_options' => ['sometimes', 'array', 'min:2', 'max:6'],
-            'correct_options.*' => ['required', 'integer', 'min:0', 'max:5', 'distinct'],
-            'points' => ['sometimes', 'integer', 'min:1', 'max:1000'],
-            'sort_order' => ['sometimes', 'integer', 'min:0', 'max:10000'],
-        ]);
-        $questionType = $data['question_type'] ?? 'single_choice';
-        $correctOptions = $questionType === 'multiple_select'
-            ? ($data['correct_options'] ?? [])
-            : [$data['correct_option'] ?? null];
-        if ($questionType === 'multiple_select' && array_key_exists('correct_option', $data)) {
-            throw ValidationException::withMessages(['correct_option' => ['Use correct_options for a multiple-select question.']]);
-        }
-        if ($questionType === 'single_choice' && (array_key_exists('correct_options', $data) || ! is_int($data['correct_option'] ?? null))) {
-            throw ValidationException::withMessages(['correct_option' => ['Select exactly one correct answer.']]);
-        }
-        if (count($correctOptions) < ($questionType === 'multiple_select' ? 2 : 1)
-            || collect($correctOptions)->contains(fn ($option) => ! is_int($option) || $option >= count($data['options']))) {
-            throw ValidationException::withMessages(['correct_options' => ['Select valid answer choices from the submitted options.']]);
-        }
+        $data = $this->validatedQuestionData($request);
         $question = $record->questions()->create([
             ...$data,
-            'question_type' => $questionType,
-            'difficulty' => $data['difficulty'] ?? 'medium',
-            'correct_option' => $correctOptions[0],
-            'correct_options' => array_values($correctOptions),
             'organization_id' => $organization,
-            'points' => $data['points'] ?? 1,
             'sort_order' => $data['sort_order'] ?? $record->questions()->count(),
+        ]);
+
+        return response()->json(['data' => $this->questionData($question, true)], 201);
+    }
+
+    public function questionBanks(Request $request, int $organization, int $course): JsonResponse
+    {
+        $courseRecord = Course::query()->where('organization_id', $organization)->findOrFail($course);
+        $membership = $this->access->membership($request, $organization);
+        $this->assertCourseEditor($request, $membership->role, $organization, $courseRecord);
+
+        return response()->json(['data' => $courseRecord->questionBanks()->withCount('questions')->orderBy('title')->get()]);
+    }
+
+    public function storeQuestionBank(Request $request, int $organization, int $course): JsonResponse
+    {
+        $courseRecord = Course::query()->where('organization_id', $organization)->findOrFail($course);
+        $membership = $this->access->membership($request, $organization);
+        $this->assertCourseEditor($request, $membership->role, $organization, $courseRecord);
+        $data = $request->validate([
+            'title' => ['required', 'string', 'min:2', 'max:150', Rule::unique('course_question_banks', 'title')->where('course_id', $courseRecord->id)],
+            'description' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $bank = $courseRecord->questionBanks()->create([
+            ...$data,
+            'organization_id' => $organization,
+            'created_by' => $request->user()->id,
+        ]);
+
+        return response()->json(['data' => $bank->loadCount('questions')], 201);
+    }
+
+    public function questionBankQuestions(Request $request, int $organization, int $bank): JsonResponse
+    {
+        $record = CourseQuestionBank::query()->where('organization_id', $organization)->with('course')->findOrFail($bank);
+        $membership = $this->access->membership($request, $organization);
+        $this->assertCourseEditor($request, $membership->role, $organization, $record->course);
+        $filters = $request->validate([
+            'q' => ['sometimes', 'string', 'max:120'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+        $query = $record->questions();
+        if (filled($filters['q'] ?? null)) {
+            $term = '%'.str_replace(['%', '_'], ['\\%', '\\_'], trim($filters['q'])).'%';
+            $query->where('prompt', 'like', $term);
+        }
+        $questions = $query->paginate($filters['per_page'] ?? 50, ['*'], 'page', $filters['page'] ?? 1);
+
+        return response()->json([
+            'data' => $questions->getCollection()->map(fn (CourseQuestionBankQuestion $question): array => $this->bankQuestionData($question))->values(),
+            'meta' => ['current_page' => $questions->currentPage(), 'last_page' => $questions->lastPage(), 'per_page' => $questions->perPage(), 'total' => $questions->total()],
+        ]);
+    }
+
+    public function storeQuestionBankQuestion(Request $request, int $organization, int $bank): JsonResponse
+    {
+        $record = CourseQuestionBank::query()->where('organization_id', $organization)->with('course')->findOrFail($bank);
+        $membership = $this->access->membership($request, $organization);
+        $this->assertCourseEditor($request, $membership->role, $organization, $record->course);
+        abort_if($record->questions()->count() >= 1000, 409, 'This question bank has reached its 1,000 question limit.');
+        $data = $this->validatedQuestionData($request);
+        unset($data['correct_option']);
+        $question = $record->questions()->create([
+            ...$data,
+            'organization_id' => $organization,
+            'created_by' => $request->user()->id,
+            'sort_order' => $data['sort_order'] ?? $record->questions()->count(),
+        ]);
+
+        return response()->json(['data' => $this->bankQuestionData($question)], 201);
+    }
+
+    public function addQuestionFromBank(Request $request, int $organization, int $quiz): JsonResponse
+    {
+        $record = CourseQuiz::query()->where('organization_id', $organization)->with('course')->findOrFail($quiz);
+        $membership = $this->access->membership($request, $organization);
+        $this->assertCourseEditor($request, $membership->role, $organization, $record->course);
+        abort_unless($record->status === 'draft', 409, 'Questions cannot be changed after the quiz is published.');
+        $data = $request->validate(['question_bank_question_id' => ['required', 'integer']]);
+        $source = CourseQuestionBankQuestion::query()->where('organization_id', $organization)
+            ->whereHas('bank', fn ($query) => $query->where('course_id', $record->course_id))
+            ->findOrFail($data['question_bank_question_id']);
+        abort_if($record->questions()->where('question_bank_question_id', $source->id)->exists(), 409, 'This bank question is already in the quiz.');
+        $question = $record->questions()->create([
+            'organization_id' => $organization,
+            'question_bank_question_id' => $source->id,
+            'prompt' => $source->prompt,
+            'options' => $source->options,
+            'question_type' => $source->question_type,
+            'difficulty' => $source->difficulty,
+            'correct_option' => $source->correct_options[0],
+            'correct_options' => $source->correct_options,
+            'points' => $source->points,
+            'sort_order' => $record->questions()->count(),
         ]);
 
         return response()->json(['data' => $this->questionData($question, true)], 201);
@@ -324,9 +391,65 @@ class CourseQuizController
             'points' => $question->points,
             'sort_order' => $question->sort_order,
             ...($includeAnswer ? [
+                'question_bank_question_id' => $question->question_bank_question_id,
                 'correct_option' => $question->correct_option,
                 'correct_options' => $question->correct_options ?? [$question->correct_option],
             ] : []),
+        ];
+    }
+
+    private function bankQuestionData(CourseQuestionBankQuestion $question): array
+    {
+        return [
+            'id' => $question->id,
+            'prompt' => $question->prompt,
+            'options' => $question->options,
+            'question_type' => $question->question_type,
+            'difficulty' => $question->difficulty,
+            'correct_options' => $question->correct_options,
+            'points' => $question->points,
+            'sort_order' => $question->sort_order,
+        ];
+    }
+
+    private function validatedQuestionData(Request $request): array
+    {
+        $data = $request->validate([
+            'prompt' => ['required', 'string', 'min:3', 'max:2000'],
+            'options' => ['required', 'array', 'min:2', 'max:6'],
+            'options.*' => ['required', 'string', 'min:1', 'max:500', 'distinct'],
+            'correct_option' => ['sometimes', 'integer', 'min:0', 'max:5'],
+            'question_type' => ['sometimes', Rule::in(['single_choice', 'multiple_select'])],
+            'difficulty' => ['sometimes', Rule::in(['easy', 'medium', 'hard'])],
+            'correct_options' => ['sometimes', 'array', 'min:2', 'max:6'],
+            'correct_options.*' => ['required', 'integer', 'min:0', 'max:5', 'distinct'],
+            'points' => ['sometimes', 'integer', 'min:1', 'max:1000'],
+            'sort_order' => ['sometimes', 'integer', 'min:0', 'max:10000'],
+        ]);
+        $questionType = $data['question_type'] ?? 'single_choice';
+        $correctOptions = $questionType === 'multiple_select'
+            ? ($data['correct_options'] ?? [])
+            : [$data['correct_option'] ?? null];
+        if ($questionType === 'multiple_select' && array_key_exists('correct_option', $data)) {
+            throw ValidationException::withMessages(['correct_option' => ['Use correct_options for a multiple-select question.']]);
+        }
+        if ($questionType === 'single_choice' && (array_key_exists('correct_options', $data) || ! is_int($data['correct_option'] ?? null))) {
+            throw ValidationException::withMessages(['correct_option' => ['Select exactly one correct answer.']]);
+        }
+        if (count($correctOptions) < ($questionType === 'multiple_select' ? 2 : 1)
+            || collect($correctOptions)->contains(fn ($option) => ! is_int($option) || $option >= count($data['options']))) {
+            throw ValidationException::withMessages(['correct_options' => ['Select valid answer choices from the submitted options.']]);
+        }
+
+        return [
+            'prompt' => $data['prompt'],
+            'options' => $data['options'],
+            'question_type' => $questionType,
+            'difficulty' => $data['difficulty'] ?? 'medium',
+            'correct_option' => $correctOptions[0],
+            'correct_options' => array_values($correctOptions),
+            'points' => $data['points'] ?? 1,
+            ...(array_key_exists('sort_order', $data) ? ['sort_order' => $data['sort_order']] : []),
         ];
     }
 
