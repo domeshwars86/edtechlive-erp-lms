@@ -2,6 +2,11 @@
 
 **Updated:** 19 November 2026
 
+## Email verification guidance (19 November 2026)
+
+- Registration and verification-resend success screens now clearly state that verification is required before sign-in. The local verification link is a high-contrast full-width action with explicit steps to verify, return to the app, and log in.
+- Web ESLint passed; the production build and TypeScript check passed with 14 prerendered routes (487.30 kB main bundle). Existing API verification remains 142 tests / 1,159 assertions; the preview login page returned HTTP 200.
+
 ## Branch assignment to academic records (19 November 2026)
 
 - Added nullable tenant branch references for classes, students, and teachers. Academic class setup and people rosters now assign active same-organization branches, display branch labels, and filter rosters by branch.
