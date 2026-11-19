@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { AlertCircle, Check, GraduationCap, LoaderCircle, Plus, RefreshCw, Search, UsersRound } from 'lucide-react'
+import { AlertCircle, Check, Download, GraduationCap, LoaderCircle, Plus, RefreshCw, Search, UsersRound } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
+import { downloadCsv } from '../lib/csv'
 
 type Person = {
   id: number
@@ -22,7 +23,7 @@ type Person = {
   academic_session_id?: number | null
   enrolled_on?: string | null
 }
-type RosterResponse = { data: Person[]; meta: { total: number } }
+type RosterResponse = { data: Person[]; meta: { current_page: number; last_page: number; per_page: number; total: number } }
 type MasterList = { data: { id: number; name: string; code?: string | null; academic_session_id?: number | null; organization_branch_id?: number | null; branch?: { id: number; name: string } | null }[] }
 type ParentAccount = { id: number; name: string; email: string }
 type GuardianLink = { guardian_user_id: number; name: string; email: string; relationship: string; is_primary: boolean; linked_at: string }
@@ -40,6 +41,7 @@ export default function PeopleRoster({ organizationId, kind }: Props) {
   const [branchFilter, setBranchFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [guardianStudentId, setGuardianStudentId] = useState<number | null>(null)
@@ -142,6 +144,39 @@ export default function PeopleRoster({ organizationId, kind }: Props) {
     }
   }
 
+  async function exportRoster() {
+    setExporting(true)
+    setError('')
+    setMessage('')
+    try {
+      const parameters = new URLSearchParams({ per_page: '100', page: '1' })
+      if (search.trim()) parameters.set('search', search.trim())
+      if (branchFilter) parameters.set('organization_branch_id', branchFilter)
+      const firstPage = await api.get<RosterResponse>(`${base}?${parameters}`)
+      const rows = [...firstPage.data]
+      const expectedTotal = firstPage.meta.total
+      for (let page = 2; page <= firstPage.meta.last_page; page += 1) {
+        parameters.set('page', String(page))
+        const result = await api.get<RosterResponse>(`${base}?${parameters}`)
+        if (result.meta.total !== expectedTotal) throw new Error('The roster changed while exporting. Refresh it and try again.')
+        rows.push(...result.data)
+      }
+      const headers = isStudent
+        ? ['Admission number', 'Student name', 'Email', 'Phone', 'Status', 'Enrollment date', 'Branch', 'Class', 'Section', 'Academic session']
+        : ['Employee number', 'Teacher name', 'Email', 'Phone', 'Specialization', 'Status', 'Branch']
+      const data = rows.map(person => isStudent
+        ? [person.admission_number, person.name, person.email, person.phone, person.status, person.enrolled_on?.slice(0, 10), person.branch?.name, person.academic_class?.name, person.academic_section?.name, person.academic_session?.name]
+        : [person.employee_number, person.name, person.email, person.phone, person.specialization, person.status, person.branch?.name])
+      downloadCsv(`${kind}-${new Date().toISOString().slice(0, 10)}.csv`, headers, data)
+      const recordLabel = isStudent ? 'student' : 'teacher'
+      setMessage(`Exported ${rows.length} ${recordLabel} record${rows.length === 1 ? '' : 's'}${search.trim() || branchFilter ? ' matching the current filters' : ''}.`)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not export this roster.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   function editPerson(person: Person) {
     setEditingPerson(person)
     setError('')
@@ -196,7 +231,7 @@ export default function PeopleRoster({ organizationId, kind }: Props) {
   }
 
   return <section className="dash-panel dash-masters-panel">
-    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ORGANIZATION ROSTER</span><h2>{isStudent ? 'Students' : 'Teachers'}</h2><p className="dash-record-subtitle">Manage records for this organization. Student and staff login invitations are a separate workflow.</p></div><button className="dash-icon-button" onClick={() => void load(search, branchFilter)} aria-label={`Refresh ${kind}`}><RefreshCw size={16} /></button></div>
+    <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ORGANIZATION ROSTER</span><h2>{isStudent ? 'Students' : 'Teachers'}</h2><p className="dash-record-subtitle">Manage records for this organization. Student and staff login invitations are a separate workflow.</p></div><div className="report-actions"><button className="dash-secondary-button" type="button" disabled={exporting || loading} onClick={() => void exportRoster()}><Download size={14} />{exporting ? 'Preparing CSV…' : 'Export CSV'}</button><button className="dash-icon-button" type="button" onClick={() => void load(search, branchFilter)} aria-label={`Refresh ${kind}`}><RefreshCw size={16} /></button></div></div>
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
     {message && <div className="master-feedback master-success" role="status"><Check size={16} />{message}</div>}
     <div className="master-content">

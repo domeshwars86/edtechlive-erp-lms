@@ -22,6 +22,10 @@
 
 - Notification feeds now use stable newest-first ordering by creation timestamp and ID, so marking an item read cannot move it across paginated results. A regression test compares the second page before and after a first-page read receipt. Mobile now fetches notices in pages of ten, appends additional pages without duplicate IDs, exposes read/unread state to assistive technology, offers a loading-aware “Load more updates” control, and ignores late read/page responses after switching users or organizations. `php artisan test --filter=NotificationTest` passed **8 tests / 48 assertions**, Pint passed for the touched API files, `apps/mobile` TypeScript typecheck passed, and `npx expo export --platform android` produced the Android JS bundle (**1.7 MB; 564 modules**). Native-device behavior remains a separate gate.
 
+## Organization roster CSV export (20 November 2026)
+
+- Admins, Management, and Independent Educators can download a CSV for the full student or teacher roster matching the current search and branch filters. The export follows the existing tenant-authorized roster API page by page and checks the result total remains stable; output uses the shared spreadsheet-formula-safe CSV writer. The focused Chromium test passed (**1 test**) and verifies the second API page is included and formula-like names are escaped. Web typecheck, ESLint, production build and the complete Chromium suite passed (**23 tests in 4.7 minutes**). This supports manual roster reconciliation; it does not update records.
+
 ## Keyboard navigation landmarks (20 November 2026)
 
 - Added visible-on-focus skip links before the public header, account form and dashboard sidebar; each link focuses its main landmark. Course detail content uses a section container rather than a nested `main` landmark. Dashboard sidebar buttons announce the selected section with `aria-current`. TypeScript, ESLint, and the production build passed; the complete public-site Chromium spec passed (**16 tests in 2.0 minutes**), including first-tab focus, fragment navigation, target focus, active-section announcement and exactly one main landmark on public, account and dashboard shells.
