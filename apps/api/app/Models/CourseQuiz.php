@@ -8,7 +8,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CourseQuiz extends Model
 {
-    protected $fillable = ['organization_id', 'course_id', 'created_by', 'title', 'instructions', 'time_limit_minutes', 'max_attempts', 'status'];
+    protected $fillable = ['organization_id', 'course_id', 'created_by', 'title', 'instructions', 'time_limit_minutes', 'max_attempts', 'opens_at', 'closes_at', 'status'];
+
+    protected function casts(): array
+    {
+        return ['opens_at' => 'immutable_datetime', 'closes_at' => 'immutable_datetime'];
+    }
 
     public function course(): BelongsTo
     {

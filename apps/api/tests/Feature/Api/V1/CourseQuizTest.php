@@ -95,6 +95,83 @@ class CourseQuizTest extends TestCase
         $this->postJson("{$base}/quizzes/{$readyQuiz}/attempts")->assertNotFound();
     }
 
+    public function test_multiple_select_questions_are_scored_only_for_the_exact_correct_set(): void
+    {
+        [, $teacherUser, $studentUser, $organization, $course] = $this->classroom();
+        $base = "/api/v1/organizations/{$organization->id}";
+        Sanctum::actingAs($teacherUser);
+        $quizId = $this->postJson("{$base}/courses/{$course->id}/quizzes", [
+            'title' => 'Multiple-select check', 'max_attempts' => 2,
+        ])->assertCreated()->json('data.id');
+        $this->postJson("{$base}/quizzes/{$quizId}/questions", [
+            'prompt' => 'Select both renewable sources.',
+            'options' => ['Solar', 'Coal', 'Wind'],
+            'question_type' => 'multiple_select',
+            'difficulty' => 'hard',
+            'correct_options' => [0, 2],
+            'points' => 3,
+        ])->assertCreated()->assertJsonPath('data.question_type', 'multiple_select')
+            ->assertJsonPath('data.difficulty', 'hard')->assertJsonPath('data.correct_options', [0, 2]);
+        $this->postJson("{$base}/quizzes/{$quizId}/questions", [
+            'prompt' => 'Reject duplicate answer keys.',
+            'options' => ['One', 'Two', 'Three'],
+            'question_type' => 'multiple_select',
+            'correct_options' => [1, 1],
+        ])->assertUnprocessable()->assertJsonValidationErrors('correct_options.1');
+        $this->patchJson("{$base}/quizzes/{$quizId}", ['status' => 'published'])->assertOk();
+
+        Sanctum::actingAs($studentUser);
+        $this->getJson("{$base}/courses/{$course->id}/quizzes")->assertOk()
+            ->assertJsonPath('data.0.questions.0.question_type', 'multiple_select')
+            ->assertJsonPath('data.0.questions.0.difficulty', 'hard')
+            ->assertJsonMissingPath('data.0.questions.0.correct_options');
+        $firstAttempt = $this->postJson("{$base}/quizzes/{$quizId}/attempts")->assertCreated();
+        $attemptId = $firstAttempt->json('data.attempt.id');
+        $questionId = $firstAttempt->json('data.questions.0.id');
+        $this->patchJson("{$base}/quizzes/{$quizId}/attempts/{$attemptId}", [
+            'answers' => [['question_id' => $questionId, 'selected_options' => [2, 0]]],
+        ])->assertOk()->assertJsonPath('data.score', '3.00')
+            ->assertJsonPath("data.answers.{$questionId}", [0, 2]);
+
+        $secondAttempt = $this->postJson("{$base}/quizzes/{$quizId}/attempts")->assertCreated();
+        $this->patchJson("{$base}/quizzes/{$quizId}/attempts/{$secondAttempt->json('data.attempt.id')}", [
+            'answers' => [['question_id' => $questionId, 'selected_options' => [0]]],
+        ])->assertOk()->assertJsonPath('data.score', '0.00');
+    }
+
+    public function test_scheduled_quiz_blocks_early_starts_and_closes_active_attempts_at_deadline(): void
+    {
+        [, $teacherUser, $studentUser, $organization, $course] = $this->classroom();
+        $base = "/api/v1/organizations/{$organization->id}";
+        $opensAt = now()->addMinutes(10);
+        $closesAt = now()->addMinutes(30);
+        Sanctum::actingAs($teacherUser);
+        $this->postJson("{$base}/courses/{$course->id}/quizzes", [
+            'title' => 'Invalid schedule', 'opens_at' => $closesAt->toISOString(), 'closes_at' => $closesAt->toISOString(),
+        ])->assertUnprocessable()->assertJsonValidationErrors('closes_at');
+        $quizId = $this->postJson("{$base}/courses/{$course->id}/quizzes", [
+            'title' => 'Scheduled exam', 'opens_at' => $opensAt->toISOString(), 'closes_at' => $closesAt->toISOString(),
+        ])->assertCreated()->json('data.id');
+        $this->postJson("{$base}/quizzes/{$quizId}/questions", [
+            'prompt' => 'Choose a primary color.', 'options' => ['Red', 'Green', 'Blue'], 'correct_option' => 0,
+        ])->assertCreated();
+        $this->patchJson("{$base}/quizzes/{$quizId}", ['status' => 'published'])->assertOk();
+
+        Sanctum::actingAs($studentUser);
+        $this->postJson("{$base}/quizzes/{$quizId}/attempts")->assertConflict();
+        $this->travelTo($opensAt->copy()->addMinute());
+        $attempt = $this->postJson("{$base}/quizzes/{$quizId}/attempts")->assertCreated();
+        $this->travelTo($closesAt);
+        $this->patchJson("{$base}/quizzes/{$quizId}/attempts/{$attempt->json('data.attempt.id')}", [
+            'answers' => [['question_id' => $attempt->json('data.questions.0.id'), 'selected_option' => 0]],
+        ])->assertConflict()->assertJsonPath('message', 'The quiz availability window closed; this attempt was submitted with no answers.');
+        $this->assertDatabaseHas('quiz_attempts', [
+            'id' => $attempt->json('data.attempt.id'), 'score' => '0.00',
+        ]);
+        $this->assertNotNull(QuizAttempt::query()->findOrFail($attempt->json('data.attempt.id'))->submitted_at);
+        $this->postJson("{$base}/quizzes/{$quizId}/attempts")->assertConflict();
+    }
+
     public function test_submitted_attempt_history_is_paginated_without_cross_student_results(): void
     {
         [$admin, $teacherUser, $studentUser, $organization, $course] = $this->classroom();

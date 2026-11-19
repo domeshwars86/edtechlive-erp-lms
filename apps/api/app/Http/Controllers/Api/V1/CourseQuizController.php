@@ -12,6 +12,7 @@ use App\Models\Teacher;
 use App\Services\OrganizationAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -49,7 +50,10 @@ class CourseQuizController
             'instructions' => ['nullable', 'string', 'max:5000'],
             'time_limit_minutes' => ['nullable', 'integer', 'min:1', 'max:240'],
             'max_attempts' => ['sometimes', 'integer', 'min:1', 'max:5'],
+            'opens_at' => ['sometimes', 'nullable', 'date'],
+            'closes_at' => ['sometimes', 'nullable', 'date'],
         ]);
+        $this->assertSchedule($data['opens_at'] ?? null, $data['closes_at'] ?? null);
         $quiz = $courseRecord->quizzes()->create([
             ...$data,
             'organization_id' => $organization,
@@ -71,12 +75,18 @@ class CourseQuizController
             'instructions' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'time_limit_minutes' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:240'],
             'max_attempts' => ['sometimes', 'integer', 'min:1', 'max:5'],
+            'opens_at' => ['sometimes', 'nullable', 'date'],
+            'closes_at' => ['sometimes', 'nullable', 'date'],
             'status' => ['sometimes', Rule::in(['draft', 'published', 'archived'])],
         ]);
+        $this->assertSchedule(
+            array_key_exists('opens_at', $data) ? $data['opens_at'] : $record->opens_at,
+            array_key_exists('closes_at', $data) ? $data['closes_at'] : $record->closes_at,
+        );
         if (($data['status'] ?? $record->status) === 'published' && $record->questions()->doesntExist()) {
             throw ValidationException::withMessages(['status' => ['Add at least one question before publishing a quiz.']]);
         }
-        if ($record->status === 'published' && $request->hasAny(['title', 'instructions', 'time_limit_minutes', 'max_attempts'])) {
+        if ($record->status === 'published' && $request->hasAny(['title', 'instructions', 'time_limit_minutes', 'max_attempts', 'opens_at', 'closes_at'])) {
             throw ValidationException::withMessages(['status' => ['Published quiz settings cannot be changed after attempts are enabled.']]);
         }
         $record->update($data);
@@ -94,15 +104,34 @@ class CourseQuizController
             'prompt' => ['required', 'string', 'min:3', 'max:2000'],
             'options' => ['required', 'array', 'min:2', 'max:6'],
             'options.*' => ['required', 'string', 'min:1', 'max:500', 'distinct'],
-            'correct_option' => ['required', 'integer', 'min:0', 'max:5'],
+            'correct_option' => ['sometimes', 'integer', 'min:0', 'max:5'],
+            'question_type' => ['sometimes', Rule::in(['single_choice', 'multiple_select'])],
+            'difficulty' => ['sometimes', Rule::in(['easy', 'medium', 'hard'])],
+            'correct_options' => ['sometimes', 'array', 'min:2', 'max:6'],
+            'correct_options.*' => ['required', 'integer', 'min:0', 'max:5', 'distinct'],
             'points' => ['sometimes', 'integer', 'min:1', 'max:1000'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:10000'],
         ]);
-        if ($data['correct_option'] >= count($data['options'])) {
-            throw ValidationException::withMessages(['correct_option' => ['Select one of the submitted answer choices.']]);
+        $questionType = $data['question_type'] ?? 'single_choice';
+        $correctOptions = $questionType === 'multiple_select'
+            ? ($data['correct_options'] ?? [])
+            : [$data['correct_option'] ?? null];
+        if ($questionType === 'multiple_select' && array_key_exists('correct_option', $data)) {
+            throw ValidationException::withMessages(['correct_option' => ['Use correct_options for a multiple-select question.']]);
+        }
+        if ($questionType === 'single_choice' && (array_key_exists('correct_options', $data) || ! is_int($data['correct_option'] ?? null))) {
+            throw ValidationException::withMessages(['correct_option' => ['Select exactly one correct answer.']]);
+        }
+        if (count($correctOptions) < ($questionType === 'multiple_select' ? 2 : 1)
+            || collect($correctOptions)->contains(fn ($option) => ! is_int($option) || $option >= count($data['options']))) {
+            throw ValidationException::withMessages(['correct_options' => ['Select valid answer choices from the submitted options.']]);
         }
         $question = $record->questions()->create([
             ...$data,
+            'question_type' => $questionType,
+            'difficulty' => $data['difficulty'] ?? 'medium',
+            'correct_option' => $correctOptions[0],
+            'correct_options' => array_values($correctOptions),
             'organization_id' => $organization,
             'points' => $data['points'] ?? 1,
             'sort_order' => $data['sort_order'] ?? $record->questions()->count(),
@@ -119,6 +148,9 @@ class CourseQuizController
         $record = CourseQuiz::query()->where('organization_id', $organization)->with(['course', 'questions'])->findOrFail($quiz);
         abort_unless($record->status === 'published' && $record->course->status === 'published'
             && $record->course->enrollments()->where('student_id', $student->id)->where('status', 'active')->exists(), 404);
+        $now = now();
+        abort_if($record->opens_at !== null && $now->lt($record->opens_at), 409, 'This quiz is not open yet.');
+        abort_if($record->closes_at !== null && $now->gte($record->closes_at), 409, 'The quiz availability window has closed.');
         $attempt = DB::transaction(function () use ($record, $student, $organization): QuizAttempt {
             $lockedQuiz = CourseQuiz::query()->whereKey($record->id)->lockForUpdate()->firstOrFail();
             $count = QuizAttempt::query()->where('quiz_id', $lockedQuiz->id)->where('student_id', $student->id)->count();
@@ -155,22 +187,44 @@ class CourseQuizController
         $data = $request->validate([
             'answers' => ['present', 'array', 'max:100'],
             'answers.*.question_id' => ['required', 'integer', 'distinct'],
-            'answers.*.selected_option' => ['required', 'integer', 'min:0', 'max:5'],
+            'answers.*.selected_option' => ['sometimes', 'integer', 'min:0', 'max:5'],
+            'answers.*.selected_options' => ['sometimes', 'array', 'min:1', 'max:6'],
+            'answers.*.selected_options.*' => ['required', 'integer', 'min:0', 'max:5', 'distinct'],
         ]);
         $questions = $record->quiz->questions->keyBy('id');
         $answers = [];
         foreach ($data['answers'] as $answer) {
             $question = $questions->get($answer['question_id']);
-            if (! $question || $answer['selected_option'] >= count($question->options)) {
+            $isMultiple = $question?->question_type === 'multiple_select';
+            $hasSingle = array_key_exists('selected_option', $answer);
+            $selectedOptions = $isMultiple ? ($answer['selected_options'] ?? []) : (isset($answer['selected_option']) ? [$answer['selected_option']] : []);
+            if (! $question || ($isMultiple && ($hasSingle || ! array_key_exists('selected_options', $answer)))
+                || (! $isMultiple && (array_key_exists('selected_options', $answer) || ! $hasSingle))
+                || collect($selectedOptions)->contains(fn ($option) => $option >= count($question->options))) {
                 throw ValidationException::withMessages(['answers' => ['Answers must reference this quiz and a valid option.']]);
             }
-            $answers[$question->id] = $answer['selected_option'];
+            sort($selectedOptions);
+            $answers[$question->id] = $isMultiple ? $selectedOptions : $selectedOptions[0];
         }
         $maxScore = $record->quiz->questions->sum('points');
-        $score = $record->quiz->questions->sum(fn (QuizQuestion $question): int => ($answers[$question->id] ?? null) === $question->correct_option ? $question->points : 0);
-        if ($record->quiz->time_limit_minutes !== null && now()->gt($record->started_at->addMinutes($record->quiz->time_limit_minutes))) {
+        $score = $record->quiz->questions->sum(function (QuizQuestion $question) use ($answers): int {
+            $submitted = $answers[$question->id] ?? null;
+            $expected = $question->question_type === 'multiple_select'
+                ? ($question->correct_options ?? [])
+                : [$question->correct_option];
+            sort($expected);
+            $selected = is_array($submitted) ? $submitted : (is_int($submitted) ? [$submitted] : []);
+
+            return $selected === $expected ? $question->points : 0;
+        });
+        $timeLimitExpired = $record->quiz->time_limit_minutes !== null
+            && now()->gt($record->started_at->addMinutes($record->quiz->time_limit_minutes));
+        $scheduleExpired = $record->quiz->closes_at !== null && now()->gte($record->quiz->closes_at);
+        if ($timeLimitExpired || $scheduleExpired) {
             $record->update(['answers' => [], 'score' => 0, 'max_score' => $maxScore, 'submitted_at' => now()]);
-            abort(409, 'The quiz time limit expired; this attempt was submitted with no answers.');
+            abort(409, $scheduleExpired
+                ? 'The quiz availability window closed; this attempt was submitted with no answers.'
+                : 'The quiz time limit expired; this attempt was submitted with no answers.');
         }
         $record->update(['answers' => $answers, 'score' => $score, 'max_score' => $maxScore, 'submitted_at' => now()]);
 
@@ -252,6 +306,8 @@ class CourseQuizController
             'instructions' => $quiz->instructions,
             'time_limit_minutes' => $quiz->time_limit_minutes,
             'max_attempts' => $quiz->max_attempts,
+            'opens_at' => $quiz->opens_at?->toISOString(),
+            'closes_at' => $quiz->closes_at?->toISOString(),
             'status' => $quiz->status,
             'questions' => $quiz->questions->map(fn (QuizQuestion $question): array => $this->questionData($question, $includeAnswers))->values(),
         ];
@@ -263,10 +319,22 @@ class CourseQuizController
             'id' => $question->id,
             'prompt' => $question->prompt,
             'options' => $question->options,
+            'question_type' => $question->question_type,
+            'difficulty' => $question->difficulty,
             'points' => $question->points,
             'sort_order' => $question->sort_order,
-            ...($includeAnswer ? ['correct_option' => $question->correct_option] : []),
+            ...($includeAnswer ? [
+                'correct_option' => $question->correct_option,
+                'correct_options' => $question->correct_options ?? [$question->correct_option],
+            ] : []),
         ];
+    }
+
+    private function assertSchedule(mixed $opensAt, mixed $closesAt): void
+    {
+        if ($opensAt !== null && $closesAt !== null && Carbon::parse($opensAt)->gte(Carbon::parse($closesAt))) {
+            throw ValidationException::withMessages(['closes_at' => ['The closing time must be after the opening time.']]);
+        }
     }
 
     private function attemptData(QuizAttempt $attempt): array

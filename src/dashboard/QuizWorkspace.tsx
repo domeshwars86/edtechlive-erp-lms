@@ -4,9 +4,9 @@ import { AlertCircle, Check, ClipboardList, LoaderCircle, Play, Plus, Save } fro
 import { api } from '../lib/api'
 
 type Course = { id: number; title: string }
-type Question = { id: number; prompt: string; options: string[]; points: number; correct_option?: number }
+type Question = { id: number; prompt: string; options: string[]; points: number; question_type: 'single_choice' | 'multiple_select'; difficulty: 'easy' | 'medium' | 'hard'; correct_option?: number; correct_options?: number[] }
 type AttemptResult = { id: number; attempt_number: number; score: string | null; max_score: string | null; submitted_at: string | null; student?: { name: string; admission_number: string } | null }
-type Quiz = { id: number; course_id: number; title: string; instructions: string | null; time_limit_minutes: number | null; max_attempts: number; status: 'draft' | 'published' | 'archived'; questions: Question[]; attempts_used?: number; latest_result?: AttemptResult | null }
+type Quiz = { id: number; course_id: number; title: string; instructions: string | null; time_limit_minutes: number | null; max_attempts: number; opens_at: string | null; closes_at: string | null; status: 'draft' | 'published' | 'archived'; questions: Question[]; attempts_used?: number; latest_result?: AttemptResult | null }
 type ActiveAttempt = { id: number; attempt_number: number }
 type AttemptPage = { data: AttemptResult[]; meta: { current_page: number; last_page: number; total: number } }
 
@@ -21,14 +21,19 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
   const [resultsLastPage, setResultsLastPage] = useState(1)
   const [resultsTotal, setResultsTotal] = useState(0)
   const [attempt, setAttempt] = useState<ActiveAttempt | null>(null)
-  const [answers, setAnswers] = useState<Record<number, number>>({})
+  const [answers, setAnswers] = useState<Record<number, number[]>>({})
   const [title, setTitle] = useState('')
   const [instructions, setInstructions] = useState('')
   const [timeLimit, setTimeLimit] = useState('20')
   const [maxAttempts, setMaxAttempts] = useState('1')
+  const [opensAt, setOpensAt] = useState('')
+  const [closesAt, setClosesAt] = useState('')
   const [prompt, setPrompt] = useState('')
   const [optionsText, setOptionsText] = useState('Option one\nOption two\nOption three\nOption four')
   const [correctOption, setCorrectOption] = useState('0')
+  const [correctOptions, setCorrectOptions] = useState<number[]>([])
+  const [questionType, setQuestionType] = useState<Question['question_type']>('single_choice')
+  const [difficulty, setDifficulty] = useState<Question['difficulty']>('medium')
   const [points, setPoints] = useState('1')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -45,6 +50,7 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
   }, [base])
 
   const course = courses.find(item => item.id === courseId) ?? null
+  const parsedOptions = optionsText.split('\n').map(option => option.trim()).filter(Boolean)
   const loadQuizzes = useCallback(async () => {
     if (!course) { setQuizzes([]); setQuizId(null); return }
     const result = await api.get<{ data: Quiz[] }>(`${base}/courses/${course.id}/quizzes`)
@@ -75,8 +81,8 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
     event.preventDefault(); if (!course) return
     setSaving(true); setError(''); setMessage('')
     try {
-      const created = await api.post<{ data: Quiz }>(`${base}/courses/${course.id}/quizzes`, { title, instructions: instructions || null, time_limit_minutes: timeLimit ? Number(timeLimit) : null, max_attempts: Number(maxAttempts) })
-      await loadQuizzes(); setQuizId(created.data.id); setTitle(''); setInstructions(''); setMessage('Quiz draft created.')
+      const created = await api.post<{ data: Quiz }>(`${base}/courses/${course.id}/quizzes`, { title, instructions: instructions || null, time_limit_minutes: timeLimit ? Number(timeLimit) : null, max_attempts: Number(maxAttempts), opens_at: opensAt ? new Date(opensAt).toISOString() : null, closes_at: closesAt ? new Date(closesAt).toISOString() : null })
+      await loadQuizzes(); setQuizId(created.data.id); setTitle(''); setInstructions(''); setOpensAt(''); setClosesAt(''); setMessage('Quiz draft created.')
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not create quiz.') } finally { setSaving(false) }
   }
 
@@ -85,8 +91,9 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
     const options = optionsText.split('\n').map(option => option.trim()).filter(Boolean)
     setSaving(true); setError(''); setMessage('')
     try {
-      await api.post(`${base}/quizzes/${quiz.id}/questions`, { prompt, options, correct_option: Number(correctOption), points: Number(points), sort_order: quiz.questions.length })
-      await loadQuizzes(); setPrompt(''); setMessage('Question saved to the draft quiz.')
+      const question = { prompt, options, question_type: questionType, difficulty, points: Number(points), sort_order: quiz.questions.length, ...(questionType === 'multiple_select' ? { correct_options: correctOptions } : { correct_option: Number(correctOption) }) }
+      await api.post(`${base}/quizzes/${quiz.id}/questions`, question)
+      await loadQuizzes(); setPrompt(''); setCorrectOptions([]); setMessage('Question saved to the draft quiz.')
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not save question.') } finally { setSaving(false) }
   }
 
@@ -112,7 +119,12 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
     event.preventDefault(); if (!quiz || !attempt) return
     setSaving(true); setError(''); setMessage('')
     try {
-      const payload = Object.entries(answers).map(([question_id, selected_option]) => ({ question_id: Number(question_id), selected_option }))
+      const payload = Object.entries(answers).map(([question_id, selected_options]) => {
+        const question = quiz.questions.find(item => item.id === Number(question_id))
+        return question?.question_type === 'multiple_select'
+          ? { question_id: Number(question_id), selected_options }
+          : { question_id: Number(question_id), selected_option: selected_options[0] }
+      })
       const result = await api.patch<{ data: AttemptResult }>(`${base}/quizzes/${quiz.id}/attempts/${attempt.id}`, { answers: payload })
       setAttempt(null); setAnswers({}); await loadQuizzes(); setMessage(`Attempt submitted. Score: ${result.data.score} / ${result.data.max_score}.`)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not submit quiz attempt.') } finally { setSaving(false) }
@@ -122,14 +134,45 @@ export default function QuizWorkspace({ organizationId, mode }: { organizationId
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
     {message && <div className="master-feedback master-success" role="status"><Check size={16} />{message}</div>}
     {loading ? <section className="dash-panel dash-masters-panel"><p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading courses…</p></section> : courses.length === 0 ? <section className="dash-panel dash-masters-panel"><p className="master-empty"><ClipboardList size={18} />{mode === 'student' ? 'Enroll in a published course to see its quizzes.' : 'Create and publish a course before adding quizzes.'}</p></section> : <section className="dash-panel dash-masters-panel">
-      <div className="dash-panel-heading"><div><span className="dash-panel-kicker">{mode === 'student' ? 'KNOWLEDGE CHECKS' : 'ASSESSMENT BUILDER'}</span><h2>{mode === 'student' ? 'Tests and quizzes' : 'Course quizzes'}</h2><p className="dash-record-subtitle">{mode === 'student' ? 'Start a quiz attempt and review your submitted scores.' : 'Build multiple-choice quizzes with server-scored attempts.'}</p></div></div>
+      <div className="dash-panel-heading"><div><span className="dash-panel-kicker">{mode === 'student' ? 'KNOWLEDGE CHECKS' : 'ASSESSMENT BUILDER'}</span><h2>{mode === 'student' ? 'Tests and quizzes' : 'Course quizzes'}</h2><p className="dash-record-subtitle">{mode === 'student' ? 'Start a quiz attempt and review your submitted scores.' : 'Schedule quizzes with single-choice and multiple-select questions, difficulty tags and server-side scoring.'}</p></div></div>
       <div className="assignment-course-select"><label>Course<select value={courseId ?? ''} onChange={event => { setCourseId(Number(event.target.value)); setAttempt(null); setResultsPage(1) }}>{courses.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>{quizzes.length > 0 && <label>Quiz<select value={quizId ?? ''} onChange={event => { setQuizId(Number(event.target.value)); setAttempt(null); setResultsPage(1) }}>{quizzes.map(item => <option key={item.id} value={item.id}>{item.title}{item.status === 'draft' ? ' · Draft' : ''}</option>)}</select></label>}</div>
-      {mode === 'manage' && course && <form className="course-form quiz-create" onSubmit={event => void createQuiz(event)}><h3>Create a quiz draft</h3><label>Title<input required minLength={2} maxLength={160} value={title} onChange={event => setTitle(event.target.value)} /></label><label>Instructions<textarea rows={2} maxLength={5000} value={instructions} onChange={event => setInstructions(event.target.value)} /></label><div className="assignment-form-row"><label>Time limit in minutes<input type="number" min="1" max="240" value={timeLimit} onChange={event => setTimeLimit(event.target.value)} /></label><label>Allowed attempts<input type="number" min="1" max="5" value={maxAttempts} onChange={event => setMaxAttempts(event.target.value)} required /></label></div><button className="master-submit" disabled={saving}><Plus size={15} />Create draft quiz</button></form>}
-      {quiz && <div className="quiz-detail"><div className="course-detail-heading"><div><span className={`course-status ${quiz.status}`}>{quiz.status}</span><h3>{quiz.title}</h3><p>{quiz.instructions || 'No extra instructions.'}{quiz.time_limit_minutes ? ` · ${quiz.time_limit_minutes} minute time limit` : ''} · {quiz.max_attempts} attempt{quiz.max_attempts === 1 ? '' : 's'}</p></div>{mode === 'manage' && quiz.status === 'draft' && <button className="master-submit" onClick={() => void publishQuiz()} disabled={saving || quiz.questions.length === 0}>Publish quiz</button>}</div>
-        {mode === 'manage' && quiz.status === 'draft' && <form className="course-form quiz-question-form" onSubmit={event => void addQuestion(event)}><h4>Add a multiple-choice question</h4><label>Prompt<input required minLength={3} maxLength={2000} value={prompt} onChange={event => setPrompt(event.target.value)} /></label><label>Answer choices, one per line<textarea rows={4} value={optionsText} onChange={event => setOptionsText(event.target.value)} /></label><div className="assignment-form-row"><label>Correct answer number<input type="number" min="1" max="6" value={Number(correctOption) + 1} onChange={event => setCorrectOption(String(Number(event.target.value) - 1))} /></label><label>Points<input type="number" min="1" max="1000" value={points} onChange={event => setPoints(event.target.value)} /></label></div><button className="master-submit" disabled={saving}><Plus size={15} />Add question</button></form>}
-        {mode === 'manage' && quiz.questions.length > 0 && <div className="quiz-question-list"><h4>{quiz.questions.length} question{quiz.questions.length === 1 ? '' : 's'}</h4>{quiz.questions.map((question, index) => <article key={question.id}><b>{index + 1}. {question.prompt}</b><ol>{question.options.map((option, optionIndex) => <li key={`${question.id}-${optionIndex}`}>{option}{optionIndex === question.correct_option && <strong> · Answer</strong>}</li>)}</ol></article>)}</div>}
-        {mode === 'student' && !attempt && <div className="quiz-start"><p>{quiz.latest_result?.submitted_at ? `Latest result: ${quiz.latest_result.score} / ${quiz.latest_result.max_score}` : `Attempts used: ${quiz.attempts_used ?? 0} / ${quiz.max_attempts}`}</p><button className="master-submit" onClick={() => void startAttempt()} disabled={saving || (quiz.attempts_used ?? 0) >= quiz.max_attempts}><Play size={15} />Start attempt</button></div>}
-        {mode === 'student' && attempt && <form className="quiz-attempt-form" onSubmit={event => void submitAttempt(event)}><p>Attempt {attempt.attempt_number}{quiz.time_limit_minutes ? ` · Time limit ${quiz.time_limit_minutes} minutes` : ''}</p>{quiz.questions.map((question, index) => <fieldset key={question.id}><legend>{index + 1}. {question.prompt} <small>({question.points} pts)</small></legend>{question.options.map((option, optionIndex) => <label key={`${question.id}-${optionIndex}`}><input type="radio" name={`question-${question.id}`} checked={answers[question.id] === optionIndex} onChange={() => setAnswers(current => ({ ...current, [question.id]: optionIndex }))} />{option}</label>)}</fieldset>)}<button className="master-submit" disabled={saving}><Save size={15} />Submit answers</button></form>}
+      {mode === 'manage' && course && <form className="course-form quiz-create" onSubmit={event => void createQuiz(event)}>
+        <h3>Create a quiz draft</h3>
+        <label>Title<input required minLength={2} maxLength={160} value={title} onChange={event => setTitle(event.target.value)} /></label>
+        <label>Instructions<textarea rows={2} maxLength={5000} value={instructions} onChange={event => setInstructions(event.target.value)} /></label>
+        <div className="assignment-form-row">
+          <label>Time limit in minutes<input type="number" min="1" max="240" value={timeLimit} onChange={event => setTimeLimit(event.target.value)} /></label>
+          <label>Allowed attempts<input type="number" min="1" max="5" value={maxAttempts} onChange={event => setMaxAttempts(event.target.value)} required /></label>
+        </div>
+        <div className="assignment-form-row">
+          <label>Opens at (optional)<input type="datetime-local" value={opensAt} onChange={event => setOpensAt(event.target.value)} /></label>
+          <label>Closes at (optional)<input type="datetime-local" min={opensAt || undefined} value={closesAt} onChange={event => setClosesAt(event.target.value)} /></label>
+        </div>
+        <p className="quiz-schedule-hint">Times use your device timezone and are stored as UTC. Students can start attempts only inside this window.</p>
+        <button className="master-submit" disabled={saving}><Plus size={15} />Create draft quiz</button>
+      </form>}
+      {quiz && <div className="quiz-detail"><div className="course-detail-heading"><div><span className={`course-status ${quiz.status}`}>{quiz.status}</span><h3>{quiz.title}</h3><p>{quiz.instructions || 'No extra instructions.'}{quiz.time_limit_minutes ? ` · ${quiz.time_limit_minutes} minute time limit` : ''} · {quiz.max_attempts} attempt{quiz.max_attempts === 1 ? '' : 's'}{quiz.opens_at ? ` · Opens ${new Date(quiz.opens_at).toLocaleString()}` : ''}{quiz.closes_at ? ` · Closes ${new Date(quiz.closes_at).toLocaleString()}` : ''}</p></div>{mode === 'manage' && quiz.status === 'draft' && <button className="master-submit" onClick={() => void publishQuiz()} disabled={saving || quiz.questions.length === 0}>Publish quiz</button>}</div>
+        {mode === 'manage' && quiz.status === 'draft' && <form className="course-form quiz-question-form" onSubmit={event => void addQuestion(event)}>
+          <h4>Add an objective question</h4>
+          <label>Prompt<input required minLength={3} maxLength={2000} value={prompt} onChange={event => setPrompt(event.target.value)} /></label>
+          <label>Answer choices, one per line<textarea rows={4} value={optionsText} onChange={event => setOptionsText(event.target.value)} /></label>
+          <div className="assignment-form-row">
+            <label>Question type<select value={questionType} onChange={event => setQuestionType(event.target.value as Question['question_type'])}><option value="single_choice">Single choice</option><option value="multiple_select">Select all that apply</option></select></label>
+            <label>Difficulty<select value={difficulty} onChange={event => setDifficulty(event.target.value as Question['difficulty'])}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label>
+          </div>
+          {questionType === 'single_choice' ? <label>Correct answer number<input type="number" min="1" max={parsedOptions.length} value={Number(correctOption) + 1} onChange={event => setCorrectOption(String(Number(event.target.value) - 1))} /></label> : <fieldset className="quiz-correct-options"><legend>Correct answers (choose at least two)</legend>{parsedOptions.map((option, index) => <label key={`correct-${index}`}><input type="checkbox" checked={correctOptions.includes(index)} onChange={event => setCorrectOptions(current => event.target.checked ? [...current, index].sort() : current.filter(item => item !== index))} />{index + 1}. {option}</label>)}</fieldset>}
+          <label>Points<input type="number" min="1" max="1000" value={points} onChange={event => setPoints(event.target.value)} /></label>
+          <button className="master-submit" disabled={saving || parsedOptions.length < 2 || (questionType === 'multiple_select' && correctOptions.length < 2)}><Plus size={15} />Add question</button>
+        </form>}
+        {mode === 'manage' && quiz.questions.length > 0 && <div className="quiz-question-list"><h4>{quiz.questions.length} question{quiz.questions.length === 1 ? '' : 's'}</h4>{quiz.questions.map((question, index) => <article key={question.id}><b>{index + 1}. {question.prompt}</b><small>{question.question_type === 'multiple_select' ? 'Select all that apply' : 'Single choice'} · {question.difficulty} · {question.points} pt{question.points === 1 ? '' : 's'}</small><ol>{question.options.map((option, optionIndex) => <li key={`${question.id}-${optionIndex}`}>{option}{(question.correct_options ?? [question.correct_option]).includes(optionIndex) && <strong> · Answer</strong>}</li>)}</ol></article>)}</div>}
+        {mode === 'student' && !attempt && <div className="quiz-start"><p>{quiz.latest_result?.submitted_at ? `Latest result: ${quiz.latest_result.score} / ${quiz.latest_result.max_score}` : `Attempts used: ${quiz.attempts_used ?? 0} / ${quiz.max_attempts}`}</p><button className="master-submit" onClick={() => void startAttempt()} disabled={saving || (quiz.attempts_used ?? 0) >= quiz.max_attempts || (quiz.opens_at !== null && Date.now() < Date.parse(quiz.opens_at)) || (quiz.closes_at !== null && Date.now() >= Date.parse(quiz.closes_at))}><Play size={15} />Start attempt</button></div>}
+        {mode === 'student' && attempt && <form className="quiz-attempt-form" onSubmit={event => void submitAttempt(event)}><p>Attempt {attempt.attempt_number}{quiz.time_limit_minutes ? ` · Time limit ${quiz.time_limit_minutes} minutes` : ''}</p>{quiz.questions.map((question, index) => <fieldset key={question.id}><legend>{index + 1}. {question.prompt} <small>({question.points} pts · {question.difficulty})</small></legend>{question.question_type === 'multiple_select' && <p className="quiz-select-hint">Select all that apply.</p>}{question.options.map((option, optionIndex) => <label key={`${question.id}-${optionIndex}`}><input type={question.question_type === 'multiple_select' ? 'checkbox' : 'radio'} name={`question-${question.id}`} checked={(answers[question.id] ?? []).includes(optionIndex)} onChange={event => setAnswers(current => {
+          const selected = current[question.id] ?? []
+          const next = question.question_type === 'multiple_select'
+            ? (event.target.checked ? [...selected, optionIndex].sort() : selected.filter(item => item !== optionIndex))
+            : [optionIndex]
+          return { ...current, [question.id]: next }
+        })} />{option}</label>)}</fieldset>)}<button className="master-submit" disabled={saving}><Save size={15} />Submit answers</button></form>}
         {mode === 'student' && quiz.status === 'published' && <div className="quiz-results"><h4>Your submitted results</h4>{results.length ? <><div className="dash-table-scroll"><table><thead><tr><th>ATTEMPT</th><th>SCORE</th><th>SUBMITTED</th></tr></thead><tbody>{results.map(result => <tr key={result.id}><td>{result.attempt_number}</td><td>{result.score} / {result.max_score}</td><td>{result.submitted_at ? new Date(result.submitted_at).toLocaleString() : '—'}</td></tr>)}</tbody></table></div>{resultsLastPage > 1 && <div className="platform-directory-pagination"><span>Page {resultsPage} of {resultsLastPage} · {resultsTotal} results</span><button className="master-action" type="button" aria-label="Previous result page" disabled={resultsPage <= 1} onClick={() => setResultsPage(page => page - 1)}>Previous</button><button className="master-action" type="button" aria-label="Next result page" disabled={resultsPage >= resultsLastPage} onClick={() => setResultsPage(page => page + 1)}>Next</button></div>}</> : <p className="master-empty">No attempts have been submitted yet.</p>}</div>}
         {mode === 'manage' && quiz.status === 'published' && <div className="quiz-results"><h4>Submitted results</h4>{results.length ? <><div className="dash-table-scroll"><table><thead><tr><th>STUDENT</th><th>ATTEMPT</th><th>SCORE</th><th>SUBMITTED</th></tr></thead><tbody>{results.map(result => <tr key={result.id}><td>{result.student?.name} · {result.student?.admission_number}</td><td>{result.attempt_number}</td><td>{result.score} / {result.max_score}</td><td>{result.submitted_at ? new Date(result.submitted_at).toLocaleString() : '—'}</td></tr>)}</tbody></table></div>{resultsLastPage > 1 && <div className="platform-directory-pagination"><span>Page {resultsPage} of {resultsLastPage} · {resultsTotal} results</span><button className="master-action" type="button" aria-label="Previous result page" disabled={resultsPage <= 1} onClick={() => setResultsPage(page => page - 1)}>Previous</button><button className="master-action" type="button" aria-label="Next result page" disabled={resultsPage >= resultsLastPage} onClick={() => setResultsPage(page => page + 1)}>Next</button></div>}</> : <p className="master-empty">No quiz attempts have been submitted.</p>}</div>}
       </div>}

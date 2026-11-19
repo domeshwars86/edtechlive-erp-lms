@@ -349,3 +349,10 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 - Added a verified allowlisted operator reply endpoint and inbox composer. Replies go to the stored enquiry email through Laravel's configured mail transport; only responder/time metadata is saved, not the reply body. Transport exceptions return 503 without marking a reply.
 - Focused API suite: **7 tests / 31 assertions** passed. Full API suite passed on in-memory SQLite and a fresh disposable PostgreSQL 17 cluster: **119 tests / 884 assertions** on each. Pint, web typecheck, ESLint and production build passed; 14 public routes prerendered and the main web bundle is 489.52 kB.
 - The additive response metadata migration was applied to the isolated local SQLite development database. No real email was sent in verification; outbound production delivery still depends on approved mail configuration.
+
+## Scheduled online objective quizzes (19 November 2026)
+
+- Added single-choice and multiple-select questions with easy/medium/hard difficulty, exact-set server-side scoring, optional opening/closing timestamps, and schedule enforcement alongside existing attempt/time limits. The web and Expo clients support multi-select input and display schedule availability; answer keys remain private.
+- PostgreSQL 17 testing exposed a timestamp offset when the database session inherited the host timezone. Laravel's PostgreSQL connector now explicitly sets the session to UTC. Focused quiz tests passed after the fix (**5 tests / 84 assertions**); complete suite passed on SQLite and disposable PostgreSQL 17 (**121 tests / 917 assertions** each).
+- `npm run typecheck`, `npm run lint`, `npm run build`, `vendor/bin/pint --test`, mobile TypeScript, and Android export passed. The web build prerendered 14 routes with a 492.35 kB main bundle; Expo bundled 564 modules into a 2.5 MB Android JavaScript bundle. The quiz migration was applied to the isolated local SQLite database.
+- Reusable question banks, subjective review, device/browser QA and native builds remain open.

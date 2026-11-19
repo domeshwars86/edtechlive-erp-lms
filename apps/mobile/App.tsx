@@ -51,7 +51,7 @@ export default function App() {
   const [assignments, setAssignments] = useState<CourseAssignment[]>([])
   const [quizzes, setQuizzes] = useState<CourseQuiz[]>([])
   const [quizRun, setQuizRun] = useState<QuizRun | null>(null)
-  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({})
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, number[]>>({})
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<number, string>>({})
   const [gradingDrafts, setGradingDrafts] = useState<Record<number, { score: string; feedback: string }>>({})
   const [teachingAssignments, setTeachingAssignments] = useState<TeachingAssignment[]>([])
@@ -272,7 +272,12 @@ export default function App() {
     if (!active || !token || !quizRun) return
     setBusy(true); setError('')
     try {
-      const answers = Object.entries(quizAnswers).map(([questionId, selectedOption]) => ({ question_id: Number(questionId), selected_option: selectedOption }))
+      const answers = Object.entries(quizAnswers).map(([questionId, selectedOptions]) => {
+        const question = quizRun.questions.find(item => item.id === Number(questionId))
+        return question?.question_type === 'multiple_select'
+          ? { question_id: Number(questionId), selected_options: selectedOptions }
+          : { question_id: Number(questionId), selected_option: selectedOptions[0] }
+      })
       const result = await mobileApi.patch<{ data: QuizRun['attempt'] }>(`/api/v1/organizations/${active.organization.id}/quizzes/${quizRun.quiz.id}/attempts/${quizRun.attempt.id}`, token, { answers })
       setQuizzes(items => items.map(item => item.id === quizRun.quiz.id ? { ...item, attempts_used: (item.attempts_used ?? 0) + 1, latest_result: result.data } : item))
       setQuizRun(null)
@@ -342,7 +347,25 @@ export default function App() {
       </> : selectedCourse ? <>
         <Pressable onPress={() => setSelectedCourse(null)}><Text style={styles.backLink}>‹  All courses</Text></Pressable>
         <Text style={styles.pageTitle}>{selectedCourse.title}</Text><Text style={styles.subtitle}>{selectedCourse.subject?.name ?? 'Course'}{selectedCourse.teacher?.name ? ` · ${selectedCourse.teacher.name}` : ''}</Text>
-        {quizRun ? <View style={styles.activityCard}><Pressable onPress={() => setQuizRun(null)}><Text style={styles.backLink}>‹  Course content</Text></Pressable><Text style={styles.sectionTitle}>{quizRun.quiz.title}</Text>{quizRun.quiz.instructions ? <Text style={styles.courseMeta}>{quizRun.quiz.instructions}</Text> : null}{quizRun.questions.map((question, index) => <View key={question.id} style={styles.questionBlock}><Text style={styles.courseTitle}>{index + 1}. {question.prompt}</Text>{question.options.map((option, optionIndex) => <Pressable key={optionIndex} onPress={() => setQuizAnswers(current => ({ ...current, [question.id]: optionIndex }))} style={[styles.option, quizAnswers[question.id] === optionIndex && styles.optionSelected]}><Text style={styles.courseMeta}>{String.fromCharCode(65 + optionIndex)}. {option}</Text></Pressable>)}</View>)}<Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void submitQuiz()} disabled={busy}><Text style={styles.primaryButtonText}>{busy ? 'Submitting…' : 'Submit quiz'}</Text></Pressable></View> : <>
+        {quizRun ? <View style={styles.activityCard}>
+          <Pressable onPress={() => setQuizRun(null)}><Text style={styles.backLink}>‹  Course content</Text></Pressable>
+          <Text style={styles.sectionTitle}>{quizRun.quiz.title}</Text>
+          {quizRun.quiz.instructions ? <Text style={styles.courseMeta}>{quizRun.quiz.instructions}</Text> : null}
+          {quizRun.questions.map((question, index) => <View key={question.id} style={styles.questionBlock}>
+            <Text style={styles.courseTitle}>{index + 1}. {question.prompt} · {question.difficulty}</Text>
+            {question.question_type === 'multiple_select' ? <Text style={styles.courseMeta}>Select all that apply.</Text> : null}
+            {question.options.map((option, optionIndex) => <Pressable key={optionIndex} onPress={() => setQuizAnswers(current => {
+              const selected = current[question.id] ?? []
+              const next = question.question_type === 'multiple_select'
+                ? (selected.includes(optionIndex) ? selected.filter(item => item !== optionIndex) : [...selected, optionIndex].sort())
+                : [optionIndex]
+              return { ...current, [question.id]: next }
+            })} style={[styles.option, (quizAnswers[question.id] ?? []).includes(optionIndex) && styles.optionSelected]}>
+              <Text style={styles.courseMeta}>{String.fromCharCode(65 + optionIndex)}. {option}</Text>
+            </Pressable>)}
+          </View>)}
+          <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void submitQuiz()} disabled={busy}><Text style={styles.primaryButtonText}>{busy ? 'Submitting…' : 'Submit quiz'}</Text></Pressable>
+        </View> : <>
         <Text style={styles.sectionTitle}>Lessons</Text>
         {lessons.length ? lessons.filter(lesson => lesson.status === 'published').map((lesson, index) => <View style={styles.lessonCard} key={lesson.id}><Text style={styles.lessonNumber}>{String(index + 1).padStart(2, '0')}</Text><View style={{ flex: 1 }}><Text style={styles.courseTitle}>{lesson.title}</Text>{lesson.content ? <Text style={styles.courseMeta} numberOfLines={3}>{lesson.content}</Text> : null}{lesson.external_url ? <Pressable onPress={() => void Linking.openURL(lesson.external_url!)}><Text style={styles.link}>Open lesson resource</Text></Pressable> : null}</View></View>) : <Empty text="No published lessons are available in this course yet." />}
         <Text style={styles.sectionTitle}>Assignments</Text>
@@ -354,7 +377,18 @@ export default function App() {
           {active.role !== 'student' ? (item.submissions?.length ? item.submissions.map(submission => <View style={styles.submissionCard} key={submission.id}><Text style={styles.courseTitle}>{submission.student.name}</Text><Text style={styles.courseMeta}>{submission.student.admission_number ?? 'Learner'} · Submitted {submission.submitted_at ? new Date(submission.submitted_at).toLocaleDateString() : 'recently'}</Text><Text style={styles.answerText}>{submission.answer}</Text>{submission.graded_at ? <Text style={styles.resultText}>Current score: {submission.awarded_points}/{item.max_points}</Text> : null}<TextInput keyboardType="decimal-pad" value={gradingDrafts[submission.id]?.score ?? ''} onChangeText={value => setGradingDrafts(current => ({ ...current, [submission.id]: { score: value, feedback: current[submission.id]?.feedback ?? '' } }))} placeholder={`Score out of ${item.max_points}`} style={styles.input} editable={!busy} /><TextInput value={gradingDrafts[submission.id]?.feedback ?? ''} onChangeText={value => setGradingDrafts(current => ({ ...current, [submission.id]: { score: current[submission.id]?.score ?? '', feedback: value } }))} placeholder="Feedback for the learner" style={styles.input} editable={!busy} /><Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void gradeSubmission(submission.id)} disabled={busy}><Text style={styles.primaryButtonText}>{submission.graded_at ? 'Update grade' : 'Save grade'}</Text></Pressable></View>) : <Text style={styles.courseMeta}>No learner submissions yet.</Text>) : null}
         </View>) : <Empty text="No published assignments in this course." />}
         <Text style={styles.sectionTitle}>Quizzes</Text>
-        {quizzes.length ? quizzes.map(quiz => <View style={styles.activityCard} key={quiz.id}><Text style={styles.courseTitle}>{quiz.title}</Text><Text style={styles.courseMeta}>{quiz.questions.length} questions · {quiz.time_limit_minutes ? `${quiz.time_limit_minutes} minutes` : 'No time limit'} · {quiz.attempts_used ?? 0}/{quiz.max_attempts} attempts</Text>{quiz.latest_result?.submitted_at ? <Text style={styles.resultText}>Latest result: {quiz.latest_result.score}/{quiz.latest_result.max_score}</Text> : null}{active.role === 'student' && (quiz.attempts_used ?? 0) < quiz.max_attempts ? <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void startQuiz(quiz)} disabled={busy}><Text style={styles.primaryButtonText}>Start quiz</Text></Pressable> : null}</View>) : <Empty text="No published quizzes in this course." />}
+        {quizzes.length ? quizzes.map(quiz => {
+          const notOpen = quiz.opens_at !== null && Date.now() < Date.parse(quiz.opens_at)
+          const closed = quiz.closes_at !== null && Date.now() >= Date.parse(quiz.closes_at)
+          return <View style={styles.activityCard} key={quiz.id}>
+            <Text style={styles.courseTitle}>{quiz.title}</Text>
+            <Text style={styles.courseMeta}>{quiz.questions.length} questions · {quiz.time_limit_minutes ? `${quiz.time_limit_minutes} minutes` : 'No time limit'} · {quiz.attempts_used ?? 0}/{quiz.max_attempts} attempts</Text>
+            {quiz.opens_at ? <Text style={styles.courseMeta}>Opens {new Date(quiz.opens_at).toLocaleString()}</Text> : null}
+            {quiz.closes_at ? <Text style={styles.courseMeta}>Closes {new Date(quiz.closes_at).toLocaleString()}</Text> : null}
+            {quiz.latest_result?.submitted_at ? <Text style={styles.resultText}>Latest result: {quiz.latest_result.score}/{quiz.latest_result.max_score}</Text> : null}
+            {active.role === 'student' && (quiz.attempts_used ?? 0) < quiz.max_attempts ? <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void startQuiz(quiz)} disabled={busy || notOpen || closed}><Text style={styles.primaryButtonText}>{notOpen ? 'Quiz not open yet' : closed ? 'Quiz closed' : 'Start quiz'}</Text></Pressable> : null}
+          </View>
+        }) : <Empty text="No published quizzes in this course." />}
         </>}
       </> : <>
         <Text style={styles.eyebrow}>YOUR LEARNING SPACE</Text><Text style={styles.pageTitle}>Welcome, {user.name.split(' ')[0]}</Text><Text style={styles.subtitle}>{roleNames[active.role]} · {active.organization.type.replaceAll('_', ' ')}</Text>

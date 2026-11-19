@@ -23,3 +23,7 @@
 ## 2026-11-19 — Send enquiry replies without retaining reply content
 
 **Context:** Prospective contacts need a usable follow-up path, and enquiry data requires minimal retention. **Decision:** Verified allowlisted inbox operators can send plain-text email replies through the configured transport; store only the latest responder and timestamp, not the reply body. A transport failure does not mark the enquiry replied. **Trade-off:** The system does not provide a content transcript or delivery/read receipts.
+
+## 2026-11-19 — Keep PostgreSQL sessions in UTC
+
+**Context:** Scheduled quizzes compare persisted timestamps with Laravel's UTC timestamps. **Decision:** Configure Laravel's PostgreSQL connector to set every database session to UTC. **Trade-off:** Organization-local schedules must be converted at the client/API boundary and localized for display; PostgreSQL host timezone settings no longer affect timestamp interpretation.
