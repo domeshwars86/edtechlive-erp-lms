@@ -9,7 +9,7 @@ Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return co
 | Health | `GET /health` |
 | Identity | `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `GET /me` |
 | Organizations | `GET/POST /organizations`, `GET/PATCH /organizations/{organization}`, `POST /organizations/{organization}/switch`, `POST /organizations/{organization}/invitations` |
-| Academic masters | `GET/POST /organizations/{organization}/academic-sessions`, `/classes`, `/sections`, `/subjects`, `/batches` |
+| Academic masters | `GET/POST /organizations/{organization}/academic-sessions`, `/classes`, `/sections`, `/subjects`, `/batches`, `/branches` |
 | People | `GET/POST /organizations/{organization}/students`, `/teachers`, `/memberships`; relationship-specific guardian routes |
 | Learning | `GET/POST /organizations/{organization}/courses`, `/courses/{course}/modules`, `/lessons`, `/enrollments`, `/assets` |
 | Attendance/schedule | `GET/POST /organizations/{organization}/attendance`, `/schedules` |
@@ -29,6 +29,9 @@ Base path: `/api/v1`. JSON requests/responses. Authenticated endpoints return co
 | `GET /api/v1/organizations/{organization}/batches` | Active organization member | Lists tenant batches with paginated search by name/code and optional class, session and active-status filters. |
 | `POST /api/v1/organizations/{organization}/batches` | Admin, management, or independent educator | Creates a batch tied to an organization-owned academic session and class; an optional section must match both. |
 | `PATCH /api/v1/organizations/{organization}/batches/{record}` | Admin, management, or independent educator | Updates batch details or activates/deactivates it; tenant ownership and academic placement are revalidated. |
+| `GET /api/v1/organizations/{organization}/branches` | Active organization member | Lists organization-owned branches with paginated case-insensitive name/code search and active-status filtering. |
+| `POST /api/v1/organizations/{organization}/branches` | Admin, management, or independent educator | Creates a branch with a unique tenant name/code and optional address/contact details. |
+| `PATCH /api/v1/organizations/{organization}/branches/{record}` | Admin, management, or independent educator | Edits branch details or activates/deactivates it; records in other organizations are not addressable. |
 | `GET /api/v1/organizations/{organization}/courses/{course}/progress` | Verified student with active enrollment, course teacher, admin, management, or independent educator | Students receive their own published lesson completion timestamps and summary. Course teachers/managers receive active enrolled learner completion counts and percentages; teacher access is restricted to their own course. |
 | `GET/POST/PATCH /api/v1/organizations/{organization}/courses/{course}/modules` | Enrolled student may list visible modules; course teacher or organization manager may list and author | Creates and edits ordered modules within a course. Student listings include only modules containing published lessons in a published course with active enrollment. Lessons may be associated only with a module belonging to the same course and organization. |
 | `GET /api/v1/organizations/{organization}/reports/course-progress` | Admin, management, independent educator, or teacher with active organization membership | Summarizes published-course lesson counts, active enrollment totals, average completion, and fully completed learners. Teachers only see courses they own; student names are omitted. |

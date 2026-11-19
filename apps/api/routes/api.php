@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\MeetingController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\NotificationPreferencesController;
+use App\Http\Controllers\Api\V1\OrganizationBranchController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\OrganizationInvitationController;
 use App\Http\Controllers\Api\V1\OrganizationSettingsController;
@@ -137,6 +138,9 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/batches', [AcademicBatchController::class, 'index']);
                 Route::post('/batches', [AcademicBatchController::class, 'store']);
                 Route::patch('/batches/{record}', [AcademicBatchController::class, 'update'])->whereNumber('record');
+                Route::get('/branches', [OrganizationBranchController::class, 'index']);
+                Route::post('/branches', [OrganizationBranchController::class, 'store']);
+                Route::patch('/branches/{record}', [OrganizationBranchController::class, 'update'])->whereNumber('record');
                 Route::get('/subjects', [AcademicMasterController::class, 'subjects']);
                 Route::post('/subjects', [AcademicMasterController::class, 'storeSubject']);
                 Route::patch('/subjects/{record}', [AcademicMasterController::class, 'updateSubject'])->whereNumber('record');

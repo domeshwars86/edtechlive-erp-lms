@@ -9,6 +9,12 @@
 - Full Laravel suite passed on in-memory SQLite (**132 tests / 1,075 assertions**); Pint, web typecheck, ESLint, and production build passed (14 routes prerendered; 488.56 kB main bundle). Local SQLite migration applied. PostgreSQL verification remains open.
 - Restarted the local Vite/Laravel stack with browser-accessible permissions; localhost website and API health returned HTTP 200.
 
+## Branch master (19 November 2026)
+
+- Added organization branches with tenant-unique names/codes, optional address and contact fields, paginated search, active filtering, edit, and activation controls in the Academic Masters dashboard.
+- API tests cover management access, defaults, search/status filters, duplicate rejection, role denial, and cross-organization read/update denial. The additive SQLite migration applied successfully.
+- Full Laravel suite passed (**134 tests / 1,094 assertions**), Pint passed, and web typecheck/lint/build passed (14 prerendered routes; 494.99 kB main bundle). PostgreSQL verification remains open.
+
 ## Batch master and local verification recovery (19 November 2026)
 
 - Added tenant-scoped academic batches with create/edit/activate/deactivate, search, session/class/status filters, pagination, section-placement checks, and organization isolation. The admin Academic masters page includes the Batches tab.

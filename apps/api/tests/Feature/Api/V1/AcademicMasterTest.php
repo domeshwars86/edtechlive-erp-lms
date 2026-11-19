@@ -119,6 +119,41 @@ class AcademicMasterTest extends TestCase
             ->assertJsonPath('data.is_active', true);
     }
 
+    public function test_managers_can_manage_searchable_tenant_branches(): void
+    {
+        [$user, $organization] = $this->workspace(OrganizationRole::Management);
+        Sanctum::actingAs($user);
+        $base = "/api/v1/organizations/{$organization->id}/branches";
+        $branchId = $this->postJson($base, [
+            'name' => 'Central campus', 'code' => 'CENTRAL', 'address' => '12 North Road',
+            'contact_email' => 'central@example.test', 'contact_phone' => '+91 1234567890',
+        ])->assertCreated()->assertJsonPath('data.organization_id', $organization->id)
+            ->assertJsonPath('data.is_active', true)->json('data.id');
+        $this->postJson($base, ['name' => 'West campus', 'code' => 'WEST'])->assertCreated();
+
+        $this->getJson("{$base}?search=cent&is_active=1")
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $branchId);
+        $this->patchJson("{$base}/{$branchId}", ['name' => 'Central branch', 'is_active' => false])
+            ->assertOk()->assertJsonPath('data.name', 'Central branch')->assertJsonPath('data.is_active', false);
+        $this->getJson("{$base}?is_active=0")->assertOk()->assertJsonPath('meta.total', 1);
+        $this->patchJson("{$base}/{$branchId}", ['is_active' => true])->assertOk()->assertJsonPath('data.is_active', true);
+        $this->postJson($base, ['name' => 'Central branch', 'code' => 'CENTRAL'])->assertUnprocessable();
+
+        $otherOrganization = $this->organization('Other branch tenant');
+        $this->getJson("/api/v1/organizations/{$otherOrganization->id}/branches")->assertNotFound();
+        $this->patchJson("/api/v1/organizations/{$otherOrganization->id}/branches/{$branchId}", ['name' => 'Foreign'])->assertNotFound();
+    }
+
+    public function test_students_cannot_manage_organization_branches(): void
+    {
+        [$user, $organization] = $this->workspace(OrganizationRole::Student);
+        Sanctum::actingAs($user);
+        $base = "/api/v1/organizations/{$organization->id}/branches";
+
+        $this->getJson($base)->assertOk();
+        $this->postJson($base, ['name' => 'Main campus'])->assertForbidden();
+    }
+
     public function test_batch_creation_rejects_inconsistent_or_cross_tenant_academic_placement(): void
     {
         [$user, $organization] = $this->workspace();
