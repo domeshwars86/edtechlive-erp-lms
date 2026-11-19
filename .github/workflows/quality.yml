@@ -111,6 +111,31 @@ jobs:
       - run: php artisan migrate:fresh --force
       - run: vendor/bin/phpunit
 
+  api-container:
+    name: Laravel production container build and smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build production image
+        run: docker build --tag edtechlive-api:ci ./apps/api
+      - name: Start image and check liveness endpoint
+        shell: bash
+        run: |
+          docker run --detach --name edtechlive-api-ci \
+            --publish 127.0.0.1:10000:10000 \
+            --env APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+            edtechlive-api:ci
+          trap 'docker rm --force edtechlive-api-ci >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:10000/api/v1/health >/dev/null; then
+              echo "Container liveness check passed."
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs edtechlive-api-ci
+          exit 1
+
   mobile:
     name: Expo mobile typecheck and Android bundle
     runs-on: ubuntu-latest

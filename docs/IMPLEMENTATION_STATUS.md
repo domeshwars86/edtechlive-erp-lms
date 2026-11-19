@@ -8,6 +8,7 @@ Phase 10 — mobile applications, initial vertical slice. The responsive public 
 
 ## Implemented
 
+- GitHub quality CI now includes a non-publishing Laravel API container build and liveness smoke check on pushes and pull requests. The local environment has no Docker runtime and no Git remote is configured, so this new hosted job has not run; PostgreSQL readiness and deployment remain unverified.
 - Public course discovery now reads from throttled, privacy-filtered Laravel endpoints. Active organizations can publish an explicitly opted-in catalog listing after publishing a lesson; visitors can search/filter/paginate listings and read ordered published lesson titles. Homepage sample cards remain labeled examples. Enrollment is not yet available.
 - Published course detail pages now link to the consented contact form with an editable course-specific message and the “Teaching and courses” category preselected; the submitted inquiry still uses the existing throttled API.
 - Signed-in users can open a dashboard Preferences page to manage account-scoped in-app notice categories and, when enabled, email alerts; recent email delivery status remains tenant-scoped. The notification bell reuses the same controls. Email delivery stays unavailable until the approved mail transport and worker are configured.

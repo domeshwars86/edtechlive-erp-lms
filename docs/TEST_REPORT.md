@@ -10,6 +10,10 @@
 
 - Admin, Management and Independent Educator mobile dashboards now search active student and teacher records by name or roster number and browse 20 records per page with a load-more action. Search and pagination use the existing tenant-scoped roster APIs; request ordering guards prevent stale pages from appearing after search or workspace changes. `PeopleTest` passed (**7 tests / 55 assertions**), covering search, pagination, tenant isolation, role denial and Management/Independent Educator read access; Pint passed. Mobile TypeScript typecheck, repository ESLint and Android JavaScript export passed (564 modules; 1.7 MB). Native-device QA was not performed.
 
+## API container CI gate (20 November 2026)
+
+- Added a GitHub Actions job that builds `apps/api/Dockerfile` and starts the container to check `/api/v1/health`; it does not publish an image or connect to a database. The current environment has no Docker CLI and no Git remote is configured, so the hosted job has not run. The workflow YAML parsed locally; image build, runtime behavior, PostgreSQL readiness and deployment remain unverified.
+
 ## Full Laravel API regression (20 November 2026)
 
 - The complete Laravel API suite passed **177 tests / 1,547 assertions** on in-memory SQLite (**72.99 seconds**) and a fresh disposable PostgreSQL 17 cluster (**39.87 seconds**); all migrations applied on PostgreSQL. The cluster was isolated to a unique system-temp path on loopback, then stopped and removed. The local development SQLite database and production databases were not used. Hosted PostgreSQL 16 CI remains unverified.

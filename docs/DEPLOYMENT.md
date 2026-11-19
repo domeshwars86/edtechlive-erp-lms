@@ -2,9 +2,9 @@
 
 ## Current status
 
-No deployment credentials, approved domain or staging service is present. Nothing has been deployed. `.github/workflows/quality.yml` runs web typecheck/lint/build, Laravel tests/Pint, and mobile typecheck/Android JS export on pushes and pull requests. It does not deploy or need application secrets.
+No deployment credentials, approved domain or staging service is present. Nothing has been deployed. `.github/workflows/quality.yml` runs web typecheck/lint/build, Laravel tests/Pint, mobile typecheck/Android JS export, and a production API image build plus HTTP liveness smoke check on pushes and pull requests. These workflow checks do not deploy or need application secrets; the new container job has not run in hosted CI yet.
 
-The API now has a production-oriented Apache/PHP 8.4 container recipe in `apps/api/Dockerfile`. It installs PostgreSQL support, serves only Laravel's `public/` directory, writes Apache logs to standard output/error, excludes local environment files and SQLite databases from the build context, and listens on the runtime `PORT` (default 10000). It does not run migrations automatically. Docker is not installed in the current development environment, so image build and container health have not been verified.
+The API has a production-oriented Apache/PHP 8.4 container recipe in `apps/api/Dockerfile`. It installs PostgreSQL support, serves only Laravel's `public/` directory, writes Apache logs to standard output/error, excludes local environment files and SQLite databases from the build context, and listens on the runtime `PORT` (default 10000). It does not run migrations automatically. A CI job now builds the image and checks the liveness endpoint without publishing it or connecting a database. Docker is not installed in the current development environment, so the image and smoke check await a hosted workflow run; database readiness and migration behavior are not part of that smoke check.
 
 ## Website preview
 
@@ -34,6 +34,6 @@ Render documents Docker support for PHP/Laravel, Blueprint configuration, and HT
 
 ## Release requirements
 
-Remaining release work: build and inspect the Docker image, decide whether to add a Render blueprint, rehearse migration/rollback, configure staging, and test backup/recovery. Do not use ephemeral app filesystem for permanent records. Do not deploy real student information to an insecure environment or incur paid infrastructure without authorization.
+Remaining release work: verify the CI container build/liveness result, test database readiness against PostgreSQL, decide whether to add a Render blueprint, rehearse migration/rollback, configure staging, and test backup/recovery. Do not use ephemeral app filesystem for permanent records. Do not deploy real student information to an insecure environment or incur paid infrastructure without authorization.
 
 Configure `ENQUIRY_ADMIN_EMAILS` as a comma-separated allowlist of verified platform operator emails before using the contact enquiry inbox. Keep it separate from organization-level roles.
