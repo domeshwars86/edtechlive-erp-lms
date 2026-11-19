@@ -7,12 +7,14 @@ type Section = { id: number; name: string; academic_session_id: number; academic
 type Meeting = { id: number; kind: 'class' | 'management'; title: string; description: string | null; starts_at: string; ends_at: string; meeting_url: string; status: 'scheduled' | 'cancelled'; section: { id: number; name: string; class: string } | null; course: { id: number; title: string } | null; creator: { id: number; name: string } | null }
 type ListResult<T> = { data: T[] }
 type Recording = { id: number; title: string; description: string | null; filename: string | null; size_bytes: number | null; external_url: string | null; download_url: string | null; status: 'draft' | 'published' | 'withdrawn'; can_manage: boolean }
+type GoogleMeetStatus = { configured: boolean; connected: boolean; google_email: string | null; connected_at: string | null }
 
 export default function MeetingWorkspace({ organizationId, mode, userId }: { organizationId: number; mode: 'manage' | 'teacher' | 'family'; userId?: number }) {
   const base = `/api/v1/organizations/${organizationId}`
   const canManage = mode === 'manage' || mode === 'teacher'
   const [meetings, setMeetings] = useState<Meeting[]>([])
   const [sections, setSections] = useState<Section[]>([])
+  const [googleMeet, setGoogleMeet] = useState<GoogleMeetStatus | null>(null)
   const [meetingKind, setMeetingKind] = useState<'class' | 'management'>('class')
   const [sectionId, setSectionId] = useState('')
   const [title, setTitle] = useState('')
@@ -49,6 +51,43 @@ export default function MeetingWorkspace({ organizationId, mode, userId }: { org
     return () => { cancelled = true }
   }, [base, canManage])
 
+  useEffect(() => {
+    if (!canManage) return
+    let cancelled = false
+    api.get<GoogleMeetStatus>(`${base}/meetings/google/status`)
+      .then(result => { if (!cancelled) setGoogleMeet(result) })
+      .catch(() => { if (!cancelled) setGoogleMeet(null) })
+    return () => { cancelled = true }
+  }, [base, canManage])
+
+  async function connectGoogleMeet() {
+    setSaving(true); setError(''); setMessage('')
+    try {
+      const result = await api.post<{ authorization_url: string }>(`${base}/meetings/google/connect`)
+      window.location.assign(result.authorization_url)
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not connect Google Meet.'); setSaving(false) }
+  }
+
+  async function createGoogleMeet() {
+    setSaving(true); setError(''); setMessage('')
+    try {
+      const result = await api.post<{ meeting_url: string }>(`${base}/meetings/google/spaces`)
+      setMeetingUrl(result.meeting_url)
+      setMessage('Google Meet link created. Add your meeting details and schedule it.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not create a Google Meet link.') }
+    finally { setSaving(false) }
+  }
+
+  async function disconnectGoogleMeet() {
+    setSaving(true); setError(''); setMessage('')
+    try {
+      await api.delete(`${base}/meetings/google/connect`)
+      setGoogleMeet(current => current ? { ...current, connected: false, google_email: null, connected_at: null } : current)
+      setMessage('Google Meet disconnected.')
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not disconnect Google Meet.') }
+    finally { setSaving(false) }
+  }
+
   async function createMeeting(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSaving(true); setError(''); setMessage('')
@@ -78,7 +117,9 @@ export default function MeetingWorkspace({ organizationId, mode, userId }: { org
   return <div className="meeting-workspace">
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
     {message && <div className="master-feedback master-success" role="status"><Check size={16} />{message}</div>}
-    {canManage && <section className="dash-panel dash-masters-panel"><div className="dash-panel-heading"><div><span className="dash-panel-kicker">LIVE CLASSES & MEETINGS</span><h2>Schedule a meeting</h2><p className="dash-record-subtitle">Add a secure meeting link from Google Meet or another HTTPS provider. The platform does not create provider rooms.</p></div></div><form className="meeting-create-form" onSubmit={event => void createMeeting(event)}>
+    {canManage && <section className="dash-panel dash-masters-panel"><div className="dash-panel-heading"><div><span className="dash-panel-kicker">LIVE CLASSES & MEETINGS</span><h2>Schedule a meeting</h2><p className="dash-record-subtitle">Create a Google Meet room with your connected organizer account or paste a secure link from any HTTPS provider.</p></div></div>
+    <div className="meeting-google-connect" aria-live="polite"><div><strong>Google Meet</strong><p>{googleMeet?.connected ? `Connected${googleMeet.google_email ? ` as ${googleMeet.google_email}` : ''}. Room links are created by your Google account.` : googleMeet?.configured ? 'Connect an organizer account to create Google Meet links here.' : 'Google Meet room creation is not configured. Paste a meeting link created manually.'}</p></div>{googleMeet?.configured && (googleMeet.connected ? <><button type="button" disabled={saving} onClick={() => void createGoogleMeet()}><Video size={14} />Create Meet link</button><button type="button" className="meeting-google-disconnect" disabled={saving} onClick={() => void disconnectGoogleMeet()}>Disconnect</button></> : <button type="button" disabled={saving} onClick={() => void connectGoogleMeet()}>{saving ? 'Opening Google…' : 'Connect Google'}</button>)}</div>
+    <form className="meeting-create-form" onSubmit={event => void createMeeting(event)}>
       {mode === 'manage' && <label>Meeting type<select value={meetingKind} onChange={event => setMeetingKind(event.target.value as 'class' | 'management')}><option value="class">Class meeting</option><option value="management">Management meeting</option></select></label>}
       {(mode === 'teacher' || meetingKind === 'class') && <label>Class section<select value={sectionId} onChange={event => setSectionId(event.target.value)} required><option value="">Select a section</option>{sections.map(section => <option key={section.id} value={section.id}>{section.academic_class?.name} · {section.name}</option>)}</select></label>}
       <label>Meeting title<input value={title} onChange={event => setTitle(event.target.value)} required minLength={2} maxLength={160} /></label>

@@ -44,4 +44,11 @@ return [
         'admin_emails' => array_values(array_filter(array_map('trim', explode(',', env('PLATFORM_ADMIN_EMAILS', ''))))),
     ],
 
+    'google_meet' => [
+        'client_id' => env('GOOGLE_MEET_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_MEET_CLIENT_SECRET'),
+        'redirect_uri' => env('GOOGLE_MEET_REDIRECT_URI'),
+        'frontend_url' => env('FRONTEND_URL', 'http://127.0.0.1:4173'),
+    ],
+
 ];

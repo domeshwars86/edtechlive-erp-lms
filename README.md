@@ -11,7 +11,7 @@ An education ERP and learning platform for institutions, independent educators, 
 - Course search and education-level filtering work locally.
 - Contact form saves consented enquiries to a throttled API. An authenticated platform inbox filters and tracks status for allowlisted operators; optional email requires `ENQUIRY_RECIPIENT` and a configured mail transport.
 - Fee records and categories are persisted by organization; authorized staff can manage categories, create receivables and record already-received partial/final payments, while students and linked parents have read-only access. No payment is initiated by the app.
-- Class and management meetings can be scheduled with scoped HTTPS links; provider room creation and reminders are not connected yet.
+- Class and management meetings can be scheduled with scoped HTTPS links. Optional Google Meet room creation is available when the API operator configures OAuth credentials; reminders and participant invitations are not connected.
 - Login, organization registration, email verification, forgot/reset password, session persistence and organization selection use Laravel API endpoints. Browser sessions use Sanctum cookies; native clients can request API tokens.
 - Example course listings and prices are not real offers. Paid plans are disabled.
 - Public routes are statically pre-rendered with route-specific title and description metadata at build time.
@@ -60,6 +60,8 @@ npm run test:e2e
 ```
 
 The Playwright suite starts Vite and Laravel on ports 4188/4189 and uses an isolated, temporary SQLite database with an in-memory mailer; it removes the temporary data when the run ends. Install the browser once with `npx playwright install chromium` before running it locally; CI installs PHP dependencies and Chromium automatically. The suite includes mocked published-course listing/filter/detail behavior, a real local registration, signed verification, session login and workspace-selection flow. Contact-form requests and a separate UI regression case use mocked responses; no email is delivered.
+
+To run a mocked UI test against an already-running local Vite preview, set `PLAYWRIGHT_BASE_URL` to its origin (for example `http://127.0.0.1:4180`). This skips the disposable test server; API calls in the targeted Google Meet UI test are intercepted by Playwright.
 
 ## Technology
 

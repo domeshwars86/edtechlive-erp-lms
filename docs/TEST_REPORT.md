@@ -2,6 +2,12 @@
 
 **Updated:** 19 November 2026
 
+## Google Meet room creation (19 November 2026)
+
+- Focused Google OAuth/Meet integration checks passed (**5 tests / 39 assertions**) with mocked Google token, userinfo, revocation and Meet endpoints. They cover role denial, short-lived one-time OAuth state, encrypted credentials, refresh, room creation, disconnect and unconfigured behavior.
+- The complete API suite passed (**168 tests / 1,464 assertions**) on in-memory SQLite and a fresh UTF-8 PostgreSQL 17 cluster; local development data was not used. Google OAuth credentials were not configured, so provider consent and real Meet room creation were not exercised.
+- A targeted Chromium UI test passed (**1 test in 9 seconds**) against the running local Vite preview. It verified the connected organizer state, generated URL insertion and scheduling payload; all API calls were mocked. Root `npm run typecheck`, `npm run lint` and `npm run build` passed; the build prerendered 17 public routes. Playwright config also supports `PLAYWRIGHT_BASE_URL` for such externally running local previews. Pint passed for changed PHP files and `git diff --check` passed. Hosted PostgreSQL 16 remains open.
+
 ## Exam-series comparison analytics (19 November 2026)
 
 - Exams can optionally share a series name. The report groups published results by series, class, section and subject across exam dates and academic sessions, normalizes scores to each paper maximum, and reports change in percentage points from the previous exam. Teacher comparisons are constrained by exact assignment scope and the API returns no learner identities. The dashboard shows baselines and changes and exports the comparison as CSV.

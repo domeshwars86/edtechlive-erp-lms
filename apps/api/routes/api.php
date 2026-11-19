@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\V1\FeeCategoryController;
 use App\Http\Controllers\Api\V1\FeeRecordController;
 use App\Http\Controllers\Api\V1\FinanceExpenseController;
 use App\Http\Controllers\Api\V1\FinanceReportController;
+use App\Http\Controllers\Api\V1\GoogleMeetController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\MeetingController;
@@ -74,6 +75,8 @@ Route::prefix('v1')->group(function (): void {
     Route::get('/meeting-recordings/{organization}/{meeting}/{recording}/download', [MeetingController::class, 'signedDownloadRecording'])
         ->whereNumber('organization')->whereNumber('meeting')->whereNumber('recording')->middleware(['signed:relative', 'throttle:60,1'])
         ->name('api.v1.meeting-recordings.download-signed');
+    Route::get('/integrations/google-meet/callback', [GoogleMeetController::class, 'callback'])
+        ->middleware('throttle:20,1')->name('api.v1.integrations.google-meet.callback');
 
     Route::middleware(['auth:sanctum', 'verified'])->group(function (): void {
         Route::get('/enquiries', [ContactEnquiryController::class, 'index'])->name('api.v1.enquiries.index');
@@ -204,6 +207,10 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('/expenses', [FinanceExpenseController::class, 'store'])->middleware('throttle:30,1');
                 Route::get('/meetings', [MeetingController::class, 'index']);
                 Route::post('/meetings', [MeetingController::class, 'store'])->middleware('throttle:30,1');
+                Route::get('/meetings/google/status', [GoogleMeetController::class, 'status']);
+                Route::post('/meetings/google/connect', [GoogleMeetController::class, 'connect'])->middleware('throttle:6,1');
+                Route::post('/meetings/google/spaces', [GoogleMeetController::class, 'createSpace'])->middleware('throttle:12,1');
+                Route::delete('/meetings/google/connect', [GoogleMeetController::class, 'disconnect']);
                 Route::patch('/meetings/{meeting}', [MeetingController::class, 'update'])->whereNumber('meeting');
                 Route::get('/meetings/{meeting}/recordings', [MeetingController::class, 'recordings'])->whereNumber('meeting');
                 Route::post('/meetings/{meeting}/recordings', [MeetingController::class, 'storeRecording'])->whereNumber('meeting')->middleware('throttle:12,1');
