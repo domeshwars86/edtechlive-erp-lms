@@ -194,6 +194,10 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/meetings', [MeetingController::class, 'index']);
                 Route::post('/meetings', [MeetingController::class, 'store'])->middleware('throttle:30,1');
                 Route::patch('/meetings/{meeting}', [MeetingController::class, 'update'])->whereNumber('meeting');
+                Route::get('/meetings/{meeting}/recordings', [MeetingController::class, 'recordings'])->whereNumber('meeting');
+                Route::post('/meetings/{meeting}/recordings', [MeetingController::class, 'storeRecording'])->whereNumber('meeting')->middleware('throttle:12,1');
+                Route::patch('/meetings/{meeting}/recordings/{recording}', [MeetingController::class, 'updateRecording'])->whereNumber('meeting')->whereNumber('recording');
+                Route::get('/meetings/{meeting}/recordings/{recording}/download', [MeetingController::class, 'downloadRecording'])->whereNumber('meeting')->whereNumber('recording');
                 Route::get('/notifications', [NotificationController::class, 'index']);
                 Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
                 Route::get('/announcements', [AnnouncementController::class, 'index']);

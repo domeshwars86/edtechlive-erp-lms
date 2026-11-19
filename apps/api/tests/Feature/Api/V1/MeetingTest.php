@@ -17,6 +17,8 @@ use App\Models\Teacher;
 use App\Models\TeachingAssignment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -56,6 +58,45 @@ class MeetingTest extends TestCase
         $this->patchAs($studentUser, "{$base}/meetings/{$meetingId}", ['status' => 'cancelled'])->assertForbidden();
         $this->patchAs($admin, "{$base}/meetings/{$meetingId}", ['status' => 'cancelled'])->assertOk()->assertJsonPath('data.status', 'cancelled');
         $this->assertDatabaseHas('meetings', ['id' => $meetingId, 'status' => 'cancelled']);
+    }
+
+    public function test_private_recordings_require_consent_and_are_visible_to_enrolled_learners_only_after_publication(): void
+    {
+        Storage::fake('private');
+        [$admin, , $studentUser, $parentUser, $otherUser, $organization, $session, $section] = $this->workspace();
+        $base = "/api/v1/organizations/{$organization->id}";
+        $meetingId = $this->postAs($admin, "{$base}/meetings", $this->meetingPayload($session, $section))->assertCreated()->json('data.id');
+        $recordingPath = "{$base}/meetings/{$meetingId}/recordings";
+        $this->postFormAs($admin, $recordingPath, [
+            'title' => 'Science lesson recording', 'file' => UploadedFile::fake()->create('science.mp4', 12, 'video/mp4'),
+            'consent_confirmed' => '0',
+        ])->assertUnprocessable()->assertJsonValidationErrors('consent_confirmed');
+        $recordingId = $this->postFormAs($admin, $recordingPath, [
+            'title' => 'Science lesson recording', 'description' => 'Week one review',
+            'file' => UploadedFile::fake()->create('science.mp4', 12, 'video/mp4'), 'consent_confirmed' => '1',
+        ])->assertCreated()->assertJsonPath('data.status', 'draft')->json('data.id');
+
+        $this->getAs($studentUser, $recordingPath)->assertOk()->assertJsonCount(0, 'data');
+        $this->getAs($otherUser, $recordingPath)->assertNotFound();
+        $this->patchAs($studentUser, "{$recordingPath}/{$recordingId}", ['status' => 'published'])->assertForbidden();
+        $this->patchAs($admin, "{$recordingPath}/{$recordingId}", ['status' => 'published'])->assertOk();
+        $this->getAs($studentUser, $recordingPath)->assertOk()->assertJsonPath('data.0.id', $recordingId);
+        $this->getAs($parentUser, "{$recordingPath}/{$recordingId}/download")->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
+        $this->patchAs($admin, "{$recordingPath}/{$recordingId}", ['status' => 'withdrawn'])->assertOk();
+        $this->getAs($studentUser, $recordingPath)->assertOk()->assertJsonCount(0, 'data');
+        $this->patchAs($admin, "{$recordingPath}/{$recordingId}", ['status' => 'published'])->assertStatus(409);
+    }
+
+    public function test_recording_links_must_be_https_and_cannot_be_created_without_notice_attestation(): void
+    {
+        [$admin, , , , , $organization, $session, $section] = $this->workspace();
+        $base = "/api/v1/organizations/{$organization->id}";
+        $meetingId = $this->postAs($admin, "{$base}/meetings", $this->meetingPayload($session, $section))->assertCreated()->json('data.id');
+        $recordingPath = "{$base}/meetings/{$meetingId}/recordings";
+        $payload = ['title' => 'Recording link', 'external_url' => 'http://video.example.test/watch', 'consent_confirmed' => '1'];
+        $this->postAs($admin, $recordingPath, $payload)->assertUnprocessable()->assertJsonValidationErrors('external_url');
+        $this->postAs($admin, $recordingPath, ['title' => 'Recording link', 'external_url' => 'https://video.example.test/watch'])
+            ->assertUnprocessable()->assertJsonValidationErrors('consent_confirmed');
     }
 
     private function workspace(): array
@@ -149,5 +190,12 @@ class MeetingTest extends TestCase
         Sanctum::actingAs($user);
 
         return $this->patchJson($uri, $data);
+    }
+
+    private function postFormAs(User $user, string $uri, array $data)
+    {
+        Sanctum::actingAs($user);
+
+        return $this->withHeader('Accept', 'application/json')->post($uri, $data);
     }
 }

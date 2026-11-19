@@ -7,6 +7,7 @@ use App\Models\AcademicSection;
 use App\Models\Course;
 use App\Models\CourseEnrollment;
 use App\Models\Meeting;
+use App\Models\MeetingRecording;
 use App\Models\Student;
 use App\Models\StudentGuardian;
 use App\Models\Teacher;
@@ -18,8 +19,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MeetingController
 {
@@ -170,6 +174,142 @@ class MeetingController
         $record->update($data);
 
         return response()->json(['data' => $this->meetingData($record->refresh()->load(['section.academicClass:id,name', 'course:id,title', 'creator:id,name']))]);
+    }
+
+    public function recordings(Request $request, int $organization, int $meeting): JsonResponse
+    {
+        [$record, $learnerView, $canManage] = $this->recordingAccess($request, $organization, $meeting);
+        $recordings = MeetingRecording::query()->where('organization_id', $organization)->where('meeting_id', $record->id)
+            ->when($learnerView, fn ($query) => $query->where('status', 'published'))
+            ->orderByDesc('created_at')->orderByDesc('id')->get();
+
+        return response()->json(['data' => $recordings->map(fn (MeetingRecording $item): array => $this->recordingData($item, $organization, $record->id, $canManage))->values()]);
+    }
+
+    public function storeRecording(Request $request, int $organization, int $meeting): JsonResponse
+    {
+        [$record, $learnerView, $canManage] = $this->recordingAccess($request, $organization, $meeting);
+        abort_unless(! $learnerView && $canManage, 403);
+        $data = $request->validate([
+            'title' => ['required', 'string', 'min:2', 'max:180'],
+            'description' => ['nullable', 'string', 'max:5000'],
+            'file' => ['nullable', 'required_without:external_url', 'file', 'mimes:mp4,mov,webm', 'max:51200'],
+            'external_url' => ['nullable', 'required_without:file', 'url:https', 'max:2048'],
+            'consent_confirmed' => ['required', 'accepted'],
+        ]);
+        if ($request->hasFile('file') && $request->filled('external_url')) {
+            throw ValidationException::withMessages(['file' => ['Add a video file or an external HTTPS link, not both.']]);
+        }
+
+        $file = $request->file('file');
+        $path = $file?->storeAs(
+            "organizations/{$organization}/meetings/{$record->id}/recordings",
+            Str::uuid().'.'.($file->guessExtension() ?: 'video'),
+            'private',
+        );
+        $originalName = $file
+            ? (preg_replace('/[^\pL\pN._() -]/u', '_', basename($file->getClientOriginalName())) ?: 'class-recording')
+            : null;
+        $recording = MeetingRecording::query()->create([
+            'organization_id' => $organization,
+            'meeting_id' => $record->id,
+            'uploaded_by' => $request->user()->id,
+            'title' => $data['title'],
+            'description' => $data['description'] ?? null,
+            'original_name' => $originalName ? Str::limit($originalName, 255, '') : null,
+            'storage_path' => $path,
+            'mime_type' => $file?->getMimeType(),
+            'size_bytes' => $file?->getSize(),
+            'external_url' => $data['external_url'] ?? null,
+            'status' => 'draft',
+            'consent_confirmed_at' => now(),
+            'consent_confirmed_by' => $request->user()->id,
+        ]);
+
+        return response()->json(['data' => $this->recordingData($recording, $organization, $record->id, $canManage)], 201);
+    }
+
+    public function updateRecording(Request $request, int $organization, int $meeting, int $recording): JsonResponse
+    {
+        [$record, $learnerView, $canManage] = $this->recordingAccess($request, $organization, $meeting);
+        abort_unless(! $learnerView && $canManage, 403);
+        $item = MeetingRecording::query()->where('organization_id', $organization)->where('meeting_id', $record->id)->findOrFail($recording);
+        $data = $request->validate(['status' => ['required', Rule::in(['draft', 'published', 'withdrawn'])]]);
+        abort_if($item->status === 'withdrawn' && $data['status'] !== 'withdrawn', 409, 'A withdrawn recording cannot be republished.');
+        $item->update([
+            'status' => $data['status'],
+            'withdrawn_at' => $data['status'] === 'withdrawn' ? now() : null,
+        ]);
+
+        return response()->json(['data' => $this->recordingData($item->refresh(), $organization, $record->id, $canManage)]);
+    }
+
+    public function downloadRecording(Request $request, int $organization, int $meeting, int $recording): StreamedResponse
+    {
+        [$record, $learnerView] = $this->recordingAccess($request, $organization, $meeting);
+        $item = MeetingRecording::query()->where('organization_id', $organization)->where('meeting_id', $record->id)->findOrFail($recording);
+        abort_if($learnerView && $item->status !== 'published', 404);
+        abort_unless($item->storage_path && Storage::disk('private')->exists($item->storage_path), 404);
+
+        return Storage::disk('private')->download($item->storage_path, $item->original_name ?: 'class-recording', [
+            'Content-Type' => $item->mime_type ?: 'application/octet-stream',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    /** @return array{Meeting, bool, bool} */
+    private function recordingAccess(Request $request, int $organization, int $meeting): array
+    {
+        $membership = $this->access->membership($request, $organization);
+        $record = Meeting::query()->where('organization_id', $organization)->findOrFail($meeting);
+        $learnerView = in_array($membership->role, [OrganizationRole::Student, OrganizationRole::Parent], true);
+        $visible = false;
+        $canManage = false;
+        if ($this->isManager($membership->role)) {
+            $this->access->membership($request, $organization, true);
+            $visible = true;
+            $canManage = true;
+        } elseif ($membership->role === OrganizationRole::Teacher) {
+            $teacher = $this->teacherProfile($request, $organization);
+            $sectionIds = TeachingAssignment::query()->where('organization_id', $organization)->where('teacher_id', $teacher->id)->pluck('academic_section_id');
+            $courseIds = Course::query()->where('organization_id', $organization)->where('teacher_id', $teacher->id)->pluck('id');
+            $visible = $record->kind === 'class' && ($record->created_by === $request->user()->id
+                || in_array($record->academic_section_id, $sectionIds->all()) || in_array($record->course_id, $courseIds->all()));
+            $canManage = $record->created_by === $request->user()->id && $record->kind === 'class';
+        } elseif ($membership->role === OrganizationRole::Student) {
+            $student = $this->studentProfile($request, $organization);
+            $courseIds = CourseEnrollment::query()->where('organization_id', $organization)->where('student_id', $student->id)
+                ->where('status', 'active')->pluck('course_id');
+            $visible = $record->kind === 'class' && (($record->academic_section_id === $student->academic_section_id
+                && $record->academic_session_id === $student->academic_session_id) || $courseIds->contains($record->course_id));
+        } elseif ($membership->role === OrganizationRole::Parent) {
+            $children = StudentGuardian::query()->where('organization_id', $organization)->where('guardian_user_id', $request->user()->id)
+                ->whereHas('student', fn ($students) => $students->where('status', 'active'))
+                ->with('student:id,academic_section_id,academic_session_id')->get()->pluck('student')->filter();
+            $courseIds = CourseEnrollment::query()->where('organization_id', $organization)->whereIn('student_id', $children->pluck('id'))
+                ->where('status', 'active')->pluck('course_id');
+            $visible = $record->kind === 'class' && ($courseIds->contains($record->course_id) || $children->contains(fn ($child) => $child->academic_section_id === $record->academic_section_id && $child->academic_session_id === $record->academic_session_id));
+        }
+        abort_unless($visible, 404);
+
+        return [$record, $learnerView, $canManage];
+    }
+
+    private function recordingData(MeetingRecording $item, int $organization, int $meeting, bool $canManage): array
+    {
+        return [
+            'id' => $item->id,
+            'title' => $item->title,
+            'description' => $item->description,
+            'filename' => $item->original_name,
+            'mime_type' => $item->mime_type,
+            'size_bytes' => $item->size_bytes,
+            'external_url' => $item->external_url,
+            'status' => $item->status,
+            'can_manage' => $canManage,
+            'consent_confirmed_at' => $item->consent_confirmed_at?->toISOString(),
+            'download_url' => $item->storage_path ? "/api/v1/organizations/{$organization}/meetings/{$meeting}/recordings/{$item->id}/download" : null,
+        ];
     }
 
     private function meetingData(Meeting $meeting): array

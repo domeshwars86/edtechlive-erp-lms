@@ -2,6 +2,12 @@
 
 **Updated:** 19 November 2026
 
+## Private meeting recording workflow (19 November 2026)
+
+- Added a tenant-scoped private recording library to scheduled meetings: staff can upload MP4/MOV/WebM files up to 50 MB or register an HTTPS link, attest participant notice and applicable consent, then publish, unpublish, or withdraw recordings. Students and explicitly linked parents see published recordings only for meetings in their authorized classes/courses. File downloads recheck meeting membership and publication; withdrawn files remain stored pending retention policy.
+- Regression coverage verifies consent and HTTPS requirements, staff publication, student/parent read access, unrelated learner denial, private file download headers, and withdrawn recording behavior. The additive migration was applied to the verified local SQLite database.
+- Full Laravel suite passed (**144 tests / 1,186 assertions**) on in-memory SQLite; Pint passed. Web typecheck and ESLint passed; production build passed with 14 prerendered routes (492.42 kB main bundle). PostgreSQL verification, authenticated browser QA, consent collection, retention controls, and durable production storage remain open.
+
 ## Email verification guidance (19 November 2026)
 
 - Registration and verification-resend success screens now clearly state that verification is required before sign-in. The local verification link is a high-contrast full-width action with explicit steps to verify, return to the app, and log in.
