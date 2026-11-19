@@ -2,6 +2,13 @@
 
 **Updated:** 19 November 2026
 
+## Branch assignment to academic records (19 November 2026)
+
+- Added nullable tenant branch references for classes, students, and teachers. Academic class setup and people rosters now assign active same-organization branches, display branch labels, and filter rosters by branch.
+- Students inherit their branch from a branch-bound class and follow the class branch when reassigned unless the request explicitly supplies a conflicting branch. Class branch changes are guarded against conflicting student placement and teacher assignments; teaching assignment creation enforces branch compatibility while allowing organization-wide branchless teachers.
+- Regression coverage verifies student inheritance and reassignment, explicit mismatch rejection, branch roster filters, safe class branch changes, and branch-specific teacher assignment. The additive migration was applied to local SQLite.
+- Full Laravel suite passed (**142 tests / 1,159 assertions**); Pint, web typecheck, ESLint, and production build passed (14 prerendered routes; 485.97 kB main bundle). The local frontend and API readiness endpoint both returned HTTP 200. PostgreSQL verification remains open.
+
 ## Notification preferences and browser preview (19 November 2026)
 
 - Added account-level in-app preferences for announcements, scheduled meetings, and fee notices. All categories default to enabled, and server delivery applies saved preferences; notification fee text avoids exposing fee amounts/titles.

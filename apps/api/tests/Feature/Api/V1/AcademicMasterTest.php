@@ -5,9 +5,12 @@ namespace Tests\Feature\Api\V1;
 use App\Enums\MembershipStatus;
 use App\Enums\OrganizationRole;
 use App\Enums\OrganizationType;
+use App\Models\AcademicClass;
 use App\Models\AcademicSession;
 use App\Models\Organization;
+use App\Models\OrganizationBranch;
 use App\Models\OrganizationMembership;
+use App\Models\Student;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -152,6 +155,24 @@ class AcademicMasterTest extends TestCase
 
         $this->getJson($base)->assertOk();
         $this->postJson($base, ['name' => 'Main campus'])->assertForbidden();
+    }
+
+    public function test_class_branch_cannot_be_changed_until_students_are_reassigned(): void
+    {
+        [$user, $organization] = $this->workspace();
+        $one = OrganizationBranch::query()->create(['organization_id' => $organization->id, 'name' => 'One']);
+        $two = OrganizationBranch::query()->create(['organization_id' => $organization->id, 'name' => 'Two']);
+        $class = AcademicClass::query()->create([
+            'organization_id' => $organization->id, 'organization_branch_id' => $one->id, 'name' => 'Grade 7',
+        ]);
+        Student::query()->create([
+            'organization_id' => $organization->id, 'organization_branch_id' => $one->id,
+            'academic_class_id' => $class->id, 'name' => 'Student', 'admission_number' => 'A-1',
+        ]);
+        Sanctum::actingAs($user);
+
+        $this->patchJson("/api/v1/organizations/{$organization->id}/classes/{$class->id}", ['organization_branch_id' => $two->id])
+            ->assertUnprocessable()->assertJsonValidationErrors('organization_branch_id');
     }
 
     public function test_batch_creation_rejects_inconsistent_or_cross_tenant_academic_placement(): void

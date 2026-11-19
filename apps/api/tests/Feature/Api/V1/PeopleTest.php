@@ -9,6 +9,7 @@ use App\Models\AcademicClass;
 use App\Models\AcademicSection;
 use App\Models\AcademicSession;
 use App\Models\Organization;
+use App\Models\OrganizationBranch;
 use App\Models\OrganizationMembership;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -84,6 +85,36 @@ class PeopleTest extends TestCase
         $this->postJson($studentEndpoint, ['name' => 'Two', 'admission_number' => 'ST-003'])->assertUnprocessable()->assertJsonValidationErrors('admission_number');
         $this->postJson($teacherEndpoint, ['name' => 'One', 'employee_number' => 'TE-003'])->assertCreated();
         $this->postJson($teacherEndpoint, ['name' => 'Two', 'employee_number' => 'TE-003'])->assertUnprocessable()->assertJsonValidationErrors('employee_number');
+    }
+
+    public function test_class_branch_is_inherited_by_students_and_rosters_can_be_filtered_by_branch(): void
+    {
+        [$user, $organization] = $this->workspace();
+        $branch = OrganizationBranch::query()->create(['organization_id' => $organization->id, 'name' => 'East campus', 'code' => 'EAST']);
+        $class = AcademicClass::query()->create([
+            'organization_id' => $organization->id, 'organization_branch_id' => $branch->id, 'name' => 'Grade 8',
+        ]);
+        Sanctum::actingAs($user);
+        $base = "/api/v1/organizations/{$organization->id}";
+
+        $studentId = $this->postJson("{$base}/students", [
+            'name' => 'Branch Student', 'admission_number' => 'BR-001', 'academic_class_id' => $class->id,
+        ])->assertCreated()->assertJsonPath('data.organization_branch_id', $branch->id)
+            ->assertJsonPath('data.branch.name', 'East campus')->json('data.id');
+        $this->postJson("{$base}/teachers", [
+            'name' => 'Branch Teacher', 'employee_number' => 'BR-T1', 'organization_branch_id' => $branch->id,
+        ])->assertCreated()->assertJsonPath('data.branch.name', 'East campus');
+        $this->getJson("{$base}/students?organization_branch_id={$branch->id}")
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $studentId);
+
+        $otherBranch = OrganizationBranch::query()->create(['organization_id' => $organization->id, 'name' => 'West campus', 'code' => 'WEST']);
+        $this->patchJson("{$base}/students/{$studentId}", ['organization_branch_id' => $otherBranch->id])
+            ->assertUnprocessable()->assertJsonValidationErrors('organization_branch_id');
+        $otherClass = AcademicClass::query()->create([
+            'organization_id' => $organization->id, 'organization_branch_id' => $otherBranch->id, 'name' => 'Grade 9',
+        ]);
+        $this->patchJson("{$base}/students/{$studentId}", ['academic_class_id' => $otherClass->id])
+            ->assertOk()->assertJsonPath('data.organization_branch_id', $otherBranch->id);
     }
 
     private function workspace(OrganizationRole $role = OrganizationRole::Admin): array

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Models\AcademicClass;
 use App\Models\AcademicSection;
 use App\Models\AcademicSession;
+use App\Models\Student;
 use App\Models\Subject;
 use App\Services\OrganizationAccess;
 use Illuminate\Http\JsonResponse;
@@ -89,7 +90,8 @@ class AcademicMasterController
     {
         $this->access->membership($request, $organization);
 
-        return $this->collection(AcademicClass::query()->where('organization_id', $organization)->orderBy('sort_order')->orderBy('name'));
+        return $this->collection(AcademicClass::query()->where('organization_id', $organization)
+            ->with('branch:id,name,code')->orderBy('sort_order')->orderBy('name'));
     }
 
     public function storeClass(Request $request, int $organization): JsonResponse
@@ -98,12 +100,13 @@ class AcademicMasterController
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120', Rule::unique('academic_classes')->where('organization_id', $organization)],
             'code' => ['nullable', 'string', 'max:32', Rule::unique('academic_classes')->where('organization_id', $organization)],
+            'organization_branch_id' => ['nullable', 'integer', Rule::exists('organization_branches', 'id')->where('organization_id', $organization)->where('is_active', true)],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:65535'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
         $record = AcademicClass::query()->create(['organization_id' => $organization] + $data);
 
-        return response()->json(['data' => $record], 201);
+        return response()->json(['data' => $record->load('branch:id,name,code')], 201);
     }
 
     public function updateClass(Request $request, int $organization, int $record): JsonResponse
@@ -113,12 +116,43 @@ class AcademicMasterController
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:120', Rule::unique('academic_classes')->where('organization_id', $organization)->ignore($class->id)],
             'code' => ['sometimes', 'nullable', 'string', 'max:32', Rule::unique('academic_classes')->where('organization_id', $organization)->ignore($class->id)],
+            'organization_branch_id' => ['sometimes', 'nullable', 'integer', Rule::exists('organization_branches', 'id')->where('organization_id', $organization)],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:65535'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
+        if (array_key_exists('organization_branch_id', $data)) {
+            $branchId = $data['organization_branch_id'];
+            if ($branchId !== null && (int) $branchId !== (int) $class->organization_branch_id) {
+                $active = DB::table('organization_branches')->where('organization_id', $organization)->where('id', $branchId)->where('is_active', true)->exists();
+                if (! $active) {
+                    throw ValidationException::withMessages(['organization_branch_id' => ['Choose an active branch in this organization.']]);
+                }
+            }
+            $studentsConflict = Student::query()->where('organization_id', $organization)
+                ->where('academic_class_id', $class->id)
+                ->where(function ($query) use ($branchId): void {
+                    $branchId === null ? $query->whereNotNull('organization_branch_id') : $query->where(function ($nested) use ($branchId): void {
+                        $nested->whereNull('organization_branch_id')->orWhere('organization_branch_id', '<>', $branchId);
+                    });
+                })->exists();
+            if ($studentsConflict) {
+                throw ValidationException::withMessages(['organization_branch_id' => ['Reassign students to the new branch before changing this class branch.']]);
+            }
+            $assignmentConflict = $branchId !== null && DB::table('teaching_assignments')
+                ->join('academic_sections', 'academic_sections.id', '=', 'teaching_assignments.academic_section_id')
+                ->join('teachers', 'teachers.id', '=', 'teaching_assignments.teacher_id')
+                ->where('academic_sections.academic_class_id', $class->id)
+                ->where('teachers.organization_id', $organization)
+                ->whereNotNull('teachers.organization_branch_id')
+                ->where('teachers.organization_branch_id', '<>', $branchId)
+                ->exists();
+            if ($assignmentConflict) {
+                throw ValidationException::withMessages(['organization_branch_id' => ['Update teacher assignments before changing this class branch.']]);
+            }
+        }
         $class->update($data);
 
-        return response()->json(['data' => $class->refresh()]);
+        return response()->json(['data' => $class->refresh()->load('branch:id,name,code')]);
     }
 
     public function sections(Request $request, int $organization, int $class): JsonResponse

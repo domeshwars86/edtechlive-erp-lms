@@ -9,6 +9,7 @@ use App\Models\AcademicClass;
 use App\Models\AcademicSection;
 use App\Models\AcademicSession;
 use App\Models\Organization;
+use App\Models\OrganizationBranch;
 use App\Models\OrganizationMembership;
 use App\Models\Subject;
 use App\Models\Teacher;
@@ -115,6 +116,25 @@ class TeachingAssignmentTest extends TestCase
         $this->getJson($endpoint)->assertOk()->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.teacher.id', $context['teacher']->id);
         $this->getJson("{$endpoint}?teacher_id={$otherTeacher->id}")->assertForbidden();
+    }
+
+    public function test_teacher_assignment_must_match_the_class_branch(): void
+    {
+        [$user, $organization, $context] = $this->assignmentContext();
+        $branch = OrganizationBranch::query()->create(['organization_id' => $organization->id, 'name' => 'North campus']);
+        $otherBranch = OrganizationBranch::query()->create(['organization_id' => $organization->id, 'name' => 'South campus']);
+        $context['section']->academicClass->update(['organization_branch_id' => $branch->id]);
+        $context['teacher']->update(['organization_branch_id' => $otherBranch->id]);
+        Sanctum::actingAs($user);
+        $endpoint = "/api/v1/organizations/{$organization->id}/teaching-assignments";
+        $payload = [
+            'academic_session_id' => $context['session']->id, 'academic_section_id' => $context['section']->id,
+            'subject_id' => $context['subject']->id, 'teacher_id' => $context['teacher']->id,
+        ];
+
+        $this->postJson($endpoint, $payload)->assertUnprocessable()->assertJsonValidationErrors('teacher_id');
+        $context['teacher']->update(['organization_branch_id' => $branch->id]);
+        $this->postJson($endpoint, $payload)->assertCreated()->assertJsonPath('data.teacher.branch.name', 'North campus');
     }
 
     private function assignmentContext(OrganizationRole $role = OrganizationRole::Admin): array

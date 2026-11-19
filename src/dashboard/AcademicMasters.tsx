@@ -17,6 +17,8 @@ type MasterRecord = {
   is_active: boolean
   academic_session_id?: number | null
   academic_session?: { id: number; name: string } | null
+  organization_branch_id?: number | null
+  branch?: { id: number; name: string; code?: string | null } | null
   capacity?: number | null
 }
 type MasterTab = 'sessions' | 'classes' | 'subjects' | 'sections' | 'batches' | 'branches' | 'fee_categories'
@@ -38,6 +40,7 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
   const [classes, setClasses] = useState<MasterRecord[]>([])
   const [subjects, setSubjects] = useState<MasterRecord[]>([])
   const [sections, setSections] = useState<MasterRecord[]>([])
+  const [branches, setBranches] = useState<MasterRecord[]>([])
   const [classId, setClassId] = useState('')
   const [fields, setFields] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
@@ -50,14 +53,16 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
     setLoading(true)
     setError('')
     try {
-      const [sessionResult, classResult, subjectResult] = await Promise.all([
+      const [sessionResult, classResult, subjectResult, branchResult] = await Promise.all([
         api.get<ListResponse>(`${base}/academic-sessions`),
         api.get<ListResponse>(`${base}/classes`),
         api.get<ListResponse>(`${base}/subjects`),
+        api.get<ListResponse>(`${base}/branches?is_active=1&per_page=100`),
       ])
       setSessions(sessionResult.data)
       setClasses(classResult.data)
       setSubjects(subjectResult.data)
+      setBranches(branchResult.data)
       setClassId(current => current || String(classResult.data[0]?.id ?? ''))
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not load academic records.')
@@ -98,7 +103,7 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
           is_current: fields.is_current === 'on',
         })
       } else if (tab === 'classes') {
-        await api.post(`${base}/classes`, { name: fields.name, code: fields.code || null })
+        await api.post(`${base}/classes`, { name: fields.name, code: fields.code || null, organization_branch_id: fields.organization_branch_id ? Number(fields.organization_branch_id) : null })
       } else if (tab === 'subjects') {
         await api.post(`${base}/subjects`, { name: fields.name, code: fields.code || null, description: fields.description || null })
       } else {
@@ -158,6 +163,7 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
         {(tab === 'classes' || tab === 'subjects') && <>
           <label>Name<input required maxLength={120} value={fields.name ?? ''} onChange={e => setField('name', e.target.value)} placeholder={tab === 'classes' ? 'Grade 8' : 'Mathematics'} /></label>
           <label>Code <span>(optional)</span><input maxLength={32} value={fields.code ?? ''} onChange={e => setField('code', e.target.value)} placeholder={tab === 'classes' ? 'G8' : 'MATH'} /></label>
+          {tab === 'classes' && <label>Branch <span>(optional)</span><select value={fields.organization_branch_id ?? ''} onChange={e => setField('organization_branch_id', e.target.value)}><option value="">Shared across branches</option>{branches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}{branch.code ? ` · ${branch.code}` : ''}</option>)}</select></label>}
           {tab === 'subjects' && <label>Description <span>(optional)</span><textarea maxLength={2000} value={fields.description ?? ''} onChange={e => setField('description', e.target.value)} rows={3} /> </label>}
         </>}
         {tab === 'sections' && <>
@@ -170,7 +176,7 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
       </form>
       <div className="master-list"><div className="master-list-heading"><div><h3>{labels[tab]}</h3><span>{records.length} record{records.length === 1 ? '' : 's'}</span></div></div>
         {tab === 'sections' && <label className="master-class-filter"><UsersRound size={15} /><select aria-label="Filter sections by class" value={classId} onChange={e => setClassId(e.target.value)}><option value="">Choose a class</option>{classes.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
-        {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading records…</p> : records.length === 0 ? <p className="master-empty"><BookOpen size={18} />No {labels[tab].toLowerCase()} yet. Add the first record to get started.</p> : <ul>{records.map(record => <li key={record.id}><span className="master-record-icon">{tab === 'sessions' ? <CalendarDays size={17} /> : tab === 'classes' ? <UsersRound size={17} /> : <BookOpen size={17} />}</span><span className="master-record-main"><b>{record.name}</b><small>{tab === 'sessions' ? `${record.starts_on} – ${record.ends_on}${record.is_current ? ' · Current' : ''}` : tab === 'sections' ? `${record.academic_session?.name ?? 'No session'}${record.capacity ? ` · capacity ${record.capacity}` : ''}` : record.code || 'No code'}</small></span><span className={`master-status ${record.is_active ? 'active' : ''}`}>{record.is_active ? 'Active' : 'Archived'}</span><button className="master-record-action" onClick={() => void toggleActive(record)}>{tab === 'sessions' && !record.is_current ? 'Make current' : record.is_active ? 'Archive' : 'Restore'}</button></li>)}</ul>}
+        {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading records…</p> : records.length === 0 ? <p className="master-empty"><BookOpen size={18} />No {labels[tab].toLowerCase()} yet. Add the first record to get started.</p> : <ul>{records.map(record => <li key={record.id}><span className="master-record-icon">{tab === 'sessions' ? <CalendarDays size={17} /> : tab === 'classes' ? <UsersRound size={17} /> : <BookOpen size={17} />}</span><span className="master-record-main"><b>{record.name}</b><small>{tab === 'sessions' ? `${record.starts_on} – ${record.ends_on}${record.is_current ? ' · Current' : ''}` : tab === 'sections' ? `${record.academic_session?.name ?? 'No session'}${record.capacity ? ` · capacity ${record.capacity}` : ''}` : `${record.code || 'No code'}${tab === 'classes' && record.branch ? ` · ${record.branch.name}` : ''}`}</small></span><span className={`master-status ${record.is_active ? 'active' : ''}`}>{record.is_active ? 'Active' : 'Archived'}</span><button className="master-record-action" onClick={() => void toggleActive(record)}>{tab === 'sessions' && !record.is_current ? 'Make current' : record.is_active ? 'Archive' : 'Restore'}</button></li>)}</ul>}
       </div>
     </div>}
   </section>

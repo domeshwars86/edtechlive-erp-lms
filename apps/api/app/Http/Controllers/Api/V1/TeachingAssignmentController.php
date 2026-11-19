@@ -29,7 +29,7 @@ class TeachingAssignmentController
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
         $query = TeachingAssignment::query()->where('organization_id', $organization)
-            ->with(['academicSession:id,name', 'academicSection:id,name,academic_class_id,academic_session_id', 'academicSection.academicClass:id,name', 'subject:id,name,code', 'teacher:id,name,employee_number']);
+            ->with(['academicSession:id,name', 'academicSection:id,name,academic_class_id,academic_session_id', 'academicSection.academicClass:id,name,organization_branch_id', 'academicSection.academicClass.branch:id,name,code', 'subject:id,name,code', 'teacher:id,name,employee_number,organization_branch_id', 'teacher.branch:id,name,code']);
         if ($membership->role === OrganizationRole::Teacher) {
             $teacher = Teacher::query()->where('organization_id', $organization)->where('user_id', $request->user()->id)->where('status', 'active')->first();
             abort_unless($teacher !== null, 403);
@@ -69,11 +69,20 @@ class TeachingAssignmentController
         if ($section->academic_session_id === null || (int) $section->academic_session_id !== (int) $session->id) {
             throw ValidationException::withMessages(['academic_section_id' => ['The selected section must belong to the selected academic session.']]);
         }
+        $class = $section->academicClass;
+        if ($class->organization_branch_id !== null) {
+            if (! DB::table('organization_branches')->where('organization_id', $organization)->where('id', $class->organization_branch_id)->where('is_active', true)->exists()) {
+                throw ValidationException::withMessages(['academic_section_id' => ['The selected class branch is inactive.']]);
+            }
+            if ($teacher->organization_branch_id !== null && (int) $teacher->organization_branch_id !== (int) $class->organization_branch_id) {
+                throw ValidationException::withMessages(['teacher_id' => ['The teacher must belong to the selected class branch or be assigned organization-wide.']]);
+            }
+        }
         $assignment = TeachingAssignment::query()->firstOrCreate(
             ['academic_session_id' => $session->id, 'academic_section_id' => $section->id, 'subject_id' => $subject->id, 'teacher_id' => $teacher->id],
             ['organization_id' => $organization],
         );
-        $assignment->load(['academicSession:id,name', 'academicSection:id,name,academic_class_id,academic_session_id', 'academicSection.academicClass:id,name', 'subject:id,name,code', 'teacher:id,name,employee_number']);
+        $assignment->load(['academicSession:id,name', 'academicSection:id,name,academic_class_id,academic_session_id', 'academicSection.academicClass:id,name,organization_branch_id', 'academicSection.academicClass.branch:id,name,code', 'subject:id,name,code', 'teacher:id,name,employee_number,organization_branch_id', 'teacher.branch:id,name,code']);
 
         return response()->json(['data' => $assignment], $assignment->wasRecentlyCreated ? 201 : 200);
     }
