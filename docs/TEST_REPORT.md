@@ -5,7 +5,7 @@
 ## Self-service account profiles (19 November 2026)
 
 - Signed-in users can change their display name and email after confirming their current password. Email changes normalize and enforce uniqueness, clear the verified timestamp, and send a fresh signed verification link; platform-operator allowlist addresses cannot be claimed or changed through this endpoint.
-- The full Laravel suite passed (**175 tests / 1,531 assertions**) on in-memory SQLite; the focused account profile suite passed (**4 tests / 29 assertions**). The real Chromium registration/auth flow passed (**1 test in 1.4 minutes**) after adding profile edit, signed verification of the new address, reload and workspace selection; the account page also stayed within a 390px mobile viewport. Web typecheck, ESLint, production build (17 prerendered routes), Playwright TypeScript check, and Pint passed. Live email delivery and PostgreSQL validation for newer migrations remain open.
+- The full Laravel suite passed (**175 tests / 1,531 assertions**) on in-memory SQLite and a fresh disposable PostgreSQL 17 cluster; the focused account profile suite passed (**4 tests / 29 assertions**). The real Chromium registration/auth flow passed (**1 test in 1.4 minutes**) after adding profile edit, signed verification of the new address, reload and workspace selection; the account page also stayed within a 390px mobile viewport. Web typecheck, ESLint, production build (17 prerendered routes), Playwright TypeScript check, and Pint passed. Hosted PostgreSQL 16 CI and live email delivery remain open.
 
 ## Platform user account controls (19 November 2026)
 
