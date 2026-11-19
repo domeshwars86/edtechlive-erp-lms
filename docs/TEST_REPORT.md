@@ -2,6 +2,10 @@
 
 **Updated:** 20 November 2026
 
+## Public keyboard navigation landmarks (20 November 2026)
+
+- Added a visible-on-focus “Skip to content” link before the public header and made the main landmark its target. Course detail content uses a section container rather than a nested `main` landmark. TypeScript and ESLint passed; a focused Chromium keyboard test verified first-tab focus, fragment navigation, target focus and exactly one main landmark (**1 test passed**).
+
 ## Canonical sitemap build handling (20 November 2026)
 
 - Removed the committed reserved `.example` sitemap. The frontend build generates sitemap, canonical and Open Graph URLs only from `EDTECHLIVE_SITE_URL`, validates it as a public HTTPS origin, includes all 17 pre-rendered public routes, and adds an absolute sitemap reference to built `robots.txt`. With no configured origin it omits the sitemap and canonical metadata and emits a build warning. The production origin is not approved or configured in this repository.

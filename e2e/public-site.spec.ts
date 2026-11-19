@@ -1,5 +1,16 @@
 import { expect, test } from '@playwright/test'
 
+test('public shell offers keyboard skip navigation and one main landmark', async ({ page }) => {
+  await page.goto('/courses/python-foundations')
+  const skipLink = page.getByRole('link', { name: 'Skip to content' })
+  await page.keyboard.press('Tab')
+  await expect(skipLink).toBeFocused()
+  await expect(page.getByRole('main')).toHaveCount(1)
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(/#main-content$/)
+  await expect(page.locator('#main-content')).toBeFocused()
+})
+
 test('homepage sample courses and API-backed public course discovery both work', async ({ page }) => {
   let enquiryPayload: Record<string, unknown> | null = null
   await page.route('**/api/v1/enquiries', async route => {
