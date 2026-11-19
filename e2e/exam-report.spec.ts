@@ -50,6 +50,12 @@ test('teacher exam report shows scoped class-section performance and exports its
         absent_count: 1, excused_count: 0, average_percent: 76.7,
       }] }) })
     }
+    if (pathname.endsWith('/reports/exams/comparisons')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [
+        { exam_id: 5, exam: 'Term 2', series: '2026 annual assessments', exam_on: '2026-11-18', session: '2026–2027', class_section: 'Grade 8 · A', subject: 'Mathematics', result_count: 18, graded_count: 17, absent_count: 1, excused_count: 0, average_percent: 82, previous_exam: 'Term 1', change_percentage_points: 5.3 },
+        { exam_id: 3, exam: 'Term 1', series: '2026 annual assessments', exam_on: '2026-09-18', session: '2026–2027', class_section: 'Grade 8 · A', subject: 'Mathematics', result_count: 18, graded_count: 17, absent_count: 1, excused_count: 0, average_percent: 76.7, previous_exam: null, change_percentage_points: null },
+      ] }) })
+    }
     if (pathname.endsWith('/reports/exams')) {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{
         paper_id: 4, exam: 'Term 1 examinations', session: '2026–2027', class_section: 'Grade 8 · A',
@@ -70,9 +76,17 @@ test('teacher exam report shows scoped class-section performance and exports its
   await expect(page.getByRole('heading', { name: 'Published exam performance' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Class-section performance by examination' })).toBeVisible()
   await expect(page.getByRole('cell', { name: 'Grade 8 · A' }).first()).toBeVisible()
-  await expect(page.getByRole('cell', { name: '76.7%', exact: true })).toBeVisible()
+  await expect(page.getByRole('cell', { name: '76.7%', exact: true }).first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Exam series progress' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: '2026 annual assessments · Term 2' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: '+5.3 pp · after Term 1' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'Baseline', exact: true })).toBeVisible()
 
   const downloadReady = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Export section summary' }).click()
   expect((await downloadReady).suggestedFilename()).toBe('exam-section-performance.csv')
+
+  const comparisonDownload = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Export series comparison' }).click()
+  expect((await comparisonDownload).suggestedFilename()).toBe('exam-series-comparisons.csv')
 })
