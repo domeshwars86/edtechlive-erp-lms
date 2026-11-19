@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Auth;
 
 use App\Http\Requests\Api\V1\Auth\EmailAddressRequest;
 use App\Models\User;
+use App\Services\LocalAuthLinkFactory;
 use Illuminate\Http\JsonResponse;
 
 class EmailVerificationNotificationController
@@ -16,8 +17,13 @@ class EmailVerificationNotificationController
             $user->sendEmailVerificationNotification();
         }
 
-        return response()->json([
+        $response = [
             'message' => 'If the address has an unverified account, a verification link has been sent.',
-        ], 202);
+        ];
+        if ($user !== null && ($localLink = app(LocalAuthLinkFactory::class)->verification($user)) !== null) {
+            $response['verification_url'] = $localLink;
+        }
+
+        return response()->json($response, 202);
     }
 }

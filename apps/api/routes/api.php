@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AcademicBatchController;
 use App\Http\Controllers\Api\V1\AcademicExamController;
 use App\Http\Controllers\Api\V1\AcademicExamReportController;
 use App\Http\Controllers\Api\V1\AcademicMasterController;
@@ -130,6 +131,9 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/classes/{class}/sections', [AcademicMasterController::class, 'sections'])->whereNumber('class');
                 Route::post('/classes/{class}/sections', [AcademicMasterController::class, 'storeSection'])->whereNumber('class');
                 Route::patch('/sections/{record}', [AcademicMasterController::class, 'updateSection'])->whereNumber('record');
+                Route::get('/batches', [AcademicBatchController::class, 'index']);
+                Route::post('/batches', [AcademicBatchController::class, 'store']);
+                Route::patch('/batches/{record}', [AcademicBatchController::class, 'update'])->whereNumber('record');
                 Route::get('/subjects', [AcademicMasterController::class, 'subjects']);
                 Route::post('/subjects', [AcademicMasterController::class, 'storeSubject']);
                 Route::patch('/subjects/{record}', [AcademicMasterController::class, 'updateSubject'])->whereNumber('record');

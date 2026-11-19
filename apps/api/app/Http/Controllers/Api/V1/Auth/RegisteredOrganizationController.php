@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\Auth\RegisterOrganizationRequest;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\User;
+use App\Services\LocalAuthLinkFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -27,7 +28,7 @@ class RegisteredOrganizationController
                 $existingUser->sendEmailVerificationNotification();
             }
 
-            return $this->verificationResponse();
+            return $this->verificationResponse($existingUser);
         }
 
         $user = DB::transaction(function () use ($data): User {
@@ -62,14 +63,20 @@ class RegisteredOrganizationController
 
         $user->sendEmailVerificationNotification();
 
-        return $this->verificationResponse();
+        return $this->verificationResponse($user);
     }
 
-    private function verificationResponse(): JsonResponse
+    private function verificationResponse(User $user): JsonResponse
     {
-        return response()->json([
+        $response = [
             'message' => 'If the address can be registered, a verification link has been sent.',
             'status' => 'verification_required',
-        ], 202);
+        ];
+        $localLink = app(LocalAuthLinkFactory::class)->verification($user);
+        if ($localLink !== null) {
+            $response['verification_url'] = $localLink;
+        }
+
+        return response()->json($response, 202);
     }
 }

@@ -86,6 +86,63 @@ class AcademicMasterTest extends TestCase
         $this->postJson("/api/v1/organizations/{$organization->id}/classes", ['name' => 'Grade 8'])->assertForbidden();
     }
 
+    public function test_managers_can_create_search_filter_edit_and_deactivate_batches(): void
+    {
+        [$user, $organization] = $this->workspace(OrganizationRole::Management);
+        Sanctum::actingAs($user);
+        $base = "/api/v1/organizations/{$organization->id}";
+        $sessionId = $this->postJson("{$base}/academic-sessions", [
+            'name' => '2026–2027', 'starts_on' => '2026-06-01', 'ends_on' => '2027-05-31',
+        ])->assertCreated()->json('data.id');
+        $classId = $this->postJson("{$base}/classes", ['name' => 'Grade 8'])->assertCreated()->json('data.id');
+        $sectionId = $this->postJson("{$base}/classes/{$classId}/sections", [
+            'name' => 'A', 'academic_session_id' => $sessionId,
+        ])->assertCreated()->json('data.id');
+
+        $batchId = $this->postJson("{$base}/batches", [
+            'academic_session_id' => $sessionId, 'academic_class_id' => $classId,
+            'academic_section_id' => $sectionId, 'name' => 'Morning batch', 'code' => 'MORN-8',
+        ])->assertCreated()->assertJsonPath('data.academic_class.name', 'Grade 8')
+            ->assertJsonPath('data.academic_section.name', 'A')->json('data.id');
+        $this->postJson("{$base}/batches", [
+            'academic_session_id' => $sessionId, 'academic_class_id' => $classId,
+            'name' => 'Evening batch', 'code' => 'EVE-8',
+        ])->assertCreated();
+
+        $this->getJson("{$base}/batches?search=mOrN&academic_session_id={$sessionId}&academic_class_id={$classId}&is_active=1")
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $batchId);
+        $this->patchJson("{$base}/batches/{$batchId}", ['name' => 'Morning cohort', 'is_active' => false])
+            ->assertOk()->assertJsonPath('data.name', 'Morning cohort')->assertJsonPath('data.is_active', false);
+        $this->getJson("{$base}/batches?is_active=0")->assertOk()->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.name', 'Morning cohort');
+        $this->patchJson("{$base}/batches/{$batchId}", ['is_active' => true])->assertOk()
+            ->assertJsonPath('data.is_active', true);
+    }
+
+    public function test_batch_creation_rejects_inconsistent_or_cross_tenant_academic_placement(): void
+    {
+        [$user, $organization] = $this->workspace();
+        Sanctum::actingAs($user);
+        $base = "/api/v1/organizations/{$organization->id}";
+        $sessionId = $this->postJson("{$base}/academic-sessions", [
+            'name' => '2026–2027', 'starts_on' => '2026-06-01', 'ends_on' => '2027-05-31',
+        ])->assertCreated()->json('data.id');
+        $classId = $this->postJson("{$base}/classes", ['name' => 'Grade 8'])->assertCreated()->json('data.id');
+        $otherClassId = $this->postJson("{$base}/classes", ['name' => 'Grade 9'])->assertCreated()->json('data.id');
+        $sectionId = $this->postJson("{$base}/classes/{$otherClassId}/sections", [
+            'name' => 'A', 'academic_session_id' => $sessionId,
+        ])->assertCreated()->json('data.id');
+
+        $payload = ['academic_session_id' => $sessionId, 'academic_class_id' => $classId,
+            'academic_section_id' => $sectionId, 'name' => 'Invalid placement'];
+        $this->postJson("{$base}/batches", $payload)->assertUnprocessable()->assertJsonValidationErrors('academic_section_id');
+
+        $otherOrganization = $this->organization('Other institution');
+        $this->postJson("/api/v1/organizations/{$otherOrganization->id}/classes", ['name' => 'Foreign class'])->assertNotFound();
+        $this->getJson("/api/v1/organizations/{$otherOrganization->id}/batches")->assertNotFound();
+        $this->postJson("/api/v1/organizations/{$otherOrganization->id}/batches", [])->assertNotFound();
+    }
+
     private function workspace(OrganizationRole $role = OrganizationRole::Admin): array
     {
         $user = User::factory()->create();

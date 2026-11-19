@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { AlertCircle, BookOpen, CalendarDays, Check, LoaderCircle, Plus, RefreshCw, UsersRound } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
+import BatchManager from './BatchManager'
 
 type MasterRecord = {
   id: number
@@ -15,7 +16,7 @@ type MasterRecord = {
   academic_session?: { id: number; name: string } | null
   capacity?: number | null
 }
-type MasterTab = 'sessions' | 'classes' | 'subjects' | 'sections'
+type MasterTab = 'sessions' | 'classes' | 'subjects' | 'sections' | 'batches'
 type ListResponse = { data: MasterRecord[] }
 
 const labels: Record<MasterTab, string> = {
@@ -23,6 +24,7 @@ const labels: Record<MasterTab, string> = {
   classes: 'Classes',
   subjects: 'Subjects',
   sections: 'Sections',
+  batches: 'Batches',
 }
 
 export default function AcademicMasters({ organizationId }: { organizationId: number }) {
@@ -73,7 +75,7 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
     return () => { cancelled = true }
   }, [base, classId, tab])
 
-  const records = useMemo(() => ({ sessions, classes, subjects, sections })[tab], [classes, sections, sessions, subjects, tab])
+  const records = useMemo(() => tab === 'batches' ? [] : ({ sessions, classes, subjects, sections })[tab], [classes, sections, sessions, subjects, tab])
 
   function setField(name: string, value: string) {
     setFields(current => ({ ...current, [name]: value }))
@@ -137,10 +139,10 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
 
   return <section className="dash-panel dash-masters-panel">
     <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ACADEMIC SETUP</span><h2>Academic master entries</h2><p className="dash-record-subtitle">These records belong to your selected organization.</p></div><button className="dash-icon-button" onClick={() => void loadMasters()} aria-label="Refresh academic records"><RefreshCw size={16} /></button></div>
-    <div className="master-tabs" role="tablist" aria-label="Academic record type">{(['sessions', 'classes', 'subjects', 'sections'] as MasterTab[]).map(item => <button key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'selected' : ''} onClick={() => setTab(item)}>{labels[item]}</button>)}</div>
+    <div className="master-tabs" role="tablist" aria-label="Academic record type">{(['sessions', 'classes', 'subjects', 'sections', 'batches'] as MasterTab[]).map(item => <button key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'selected' : ''} onClick={() => setTab(item)}>{labels[item]}</button>)}</div>
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
     {message && <div className="master-feedback master-success" role="status"><Check size={16} />{message}</div>}
-    <div className="master-content">
+    {tab === 'batches' ? <BatchManager organizationId={organizationId} sessions={sessions} classes={classes} /> : <div className="master-content">
       <form className="master-form" onSubmit={createRecord}>
         <h3><Plus size={17} />Add {labels[tab].toLowerCase().replace(/s$/, '')}</h3>
         {tab === 'sessions' && <>
@@ -165,6 +167,6 @@ export default function AcademicMasters({ organizationId }: { organizationId: nu
         {tab === 'sections' && <label className="master-class-filter"><UsersRound size={15} /><select aria-label="Filter sections by class" value={classId} onChange={e => setClassId(e.target.value)}><option value="">Choose a class</option>{classes.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
         {loading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading records…</p> : records.length === 0 ? <p className="master-empty"><BookOpen size={18} />No {labels[tab].toLowerCase()} yet. Add the first record to get started.</p> : <ul>{records.map(record => <li key={record.id}><span className="master-record-icon">{tab === 'sessions' ? <CalendarDays size={17} /> : tab === 'classes' ? <UsersRound size={17} /> : <BookOpen size={17} />}</span><span className="master-record-main"><b>{record.name}</b><small>{tab === 'sessions' ? `${record.starts_on} – ${record.ends_on}${record.is_current ? ' · Current' : ''}` : tab === 'sections' ? `${record.academic_session?.name ?? 'No session'}${record.capacity ? ` · capacity ${record.capacity}` : ''}` : record.code || 'No code'}</small></span><span className={`master-status ${record.is_active ? 'active' : ''}`}>{record.is_active ? 'Active' : 'Archived'}</span><button className="master-record-action" onClick={() => void toggleActive(record)}>{tab === 'sessions' && !record.is_current ? 'Make current' : record.is_active ? 'Archive' : 'Restore'}</button></li>)}</ul>}
       </div>
-    </div>
+    </div>}
   </section>
 }

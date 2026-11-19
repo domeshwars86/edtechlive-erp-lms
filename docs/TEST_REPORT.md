@@ -2,6 +2,12 @@
 
 **Updated:** 19 November 2026
 
+## Batch master and local verification recovery (19 November 2026)
+
+- Added tenant-scoped academic batches with create/edit/activate/deactivate, search, session/class/status filters, pagination, section-placement checks, and organization isolation. The admin Academic masters page includes the Batches tab.
+- Local registration and resend-verification now return a short-lived signed URL only when `APP_ENV=local`; the browser auth screen displays it as a clickable link. Verification remains required before sign-in, and the test covers register, resend, signed verification, and successful token login. Other environments omit the helper URL.
+- Full Laravel suite passed on in-memory SQLite (**130 tests / 1,062 assertions**). Pint, web typecheck, ESLint, and production build passed (14 routes prerendered; 487.24 kB main bundle). The local SQLite migration is applied. PostgreSQL verification for the latest migrations remains open.
+
 ## Board-style exam paper sections (19 November 2026)
 
 - Exam papers now accept up to 20 optional named sections. The API enforces that section maximums add up to the paper maximum and that every graded learner has each section score, each within its cap, summing to the saved total. Assigned-teacher scope and published-result locks apply to section marks as they do to the paper.

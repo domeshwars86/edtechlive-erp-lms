@@ -37,7 +37,7 @@ try {
   const api = spawn(process.env.PHP_BINARY || 'php', ['artisan', 'serve', '--host=127.0.0.1', `--port=${apiPort}`], {
     cwd: apiDirectory,
     env: {
-      ...process.env, APP_ENV: 'local', DB_CONNECTION: 'sqlite', DB_DATABASE: apiDatabase, DB_URL: '',
+      ...process.env, APP_ENV: 'local', APP_URL: `http://127.0.0.1:${apiPort}`, DB_CONNECTION: 'sqlite', DB_DATABASE: apiDatabase, DB_URL: '',
       SESSION_DRIVER: 'file', CACHE_STORE: 'file', QUEUE_CONNECTION: 'sync',
     },
     stdio: 'inherit',

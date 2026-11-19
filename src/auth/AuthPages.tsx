@@ -6,7 +6,7 @@ import { ApiError, api, type OrganizationListResponse, type OrganizationMembersh
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset' | 'organization'
 const localMailHint = import.meta.env.DEV
-  ? ' Local development writes email links to apps/api/storage/logs/laravel.log; open the latest message there.'
+  ? ' Local development password reset links are written to apps/api/storage/logs/laravel.log.'
   : ''
 
 const workspaceForRole: Record<OrganizationMembership['role'], string> = {
@@ -29,6 +29,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [verificationUrl, setVerificationUrl] = useState('')
   const [organizations, setOrganizations] = useState<OrganizationMembership[]>([])
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -50,18 +51,22 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     setBusy(true)
     setError('')
     setMessage('')
+    setVerificationUrl('')
 
     try {
       if (mode === 'login') {
         const currentUser = await signIn(String(values.get('email')), String(values.get('password')), values.get('remember') === 'on')
         navigate(currentUser.is_platform_admin ? '/workspace/super-admin' : '/select-organization')
       } else if (mode === 'register') {
-        await api.post('/api/v1/auth/register', {
+        const result = await api.post<{ verification_url?: string }>('/api/v1/auth/register', {
           name: values.get('name'), email: values.get('email'), password: values.get('password'),
           password_confirmation: values.get('password_confirmation'), organization_name: values.get('organization_name'),
           organization_type: values.get('organization_type'),
         })
-        setMessage(`If this address can be registered, check for a verification link to finish setup.${localMailHint}`)
+        setVerificationUrl(result.verification_url ?? '')
+        setMessage(result.verification_url
+          ? 'Your local account is ready. Verify your email to continue to sign in.'
+          : `If this address can be registered, check your email for a verification link.${localMailHint}`)
         form.reset()
       } else if (mode === 'forgot') {
         await api.post('/api/v1/auth/forgot-password', { email: values.get('email') })
@@ -90,8 +95,11 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     setBusy(true)
     setError('')
     try {
-      await api.post('/api/v1/auth/email/verification-notification', { email })
-      setMessage(`If that address has an unverified account, a new verification link has been sent.${localMailHint}`)
+      const result = await api.post<{ verification_url?: string }>('/api/v1/auth/email/verification-notification', { email })
+      setVerificationUrl(result.verification_url ?? '')
+      setMessage(result.verification_url
+        ? 'Open the local verification link, then return here to sign in.'
+        : `If that address has an unverified account, a new verification link has been sent.${localMailHint}`)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not send a verification link.')
     } finally {
@@ -138,7 +146,8 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       {error && <div className="auth-error" role="alert">{error}{mode === 'login' && error.includes('Verify your email') && <button type="button" disabled={busy} onClick={resendVerification}>Send a new verification link</button>}</div>}
       <button className="button button-primary" type="submit" disabled={busy}>{busy ? <><LoaderCircle className="spin" /> Working…</> : <>{ { login: 'Log in', register: 'Create account', forgot: 'Send reset link', reset: 'Reset password' }[mode]} <ArrowUpRight size={16} /></>}</button>
     </>}
-    {message && <div className="auth-success"><Check />{mode === 'register' ? 'Email verification is required before you can sign in.' : 'The request was sent securely.'}</div>}
+    {message && <div className="auth-success"><Check />{verificationUrl ? 'Local email verification is ready.' : mode === 'register' ? 'Email verification is required before you can sign in.' : 'The request was sent securely.'}</div>}
+    {verificationUrl && <div className="local-verification-link"><a href={verificationUrl} target="_blank" rel="noreferrer">Verify email address <ArrowUpRight size={15} /></a><small>Development link, expires in 60 minutes. It opens in a new tab; return here and log in after verification.</small></div>}
     {error && !message && mode !== 'login' && <div className="auth-error" role="alert">{error}</div>}
     <div className="auth-links">{mode === 'login' && <><Link to="/forgot-password">Forgot password?</Link><span>New here? <Link to="/register">Create an account</Link></span></>}{mode === 'register' && <span>Already have an account? <Link to="/login">Log in</Link></span>}{mode === 'forgot' && <Link to="/login">Back to log in</Link>}{mode === 'reset' && <Link to="/login">Back to log in</Link>}</div>
     <small className="auth-demo-note"><ShieldCheck size={13} />Your account requests are sent to the edTechLive API.</small>

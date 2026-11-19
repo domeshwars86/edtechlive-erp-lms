@@ -31,7 +31,7 @@ class AuthenticationTest extends TestCase
             'password_confirmation' => 'LearningPass123',
             'organization_name' => 'Northstar Academy',
             'organization_type' => 'academy',
-        ])->assertAccepted()->assertJsonPath('status', 'verification_required');
+        ])->assertAccepted()->assertJsonPath('status', 'verification_required')->assertJsonMissingPath('verification_url');
 
         $user = User::query()->where('email', 'asha@example.com')->firstOrFail();
         $this->assertNull($user->email_verified_at);
@@ -100,6 +100,31 @@ class AuthenticationTest extends TestCase
         $this->assertDatabaseCount('personal_access_tokens', 0);
         Auth::forgetGuards();
         $this->withToken($token)->getJson('/api/v1/me')->assertUnauthorized();
+    }
+
+    public function test_local_registration_and_resend_responses_expose_a_clickable_verification_link(): void
+    {
+        Notification::fake();
+        config(['app.env' => 'local', 'app.url' => 'http://127.0.0.1:8002']);
+        URL::forceRootUrl('http://127.0.0.1:8002');
+
+        $registration = $this->postJson('/api/v1/auth/register', [
+            'name' => 'Asha Teacher', 'email' => 'asha@example.com',
+            'password' => 'LearningPass123', 'password_confirmation' => 'LearningPass123',
+            'organization_name' => 'Northstar Academy', 'organization_type' => 'academy',
+        ])->assertAccepted()->assertJsonPath('status', 'verification_required');
+        $registrationUrl = $registration->json('verification_url');
+        $this->assertIsString($registrationUrl);
+        $this->assertStringStartsWith('http://127.0.0.1:8002/', $registrationUrl);
+
+        $resendUrl = $this->postJson('/api/v1/auth/email/verification-notification', ['email' => 'asha@example.com'])
+            ->assertAccepted()->json('verification_url');
+        $this->assertIsString($resendUrl);
+        $this->getJson($resendUrl)->assertOk()->assertJsonPath('status', 'verified');
+        $this->postJson('/api/v1/auth/login', [
+            'email' => 'asha@example.com', 'password' => 'LearningPass123', 'device_name' => 'Verification test',
+        ])->assertOk()->assertJsonPath('data.email', 'asha@example.com')->assertJsonPath('token_type', 'Bearer');
+        $this->assertNotNull(User::query()->where('email', 'asha@example.com')->value('email_verified_at'));
     }
 
     public function test_first_party_login_uses_a_session_cookie_for_spa_requests(): void

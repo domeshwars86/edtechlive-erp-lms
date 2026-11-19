@@ -36,6 +36,7 @@
 .auth-form .auth-error{display:flex;flex-direction:column;gap:8px;padding:11px 12px;margin:0 0 12px;border:1px solid #f0d3cf;border-radius:6px;background:#fff6f4;color:#a04439;font-size:10px;line-height:1.6}
 .auth-form .auth-error button,.auth-links button{width:auto;padding:0;border:0;background:none;color:#3768bb;font:inherit;font-weight:700;text-align:left;cursor:pointer}
 .auth-form .auth-success{margin-top:16px;line-height:1.6}
+.local-verification-link{display:grid;gap:6px;margin-top:12px;padding:12px;border:1px solid #cfe2d7;border-radius:7px;background:#f7fbf8}.local-verification-link a{display:inline-flex;align-items:center;gap:5px;width:max-content;color:#276346;font-size:11px;font-weight:700}.local-verification-link small{color:#647d6d;font-size:9px;line-height:1.5}
 .auth-feedback{display:flex;align-items:center;gap:9px;padding:13px;border-radius:7px;background:#f4f7fb;color:#63788e;font-size:10px;line-height:1.6}
 .organization-choice{display:flex;align-items:center;gap:11px;width:100%;padding:13px;margin:10px 0;border:1px solid #e4eaf1;border-radius:8px;background:#fff;color:#3e5874;text-align:left;cursor:pointer}
 .organization-choice:hover,.organization-choice:focus-visible{border-color:#9cb7df;background:#f8faff}
