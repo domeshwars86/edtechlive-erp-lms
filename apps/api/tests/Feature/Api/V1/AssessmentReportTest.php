@@ -99,6 +99,18 @@ class AssessmentReportTest extends TestCase
         $this->getJson("/api/v1/organizations/{$organization->id}/reports/assessments")->assertForbidden();
     }
 
+    public function test_independent_educator_can_read_aggregate_assessment_results(): void
+    {
+        $organization = $this->organization('Northstar Academy');
+        $educator = User::factory()->create();
+        $this->membership($organization, $educator, OrganizationRole::IndependentEducator);
+        Sanctum::actingAs($educator);
+
+        $this->getJson("/api/v1/organizations/{$organization->id}/reports/assessments")
+            ->assertOk()
+            ->assertJsonPath('data.summary.published_quizzes', 0);
+    }
+
     private function workspace(): array
     {
         $organization = $this->organization('Northstar Academy');

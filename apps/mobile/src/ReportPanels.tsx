@@ -1,5 +1,40 @@
 import { StyleSheet, Text, View } from 'react-native'
-import type { EnrollmentReport, TeacherWorkloadReport } from './api'
+import type { AssessmentReport, EnrollmentReport, TeacherWorkloadReport } from './api'
+
+export function AssessmentReportPanel({ report, loading, role }: { report: AssessmentReport | null; loading: boolean; role: 'teacher' | 'manager' }) {
+  return <View>
+    <Text style={styles.sectionTitle} accessibilityRole="header">Quiz and assignment outcomes</Text>
+    <Text style={styles.description}>{role === 'teacher' ? 'Published assessments in your assigned courses. Student identities are not included.' : 'Published course assessment outcomes. Averages exclude quiz answers awaiting review.'}</Text>
+    {report ? <>
+      <Text style={styles.subheading}>Quizzes</Text>
+      <View style={styles.summaryGrid}>{[
+        ['Published', report.summary.published_quizzes],
+        ['Submitted', report.summary.submitted_attempts],
+        ['In progress', report.summary.in_progress_attempts],
+        ['Awaiting review', report.summary.awaiting_review],
+        ['Learner participations', report.summary.learner_quiz_participations],
+        ['Average score', report.summary.average_score_percent === null ? '—' : `${report.summary.average_score_percent}%`],
+      ].map(([label, value]) => <View style={styles.summaryCard} key={label}><Text style={styles.summaryValue}>{value}</Text><Text style={styles.summaryLabel}>{label}</Text></View>)}</View>
+      {report.quizzes.length ? report.quizzes.map(quiz => <View style={styles.recordCard} key={quiz.quiz_id}>
+        <Text style={styles.cardTitle}>{quiz.quiz}</Text><Text style={styles.cardMeta}>{quiz.course} · {quiz.learners} learners · {quiz.submitted_attempts} submitted · {quiz.in_progress_attempts} in progress</Text>
+        <Text style={styles.cardMeta}>{quiz.awaiting_review} awaiting review · {quiz.average_score_percent === null ? 'No graded average' : `${quiz.average_score_percent}% average`}</Text>
+      </View>) : <Text style={styles.emptyText}>No published quizzes are available.</Text>}
+      <Text style={styles.subheading}>Assignments</Text>
+      <View style={styles.summaryGrid}>{[
+        ['Published', report.assignment_summary.published_assignments],
+        ['Submissions', report.assignment_summary.submissions],
+        ['Graded', report.assignment_summary.graded_submissions],
+        ['Awaiting review', report.assignment_summary.awaiting_review],
+        ['Learners', report.assignment_summary.learner_submissions],
+        ['Average score', report.assignment_summary.average_score_percent === null ? '—' : `${report.assignment_summary.average_score_percent}%`],
+      ].map(([label, value]) => <View style={styles.summaryCard} key={label}><Text style={styles.summaryValue}>{value}</Text><Text style={styles.summaryLabel}>{label}</Text></View>)}</View>
+      {report.assignments.length ? report.assignments.map(assignment => <View style={styles.recordCard} key={assignment.assignment_id}>
+        <Text style={styles.cardTitle}>{assignment.assignment}</Text><Text style={styles.cardMeta}>{assignment.course} · {assignment.learners} learners · {assignment.submissions} submissions · {assignment.graded_submissions} graded</Text>
+        <Text style={styles.cardMeta}>{assignment.awaiting_review} awaiting review · {assignment.average_score_percent === null ? 'No graded average' : `${assignment.average_score_percent}% average`}</Text>
+      </View>) : <Text style={styles.emptyText}>No published assignments are available.</Text>}
+    </> : <Text style={styles.emptyText}>{loading ? 'Loading assessment outcomes…' : 'Assessment outcomes are unavailable.'}</Text>}
+  </View>
+}
 
 export function EnrollmentReportPanel({ report, loading }: { report: EnrollmentReport | null; loading: boolean }) {
   return <View>
@@ -49,6 +84,7 @@ export function TeacherWorkloadReportPanel({ report, loading }: { report: Teache
 const styles = StyleSheet.create({
   sectionTitle: { color: '#19395f', fontSize: 17, fontWeight: '800', marginTop: 24, marginBottom: 5 },
   description: { color: '#6a7e94', fontSize: 12, lineHeight: 18, marginBottom: 10 },
+  subheading: { color: '#425c77', fontSize: 13, fontWeight: '800', marginTop: 8, marginBottom: 7 },
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   summaryCard: { flexGrow: 1, flexBasis: '46%', minWidth: 138, padding: 12, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
   summaryValue: { color: '#234e82', fontSize: 21, fontWeight: '800' },

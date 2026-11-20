@@ -10,6 +10,10 @@
 
 - Admin, Management and Independent Educator dashboards now show active student placement and course-enrollment counts by session/section, plus teacher assignments, learner reach and weekly scheduled hours. The mobile client consumes the existing tenant-scoped report endpoints. `EnrollmentReportTest` and `TeacherWorkloadReportTest` passed (**6 tests / 26 assertions**), covering Independent Educator access and denial of organization-wide totals to teachers. Pint passed for both API test files. Mobile TypeScript typecheck, repository ESLint and Android bundle export passed (565 modules; 1.7 MB). Native-device QA was not performed.
 
+## Mobile assessment outcome reports (20 November 2026)
+
+- Admin, Management and Independent Educator mobile workspaces now show identity-free published quiz and assignment outcomes; teacher views use the same API's assigned-course scope. Quiz averages exclude answers awaiting review. `AssessmentReportTest` passed (**3 tests / 26 assertions**) for aggregate reporting, teacher course isolation/student denial, and Independent Educator access; Pint passed. Mobile TypeScript typecheck, repository ESLint, and Android JavaScript bundle export passed (565 modules; 1.7 MB). Native-device QA was not performed.
+
 ## Mobile searchable paginated staff rosters (20 November 2026)
 
 - Admin, Management and Independent Educator mobile dashboards now search active student and teacher records by name or roster number and browse 20 records per page with a load-more action. Search and pagination use the existing tenant-scoped roster APIs; request ordering guards prevent stale pages from appearing after search or workspace changes. `PeopleTest` passed (**7 tests / 55 assertions**), covering search, pagination, tenant isolation, role denial and Management/Independent Educator read access; Pint passed. Mobile TypeScript typecheck, repository ESLint and Android JavaScript export passed (564 modules; 1.7 MB). Native-device QA was not performed.
