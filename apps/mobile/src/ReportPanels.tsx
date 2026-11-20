@@ -1,5 +1,17 @@
 import { StyleSheet, Text, View } from 'react-native'
-import type { AssessmentReport, EnrollmentReport, TeacherWorkloadReport } from './api'
+import type { AssessmentReport, EnrollmentReport, ExamSectionSummary, TeacherWorkloadReport } from './api'
+
+export function ExamSectionReportPanel({ items, loading, role }: { items: ExamSectionSummary[]; loading: boolean; role: 'teacher' | 'manager' }) {
+  return <View>
+    <Text style={styles.sectionTitle} accessibilityRole="header">Examination performance</Text>
+    <Text style={styles.description}>{role === 'teacher' ? 'Published results for papers you are assigned to teach. Learner names are not included.' : 'Published school examination outcomes by class and section.'}</Text>
+    {items.length ? items.slice(0, 5).map(item => <View style={styles.recordCard} key={`${item.exam_id}-${item.class_section}`}>
+      <Text style={styles.cardTitle}>{item.exam} · {item.class_section}</Text>
+      <Text style={styles.cardMeta}>{item.session} · {item.paper_count} papers · {item.subject_count} subjects · {item.student_count} learners</Text>
+      <Text style={styles.cardMeta}>{item.average_percent === null ? 'No graded marks' : `${item.average_percent}% average graded result`} · {item.graded_count} graded · {item.absent_count} absent · {item.excused_count} excused</Text>
+    </View>) : <Text style={styles.emptyText}>{loading ? 'Loading examination performance…' : 'No published school examination results are available.'}</Text>}
+  </View>
+}
 
 export function CourseProgressReportPanel({ report, loading, role }: { report: { data: { course_id: number; title: string; lessons: number; learners: number; average_percent: number; completed_learners: number }[]; summary: { courses: number; learners: number; average_percent: number } } | null; loading: boolean; role: 'teacher' | 'manager' }) {
   return <View>

@@ -260,6 +260,18 @@ class AcademicExamTest extends TestCase
         $this->getJson("{$base}/reports/exams/comparisons")->assertForbidden();
     }
 
+    public function test_independent_educator_can_read_published_exam_analytics(): void
+    {
+        $workspace = $this->workspace();
+        $educator = User::factory()->create();
+        $this->membership($workspace['organization'], $educator, OrganizationRole::IndependentEducator);
+        Sanctum::actingAs($educator);
+        $base = "/api/v1/organizations/{$workspace['organization']->id}";
+
+        $this->getJson("{$base}/reports/exams/sections")->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson("{$base}/reports/exams/comparisons")->assertOk()->assertJsonCount(0, 'data');
+    }
+
     private function createExam(string $base, array $workspace): array
     {
         $start = CarbonImmutable::now('Asia/Kolkata')->toDateString();
