@@ -22,6 +22,10 @@
 
 - Admin, Management and Independent Educator mobile workspaces show published exam section performance and series comparisons. Teachers see section performance and series comparisons limited to their assigned papers and subjects. `AcademicExamTest` passed (**7 tests / 121 assertions**), including Independent Educator access and existing teacher-scope checks; Pint, mobile TypeScript typecheck, repository ESLint and Android JavaScript bundle export passed (565 modules; 1.7 MB). Native-device QA was not performed.
 
+## Mobile notification preferences (20 November 2026)
+
+- The Account screen now loads and persists in-app preferences for announcements, meetings and fees, exposes opt-in email toggles only when email delivery is enabled, and shows recent workspace delivery statuses without recipient or message content. `NotificationTest` and `WorkspaceEmailNotificationTest` passed (**8 tests / 48 assertions**). Mobile TypeScript typecheck, repository ESLint, and Android JavaScript bundle export passed (566 modules; 1.7 MB). Native-device QA was not performed.
+
 ## Mobile searchable paginated staff rosters (20 November 2026)
 
 - Admin, Management and Independent Educator mobile dashboards now search active student and teacher records by name or roster number and browse 20 records per page with a load-more action. Search and pagination use the existing tenant-scoped roster APIs; request ordering guards prevent stale pages from appearing after search or workspace changes. `PeopleTest` passed (**7 tests / 55 assertions**), covering search, pagination, tenant isolation, role denial and Management/Independent Educator read access; Pint passed. Mobile TypeScript typecheck, repository ESLint and Android JavaScript export passed (564 modules; 1.7 MB). Native-device QA was not performed.

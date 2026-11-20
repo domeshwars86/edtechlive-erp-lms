@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, Sta
 import * as SecureStore from 'expo-secure-store'
 import { ApiError, mobileApi, type ApiUser, type AssessmentReport, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type EnrollmentReport, type ExamSectionSummary, type ExamSeriesComparison, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type SchoolExam, type SchoolExamMark, type SchoolExamPaper, type StudentAttendance, type StudentProgress, type StudyMaterial, type TeacherWorkloadReport, type TeachingAssignment } from './src/api'
 import { AssessmentReportPanel, CourseProgressReportPanel, EnrollmentReportPanel, ExamSectionReportPanel, TeacherWorkloadReportPanel } from './src/ReportPanels'
+import { NotificationPreferencesPanel } from './src/NotificationPreferencesPanel'
 
 const TOKEN_KEY = 'edtechlive.mobile.token'
 const ORGANIZATION_KEY = 'edtechlive.mobile.organization'
@@ -739,6 +740,7 @@ export default function App() {
         <Text style={styles.inputLabel}>Confirm new password</Text><TextInput autoComplete="new-password" secureTextEntry value={passwordConfirmation} onChangeText={setPasswordConfirmation} maxLength={160} style={styles.input} editable={!busy} accessibilityLabel="Confirm new password" />
         <Text style={styles.courseMeta}>Your current password confirms each update. A changed email must be verified again. Password changes sign out your other app devices.</Text>
         <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void saveAccountProfile()} disabled={busy || !profileName.trim() || !profileEmail.trim() || !currentPassword}><Text style={styles.primaryButtonText}>{busy ? 'Saving…' : 'Save account details'}</Text></Pressable>
+        <NotificationPreferencesPanel token={token} organizationId={active.organization.id} />
         {verificationUrl ? <View style={styles.activityCard}><Text style={styles.courseMeta}>Open the development verification link, then check your account status again.</Text><Pressable onPress={() => void Linking.openURL(verificationUrl)}><Text style={styles.link}>Verify email address</Text></Pressable><Pressable onPress={() => void refreshVerificationStatus()} disabled={busy}><Text style={styles.link}>Refresh verification status</Text></Pressable></View> : null}
       </> : attendanceSection ? <>
         <Pressable onPress={() => { setAttendanceSection(null); setAttendanceStudents([]) }}><Text style={styles.backLink}>‹  Dashboard</Text></Pressable>
