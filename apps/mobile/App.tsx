@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
-import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type ExamSectionSummary, type ExamSeriesComparison, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type SchoolExam, type SchoolExamMark, type SchoolExamPaper, type StudentAttendance, type StudentProgress, type StudyMaterial, type TeachingAssignment } from './src/api'
+import { ApiError, mobileApi, type ApiUser, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type EnrollmentReport, type ExamSectionSummary, type ExamSeriesComparison, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type SchoolExam, type SchoolExamMark, type SchoolExamPaper, type StudentAttendance, type StudentProgress, type StudyMaterial, type TeacherWorkloadReport, type TeachingAssignment } from './src/api'
+import { EnrollmentReportPanel, TeacherWorkloadReportPanel } from './src/ReportPanels'
 
 const TOKEN_KEY = 'edtechlive.mobile.token'
 const ORGANIZATION_KEY = 'edtechlive.mobile.organization'
@@ -97,6 +98,8 @@ export default function App() {
   const [attendanceReportError, setAttendanceReportError] = useState('')
   const attendanceReportRequestRef = useRef(0)
   const [courseProgressReport, setCourseProgressReport] = useState<MobileCourseProgressReport | null>(null)
+  const [enrollmentReport, setEnrollmentReport] = useState<EnrollmentReport | null>(null)
+  const [teacherWorkloadReport, setTeacherWorkloadReport] = useState<TeacherWorkloadReport | null>(null)
   const [examSectionSummaries, setExamSectionSummaries] = useState<ExamSectionSummary[]>([])
   const [examSeriesComparisons, setExamSeriesComparisons] = useState<ExamSeriesComparison[]>([])
   const [financeReport, setFinanceReport] = useState<MobileFinanceReport | null>(null)
@@ -231,7 +234,7 @@ export default function App() {
     setAttendanceReportLoading(false); setAttendanceReportError('')
     setRosterStudentLoading(false); setRosterTeacherLoading(false); setRosterStudentError(''); setRosterTeacherError('')
     setRosterStudentSearch(''); setRosterTeacherSearch(''); setRosterStudentPage(1); setRosterStudentLastPage(1); setRosterTeacherPage(1); setRosterTeacherLastPage(1)
-    setSummary(null); setNotices([]); setNoticePage(1); setNoticeLastPage(1); setNoticeLoading(false); setMeetings([]); setMeetingSections([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setMeetingFormOpen(false)
+    setSummary(null); setNotices([]); setNoticePage(1); setNoticeLastPage(1); setNoticeLoading(false); setMeetings([]); setMeetingSections([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setEnrollmentReport(null); setTeacherWorkloadReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setMeetingFormOpen(false)
     const base = `/api/v1/organizations/${active.organization.id}`
     if (['admin', 'management', 'independent_educator'].includes(active.role)) {
       const today = organizationDate(active.organization.timezone)
@@ -291,6 +294,14 @@ export default function App() {
     if (active.role === 'independent_educator') {
       tasks.push(mobileApi.get<{ data: MobileFinanceReport }>(`${base}/reports/finance`, token)
         .then(result => { if (!cancelled) setFinanceReport(result.data) }))
+    }
+    if (['admin', 'management', 'independent_educator'].includes(active.role)) {
+      tasks.push(Promise.all([
+        mobileApi.get<{ data: EnrollmentReport }>(`${base}/reports/enrollment`, token),
+        mobileApi.get<{ data: TeacherWorkloadReport }>(`${base}/reports/workload`, token),
+      ]).then(([enrollmentResult, workloadResult]) => {
+        if (!cancelled) { setEnrollmentReport(enrollmentResult.data); setTeacherWorkloadReport(workloadResult.data) }
+      }))
     }
     if (active.role === 'admin' || active.role === 'management') {
       tasks.push(Promise.all([
@@ -778,6 +789,8 @@ export default function App() {
             onChangeSearch={setRosterStudentSearch} onSearch={() => void loadRoster('students', 1, rosterStudentSearch)} onLoadMore={() => void loadRoster('students', rosterStudentPage + 1, rosterStudentSearch, true)} />
           <TeacherRosterSection items={rosterTeachers} total={rosterTeacherTotal} search={rosterTeacherSearch} loading={rosterTeacherLoading} error={rosterTeacherError} page={rosterTeacherPage} lastPage={rosterTeacherLastPage}
             onChangeSearch={setRosterTeacherSearch} onSearch={() => void loadRoster('teachers', 1, rosterTeacherSearch)} onLoadMore={() => void loadRoster('teachers', rosterTeacherPage + 1, rosterTeacherSearch, true)} />
+          <EnrollmentReportPanel report={enrollmentReport} loading={busy} />
+          <TeacherWorkloadReportPanel report={teacherWorkloadReport} loading={busy} />
         </> : null}
         {active.role === 'admin' || active.role === 'management' ? <>
           <AttendanceReportPanel report={attendanceReport} from={attendanceFrom} to={attendanceTo} loading={attendanceReportLoading} error={attendanceReportError}

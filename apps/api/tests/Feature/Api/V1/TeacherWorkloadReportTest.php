@@ -109,6 +109,18 @@ class TeacherWorkloadReportTest extends TestCase
         $this->getJson("/api/v1/organizations/{$organization->id}/reports/workload")->assertForbidden();
     }
 
+    public function test_independent_educator_can_read_teacher_workload(): void
+    {
+        $organization = $this->organization('Northstar Academy');
+        $educator = User::factory()->create();
+        $this->membership($organization, $educator, OrganizationRole::IndependentEducator);
+        Sanctum::actingAs($educator);
+
+        $this->getJson("/api/v1/organizations/{$organization->id}/reports/workload")
+            ->assertOk()
+            ->assertJsonPath('data.summary.active_teachers', 0);
+    }
+
     private function membership(Organization $organization, User $user, OrganizationRole $role): void
     {
         OrganizationMembership::query()->create([

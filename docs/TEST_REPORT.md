@@ -6,6 +6,10 @@
 
 - Admin, Management and Independent Educator mobile dashboards now load attendance reports from the selected organization's timezone date and can request a custom inclusive date range or a seven-day preset. The client validates the date format and order, reports loading/API errors inline, and ignores late report responses after workspace switches. The existing API endpoint enforces organization membership and the same three roles. `AttendanceTest` passed (**9 tests / 52 assertions**), including an Independent Educator access regression; Pint passed for the test file. `apps/mobile` TypeScript typecheck and repository ESLint passed with no warnings, and `npx expo export --platform android` produced the final 1.7 MB Android JavaScript bundle (564 modules). Native-device QA was not performed.
 
+## Mobile enrollment and teacher workload reports (20 November 2026)
+
+- Admin, Management and Independent Educator dashboards now show active student placement and course-enrollment counts by session/section, plus teacher assignments, learner reach and weekly scheduled hours. The mobile client consumes the existing tenant-scoped report endpoints. `EnrollmentReportTest` and `TeacherWorkloadReportTest` passed (**6 tests / 26 assertions**), covering Independent Educator access and denial of organization-wide totals to teachers. Pint passed for both API test files. Mobile TypeScript typecheck, repository ESLint and Android bundle export passed (565 modules; 1.7 MB). Native-device QA was not performed.
+
 ## Mobile searchable paginated staff rosters (20 November 2026)
 
 - Admin, Management and Independent Educator mobile dashboards now search active student and teacher records by name or roster number and browse 20 records per page with a load-more action. Search and pagination use the existing tenant-scoped roster APIs; request ordering guards prevent stale pages from appearing after search or workspace changes. `PeopleTest` passed (**7 tests / 55 assertions**), covering search, pagination, tenant isolation, role denial and Management/Independent Educator read access; Pint passed. Mobile TypeScript typecheck, repository ESLint and Android JavaScript export passed (564 modules; 1.7 MB). Native-device QA was not performed.
@@ -13,6 +17,10 @@
 ## API container CI gate (20 November 2026)
 
 - Added a GitHub Actions job that builds `apps/api/Dockerfile` and starts the container to check `/api/v1/health`; it does not publish an image or connect to a database. The current environment has no Docker CLI and no Git remote is configured, so the hosted job has not run. The workflow YAML parsed locally; image build, runtime behavior, PostgreSQL readiness and deployment remain unverified.
+
+## Local browser preview verification (20 November 2026)
+
+- Started the guarded local Laravel/SQLite plus Vite stack in the host network context on ports 8008 and 4181. `GET /login` and `GET /api/v1/health/ready` each returned HTTP 200. Chromium successfully rendered screenshots of the public homepage and login page at 1440×1000; no authenticated account or production data was used. The preview remains available at `http://127.0.0.1:4181/` while the local server process is running.
 
 ## Full Laravel API regression (20 November 2026)
 

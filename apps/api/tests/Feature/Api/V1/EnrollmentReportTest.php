@@ -80,6 +80,18 @@ class EnrollmentReportTest extends TestCase
         $this->getJson("/api/v1/organizations/{$organization->id}/reports/enrollment")->assertForbidden();
     }
 
+    public function test_independent_educator_can_read_enrollment_totals(): void
+    {
+        $organization = $this->organization('Northstar Academy');
+        $educator = User::factory()->create();
+        $this->membership($organization, $educator, OrganizationRole::IndependentEducator);
+        Sanctum::actingAs($educator);
+
+        $this->getJson("/api/v1/organizations/{$organization->id}/reports/enrollment")
+            ->assertOk()
+            ->assertJsonPath('data.summary.active_students', 0);
+    }
+
     private function membership(Organization $organization, User $user, OrganizationRole $role): void
     {
         OrganizationMembership::query()->create([
