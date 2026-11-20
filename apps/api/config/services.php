@@ -51,4 +51,16 @@ return [
         'frontend_url' => env('FRONTEND_URL', 'http://127.0.0.1:4173'),
     ],
 
+    'razorpay' => [
+        // Customer payments are deliberately limited to test credentials. Live charges are not enabled.
+        'mode' => env('RAZORPAY_MODE', 'disabled'),
+        'key_id' => env('RAZORPAY_KEY_ID'),
+        'key_secret' => env('RAZORPAY_KEY_SECRET'),
+        'webhook_secret' => env('RAZORPAY_WEBHOOK_SECRET'),
+        'enabled' => env('RAZORPAY_MODE', 'disabled') === 'test'
+            && str_starts_with((string) env('RAZORPAY_KEY_ID', ''), 'rzp_test_')
+            && filled(env('RAZORPAY_KEY_SECRET')),
+        'brand_name' => env('RAZORPAY_BRAND_NAME', 'edTechLive'),
+    ],
+
 ];

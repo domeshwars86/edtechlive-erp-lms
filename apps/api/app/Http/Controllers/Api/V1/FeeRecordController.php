@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\OrganizationRole;
 use App\Models\FeePayment;
 use App\Models\FeeRecord;
+use App\Models\RazorpayPaymentOrder;
 use App\Models\Student;
 use App\Models\StudentGuardian;
 use App\Services\OrganizationAccess;
@@ -116,6 +117,9 @@ class FeeRecordController
 
                 $record = FeeRecord::query()->where('organization_id', $organization)->lockForUpdate()->findOrFail($fee);
                 abort_if($record->status === 'paid', 409, 'This fee has already been settled.');
+                $openCheckout = RazorpayPaymentOrder::query()->where('organization_id', $organization)
+                    ->where('fee_record_id', $record->id)->whereIn('status', ['creating', 'created'])->exists();
+                abort_if($openCheckout, 409, 'An online checkout is open for this fee. Finish or close that checkout before recording another payment.');
                 $paidCents = (int) round((float) $record->payments()->sum('amount') * 100);
                 $amountCents = (int) round((float) $data['amount'] * 100);
                 $totalCents = (int) round((float) $record->amount * 100);

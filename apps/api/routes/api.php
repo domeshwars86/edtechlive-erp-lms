@@ -50,6 +50,7 @@ use App\Http\Controllers\Api\V1\PlatformOrganizationController;
 use App\Http\Controllers\Api\V1\PlatformOverviewController;
 use App\Http\Controllers\Api\V1\PlatformUserController;
 use App\Http\Controllers\Api\V1\PublicCourseController;
+use App\Http\Controllers\Api\V1\RazorpayPaymentController;
 use App\Http\Controllers\Api\V1\StudentGuardianController;
 use App\Http\Controllers\Api\V1\TeacherWorkloadReportController;
 use App\Http\Controllers\Api\V1\TeachingAssignmentController;
@@ -70,6 +71,8 @@ Route::prefix('v1')->group(function (): void {
 
     Route::post('/enquiries', [ContactEnquiryController::class, 'store'])
         ->middleware('throttle:6,1')->name('api.v1.enquiries.store');
+    Route::post('/integrations/razorpay/webhook', [RazorpayPaymentController::class, 'webhook'])
+        ->middleware('throttle:120,1')->name('api.v1.integrations.razorpay.webhook');
     Route::get('/assets/{organization}/{record}/download', [CourseAssetController::class, 'signedDownload'])
         ->whereNumber('organization')->whereNumber('record')->middleware(['signed:relative', 'throttle:60,1'])
         ->name('api.v1.assets.download-signed');
@@ -215,6 +218,9 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/fees', [FeeRecordController::class, 'index']);
                 Route::post('/fees', [FeeRecordController::class, 'store']);
                 Route::post('/fees/{fee}/payments', [FeeRecordController::class, 'payment'])->whereNumber('fee');
+                Route::get('/payments/razorpay/config', [RazorpayPaymentController::class, 'config']);
+                Route::post('/fees/{fee}/razorpay/checkout', [RazorpayPaymentController::class, 'start'])->whereNumber('fee')->middleware('throttle:6,1');
+                Route::post('/fees/{fee}/razorpay/verify', [RazorpayPaymentController::class, 'verify'])->whereNumber('fee')->middleware('throttle:20,1');
                 Route::get('/expenses', [FinanceExpenseController::class, 'index']);
                 Route::post('/expenses', [FinanceExpenseController::class, 'store'])->middleware('throttle:30,1');
                 Route::get('/meetings', [MeetingController::class, 'index']);
