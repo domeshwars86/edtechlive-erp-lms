@@ -31,6 +31,8 @@ export default function PlatformUsers({ initialRole = '' }: { initialRole?: stri
   const [message, setMessage] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [pendingChange, setPendingChange] = useState<{ user: UserRow; status: 'active' | 'suspended'; reason: string } | null>(null)
+  const [pendingProfile, setPendingProfile] = useState<{ user: UserRow; name: string; email: string; reason: string } | null>(null)
+  const [verificationUrl, setVerificationUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [refresh, setRefresh] = useState(0)
 
@@ -83,6 +85,29 @@ export default function PlatformUsers({ initialRole = '' }: { initialRole?: stri
     }
   }
 
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!pendingProfile || pendingProfile.reason.trim().length < 8 || saving) return
+    setSaving(true)
+    setError('')
+    setMessage('')
+    setVerificationUrl('')
+    try {
+      const result = await api.patch<{ data: { id: number; name: string; email: string; email_verified_at: string | null }; email_changed: boolean; verification_url?: string }>(`/api/v1/platform/users/${pendingProfile.user.id}/profile`, {
+        name: pendingProfile.name.trim(), email: pendingProfile.email.trim(), reason: pendingProfile.reason.trim(),
+      })
+      setRows(current => current.map(user => user.id === result.data.id ? { ...user, ...result.data } : user))
+      setMessage(result.email_changed ? `${result.data.name}'s identity was updated. The new address must be verified before sign-in.` : `${result.data.name}'s account identity was updated.`)
+      setVerificationUrl(result.verification_url ?? '')
+      setPendingProfile(null)
+      setRefresh(value => value + 1)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not update this account identity.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return <section className="dash-panel dash-masters-panel platform-org-directory">
     <div className="dash-panel-heading"><div><span className="dash-panel-kicker">PLATFORM OPERATIONS</span><h2>Users</h2><p className="dash-record-subtitle">Review account access and record a reason when suspending or restoring an account. Passwords and private tokens are never returned.</p></div><button type="button" className="dash-icon-button" onClick={() => setRefresh(value => value + 1)} aria-label="Refresh users"><RefreshCw size={16} /></button></div>
     <PlatformInvitationForm onCreated={() => setRefresh(value => value + 1)} />
@@ -95,8 +120,9 @@ export default function PlatformUsers({ initialRole = '' }: { initialRole?: stri
       <button className="master-action" type="submit">Search</button><span>{total} accounts</span>
     </form>
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
-    {message && <div className="master-feedback master-success" role="status">{message}</div>}
-    {loading && rows.length === 0 ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading users…</p> : rows.length ? <div className="dash-table-scroll"><table><thead><tr><th>ACCOUNT</th><th>EMAIL</th><th>VERIFICATION</th><th>ACCOUNT STATUS</th><th>ACTIVE ORGANIZATIONS</th><th>CREATED</th><th>ACTION</th></tr></thead><tbody>{rows.map(user => <tr key={user.id}><td><b>{user.name}</b></td><td>{user.email}</td><td><span className={`table-status ${user.email_verified_at ? 'status-live' : ''}`}><i />{user.email_verified_at ? 'Verified' : 'Pending'}</span></td><td><span className={`table-status ${user.platform_status === 'active' ? 'status-live' : ''}`}><i />{user.platform_status === 'active' ? 'Active' : 'Suspended'}</span></td><td>{user.active_organizations}</td><td>{user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</td><td>{user.status_change_allowed ? <button className="master-action" type="button" onClick={() => setPendingChange({ user, status: user.platform_status === 'active' ? 'suspended' : 'active', reason: '' })}>{user.platform_status === 'active' ? 'Suspend' : 'Restore'}</button> : <span className="platform-user-protected">Operator protected</span>}</td></tr>)}</tbody></table></div> : !error && <p className="master-empty"><Users size={18} />No accounts match these filters.</p>}
+    {message && <div className="master-feedback master-success" role="status">{message}{verificationUrl ? <> <a href={verificationUrl} target="_blank" rel="noreferrer">Open local verification link</a></> : null}</div>}
+    {loading && rows.length === 0 ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading users…</p> : rows.length ? <div className="dash-table-scroll"><table><thead><tr><th>ACCOUNT</th><th>EMAIL</th><th>VERIFICATION</th><th>ACCOUNT STATUS</th><th>ACTIVE ORGANIZATIONS</th><th>CREATED</th><th>ACTION</th></tr></thead><tbody>{rows.map(user => <tr key={user.id}><td><b>{user.name}</b></td><td>{user.email}</td><td><span className={`table-status ${user.email_verified_at ? 'status-live' : ''}`}><i />{user.email_verified_at ? 'Verified' : 'Pending'}</span></td><td><span className={`table-status ${user.platform_status === 'active' ? 'status-live' : ''}`}><i />{user.platform_status === 'active' ? 'Active' : 'Suspended'}</span></td><td>{user.active_organizations}</td><td>{user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</td><td>{user.status_change_allowed ? <div className="platform-user-row-actions"><button className="master-action" type="button" onClick={() => { setError(''); setPendingChange(null); setPendingProfile({ user, name: user.name, email: user.email, reason: '' }) }}>Edit identity</button><button className="master-action" type="button" onClick={() => { setPendingProfile(null); setPendingChange({ user, status: user.platform_status === 'active' ? 'suspended' : 'active', reason: '' }) }}>{user.platform_status === 'active' ? 'Suspend' : 'Restore'}</button></div> : <span className="platform-user-protected">Operator protected</span>}</td></tr>)}</tbody></table></div> : !error && <p className="master-empty"><Users size={18} />No accounts match these filters.</p>}
+    {pendingProfile ? <form className="platform-user-profile-form" onSubmit={event => void saveProfile(event)}><div><b>Edit account identity · {pendingProfile.user.name}</b><p>A changed email address becomes unverified and requires a new verification link. Allowlisted platform operator accounts are protected.</p></div><label htmlFor="platform-user-name">Account name</label><input id="platform-user-name" required minLength={2} maxLength={120} value={pendingProfile.name} onChange={event => setPendingProfile(current => current ? { ...current, name: event.target.value } : current)} /><label htmlFor="platform-user-email">Email address</label><input id="platform-user-email" type="email" required maxLength={254} value={pendingProfile.email} onChange={event => setPendingProfile(current => current ? { ...current, email: event.target.value } : current)} /><label htmlFor="platform-user-profile-reason">Required audit reason</label><textarea id="platform-user-profile-reason" required minLength={8} maxLength={500} value={pendingProfile.reason} onChange={event => setPendingProfile(current => current ? { ...current, reason: event.target.value } : current)} placeholder="At least 8 characters" /><div><button type="button" className="master-action" disabled={saving} onClick={() => setPendingProfile(null)}>Cancel</button><button type="submit" className="master-submit" disabled={saving || pendingProfile.reason.trim().length < 8}>{saving ? 'Saving…' : 'Save identity'}</button></div></form> : null}
     {pendingChange ? <form className="platform-user-status-form" onSubmit={event => void saveStatus(event)}><div><b>{pendingChange.status === 'suspended' ? 'Suspend account' : 'Restore account'} · {pendingChange.user.name}</b><p>{pendingChange.status === 'suspended' ? 'The user will lose access to authenticated platform endpoints immediately.' : 'The user will regain account access.'} Allowlisted platform operator accounts are protected from this action.</p></div><label htmlFor="platform-user-reason">Required reason</label><textarea id="platform-user-reason" required minLength={8} maxLength={500} value={pendingChange.reason} onChange={event => setPendingChange(current => current ? { ...current, reason: event.target.value } : current)} placeholder="At least 8 characters" /><div><button type="button" className="master-action" disabled={saving} onClick={() => setPendingChange(null)}>Cancel</button><button type="submit" className="master-submit" disabled={saving || pendingChange.reason.trim().length < 8}>{saving ? 'Saving…' : 'Confirm status change'}</button></div></form> : null}
     <div className="platform-directory-pagination"><span>Page {page} of {lastPage}</span><button className="master-action" type="button" disabled={loading || page <= 1} onClick={() => setPage(value => value - 1)}>Previous</button><button className="master-action" type="button" disabled={loading || page >= lastPage} onClick={() => setPage(value => value + 1)}>Next</button></div>
   </section>

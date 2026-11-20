@@ -137,3 +137,52 @@ test('platform operators can send a reasoned staff invitation and receive the lo
   await page.getByLabel('Filter invitation status').selectOption('revoked')
   await expect(page.getByRole('table').getByText('revoked', { exact: true })).toBeVisible()
 })
+
+test('platform operators can edit account identity with an audited reason and email re-verification', async ({ page }) => {
+  let signedIn = false
+  let savedProfile: { name: string; email: string; reason: string } | null = null
+  const account = { id: 84, name: 'Platform Operator', email: 'operator@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', is_platform_admin: true }
+  const verificationUrl = 'http://127.0.0.1:4188/api/v1/auth/verify-email/110/abc123?expires=1795170000&signature=valid'
+
+  await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
+  await page.route('**/api/v1/me', route => route.fulfill({ status: signedIn ? 200 : 401, contentType: 'application/json', body: JSON.stringify(signedIn ? { data: account } : { message: 'Unauthenticated.' }) }))
+  await page.route('**/api/v1/auth/login', route => {
+    signedIn = true
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: account }) })
+  })
+  await page.route('**/api/v1/organizations?per_page=100', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], preferred_organization_id: null, meta: { current_page: 1, last_page: 1, per_page: 100, total: 0 } }) }))
+  await page.route('**/api/v1/platform/overview', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { organizations: { total: 1, active: 1, suspended: 0 }, users: { total: 2, verified: 2 }, educators: 1, open_enquiries: 0, recent_organizations: [] } }) }))
+  await page.route('**/api/v1/platform/audit-events**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { current_page: 1, last_page: 1, per_page: 25, total: 0 } }) }))
+  await page.route('**/api/v1/platform/invitations**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { current_page: 1, last_page: 1, per_page: 20, total: 0 } }) }))
+  await page.route('**/api/v1/platform/users**', async route => {
+    if (route.request().method() === 'PATCH') {
+      savedProfile = route.request().postDataJSON() as { name: string; email: string; reason: string }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+        data: { id: 110, name: savedProfile.name, email: savedProfile.email, email_verified_at: null },
+        email_changed: true,
+        verification_url: verificationUrl,
+      }) })
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      data: [{ id: 110, name: savedProfile?.name ?? 'Learner Example', email: savedProfile?.email ?? 'learner@example.test', email_verified_at: savedProfile ? null : '2026-11-18T10:00:00.000Z', created_at: '2026-11-18T10:00:00.000Z', active_organizations: 1, platform_status: 'active', status_change_allowed: true }],
+      meta: { current_page: 1, last_page: 1, per_page: 20, total: 1 },
+    }) })
+  })
+
+  await page.goto('/login')
+  await page.getByRole('textbox', { name: 'Email address' }).fill(account.email)
+  await page.getByLabel('Password', { exact: true }).fill('LocalBrowserPass123')
+  await page.getByRole('button', { name: 'Log in' }).click()
+  await page.getByRole('button', { name: 'Users', exact: true }).click()
+  await page.getByRole('button', { name: 'Edit identity' }).click()
+  await page.getByLabel('Account name').fill('Updated Learner')
+  await page.getByLabel('Email address', { exact: true }).last().fill('updated.learner@example.test')
+  await page.getByLabel('Required audit reason').fill('Corrected identity after support review.')
+  await page.getByRole('button', { name: 'Save identity' }).click()
+
+  await expect.poll(() => savedProfile).toEqual({ name: 'Updated Learner', email: 'updated.learner@example.test', reason: 'Corrected identity after support review.' })
+  await expect(page.getByRole('table').getByText('updated.learner@example.test')).toBeVisible()
+  await expect(page.getByRole('table').getByText('Pending', { exact: true })).toBeVisible()
+  await expect(page.getByRole('status')).toContainText('must be verified before sign-in')
+  await expect(page.getByRole('link', { name: 'Open local verification link' })).toHaveAttribute('href', verificationUrl)
+})

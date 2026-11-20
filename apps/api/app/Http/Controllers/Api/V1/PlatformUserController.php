@@ -6,6 +6,7 @@ use App\Enums\MembershipStatus;
 use App\Enums\OrganizationRole;
 use App\Models\PlatformAuditEvent;
 use App\Models\User;
+use App\Services\LocalAuthLinkFactory;
 use App\Services\PlatformOperatorAccess;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Http\JsonResponse;
@@ -104,5 +105,65 @@ class PlatformUserController
             'id' => $record->id,
             'platform_status' => $record->platform_status,
         ]]);
+    }
+
+    public function updateProfile(Request $request, int $user, PlatformOperatorAccess $platformAccess, LocalAuthLinkFactory $authLinks, DatabaseManager $database): JsonResponse
+    {
+        $actor = $request->user();
+        abort_unless($platformAccess->allows($actor), 403);
+        $request->merge(['email' => mb_strtolower(trim((string) $request->input('email')))]);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'min:2', 'max:120'],
+            'email' => ['required', 'email:rfc', 'max:254', Rule::unique('users', 'email')->ignore($user)],
+            'reason' => ['required', 'string', 'min:8', 'max:500'],
+        ]);
+        if (mb_strlen(trim($data['reason'])) < 8) {
+            throw ValidationException::withMessages(['reason' => ['The reason must contain at least 8 non-whitespace characters.']]);
+        }
+
+        $record = $database->transaction(function () use ($actor, $user, $data, $platformAccess): User {
+            $record = User::query()->lockForUpdate()->findOrFail($user);
+            abort_if($platformAccess->allows($record), 409, 'Allowlisted platform operator accounts cannot be changed here.');
+
+            $before = ['user_id' => $record->id, 'name' => $record->name, 'email' => $record->email, 'email_verified' => $record->hasVerifiedEmail()];
+            $emailChanged = $record->email !== $data['email'];
+            $record->forceFill([
+                'name' => trim($data['name']),
+                'email' => $data['email'],
+                'email_verified_at' => $emailChanged ? null : $record->email_verified_at,
+            ])->save();
+
+            PlatformAuditEvent::query()->create([
+                'actor_user_id' => $actor->id,
+                'organization_id' => null,
+                'organization_name' => 'Platform accounts',
+                'action' => 'user.identity_changed',
+                'reason' => trim($data['reason']),
+                'before' => $before,
+                'after' => ['user_id' => $record->id, 'name' => $record->name, 'email' => $record->email, 'email_verified' => $record->hasVerifiedEmail()],
+            ]);
+
+            return $record;
+        });
+
+        $emailChanged = $record->wasChanged('email');
+        if ($emailChanged) {
+            $record->sendEmailVerificationNotification();
+        }
+
+        $response = [
+            'data' => [
+                'id' => $record->id,
+                'name' => $record->name,
+                'email' => $record->email,
+                'email_verified_at' => $record->email_verified_at?->toISOString(),
+            ],
+            'email_changed' => $emailChanged,
+        ];
+        if ($emailChanged && ($verificationUrl = $authLinks->verification($record)) !== null) {
+            $response['verification_url'] = $verificationUrl;
+        }
+
+        return response()->json($response);
     }
 }

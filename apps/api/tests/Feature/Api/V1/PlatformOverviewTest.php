@@ -9,8 +9,10 @@ use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\PlatformAuditEvent;
 use App\Models\User;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -194,6 +196,54 @@ class PlatformOverviewTest extends TestCase
 
         Sanctum::actingAs($member->fresh());
         $this->getJson('/api/v1/me')->assertOk();
+    }
+
+    public function test_allowlisted_operator_can_change_account_identity_with_audit_and_new_email_verification(): void
+    {
+        Config::set('services.platform.admin_emails', ['operator@example.com', 'protected@example.com']);
+        Config::set('app.env', 'local');
+        Notification::fake();
+        $operator = User::factory()->create(['email' => 'operator@example.com']);
+        $member = User::factory()->create(['name' => 'Previous Name', 'email' => 'old@example.com']);
+        $protectedOperator = User::factory()->create(['email' => 'protected@example.com']);
+        $other = User::factory()->create(['email' => 'already-used@example.com']);
+        Sanctum::actingAs($operator);
+
+        $response = $this->patchJson("/api/v1/platform/users/{$member->id}/profile", [
+            'name' => 'Updated Name',
+            'email' => 'NEW@example.com',
+            'reason' => 'Corrected identity details',
+        ])->assertOk()
+            ->assertJsonPath('data.name', 'Updated Name')
+            ->assertJsonPath('data.email', 'new@example.com')
+            ->assertJsonPath('data.email_verified_at', null)
+            ->assertJsonPath('email_changed', true);
+
+        $verificationUrl = $response->json('verification_url');
+        $this->assertIsString($verificationUrl);
+        $this->assertStringContainsString('/api/v1/auth/verify-email/', $verificationUrl);
+        $this->assertDatabaseHas('platform_audit_events', [
+            'actor_user_id' => $operator->id,
+            'action' => 'user.identity_changed',
+            'reason' => 'Corrected identity details',
+            'before->email' => 'old@example.com',
+            'after->email' => 'new@example.com',
+        ]);
+        Notification::assertSentTo($member, VerifyEmail::class);
+        $verificationPath = parse_url($verificationUrl, PHP_URL_PATH).'?'.parse_url($verificationUrl, PHP_URL_QUERY);
+        $this->getJson($verificationPath)->assertOk()->assertJsonPath('status', 'verified');
+        $this->assertNotNull($member->fresh()->email_verified_at);
+
+        $this->patchJson("/api/v1/platform/users/{$member->id}/profile", [
+            'name' => 'Updated Name', 'email' => $other->email, 'reason' => 'Corrected duplicate address',
+        ])->assertUnprocessable()->assertJsonValidationErrors('email');
+        $this->patchJson("/api/v1/platform/users/{$protectedOperator->id}/profile", [
+            'name' => 'Protected Operator', 'email' => $protectedOperator->email, 'reason' => 'Attempted operator update',
+        ])->assertStatus(409);
+        $this->patchJson("/api/v1/platform/users/{$member->id}/profile", [
+            'name' => 'Updated Name', 'email' => $member->email, 'reason' => '     ',
+        ])->assertUnprocessable()->assertJsonValidationErrors('reason');
+        $this->assertDatabaseCount('platform_audit_events', 1);
     }
 
     private function organization(string $name, string $slug, string $status): Organization

@@ -4,7 +4,11 @@
 
 ## Platform staff account invitations (20 November 2026)
 
-- Verified allowlisted Super Admins can send, review, reason-resend and reason-revoke staff invitations at active organizations. Resend rotates the token and grants a fresh seven-day expiry; revocation retains the record and invalidates the token. Recipients choose their password and activate membership by accepting the link; local mode returns a development invitation URL. Tokens are stored as hashes and excluded from audit data. `PlatformInvitationTest` plus `OrganizationInvitationTest` passed (**14 tests / 130 assertions**); Pint passed. Focused Playwright coverage for staff invitation creation/resend/revocation and account status changes passed (**2/2**). Root typecheck, ESLint and `npm run build` passed (17 prerendered public routes). No deployment or production email delivery was performed.
+- Verified allowlisted Super Admins can send, review, reason-resend and reason-revoke staff invitations at active organizations. Resend rotates the token and grants a fresh seven-day expiry; revocation retains the record and invalidates the token. Recipients choose their password and activate membership by accepting the link; local mode returns a development invitation URL. Tokens are stored as hashes and excluded from audit data. `PlatformInvitationTest` plus `OrganizationInvitationTest` passed (**14 tests / 130 assertions**); Pint passed. Focused Playwright coverage for invitation create/resend/revoke and platform account administration passed (**3/3**). Root typecheck, ESLint and `npm run build` passed (17 prerendered public routes). No deployment or production email delivery was performed.
+
+## Platform account identity maintenance (20 November 2026)
+
+- Allowlisted operators can edit ordinary account names/emails with a required audit reason. Email changes clear prior verification, send a new notification and expose a short-lived signed link in local mode; allowlisted operator accounts cannot be edited, and the endpoint cannot set passwords. `PlatformOverviewTest` passed (**7 tests / 96 assertions**), including duplicate email and protected-operator checks; Pint passed. Browser coverage verified the dashboard edit form, audit reason, pending verification state and local link. The full API suite passed **194 tests / 1,687 assertions** on in-memory SQLite. PostgreSQL 17 remains to be rerun against the latest migrations.
 
 ## Mobile attendance report date filters (20 November 2026)
 
@@ -44,7 +48,7 @@
 
 ## Full Laravel API regression (20 November 2026)
 
-- The latest complete Laravel API suite passed **193 tests / 1,667 assertions** on in-memory SQLite (**21.52 seconds**), including invitation resend and revocation. Before the revocation migration, the full suite passed **177 tests / 1,547 assertions** on in-memory SQLite and a disposable PostgreSQL 17 cluster; PostgreSQL 17 has not yet been rerun against the latest migration. Hosted PostgreSQL 16 CI remains unverified. The local development SQLite database was not used for these test runs.
+- The latest complete Laravel API suite passed **194 tests / 1,687 assertions** on in-memory SQLite (**20.29 seconds**), including invitation lifecycle and account identity updates. Before the platform migrations, the full suite passed **177 tests / 1,547 assertions** on in-memory SQLite and a disposable PostgreSQL 17 cluster; PostgreSQL 17 has not yet been rerun against the latest migrations. Hosted PostgreSQL 16 CI remains unverified. The local development SQLite database was not used for these test runs.
 
 ## Local email verification and sign-in (20 November 2026)
 
