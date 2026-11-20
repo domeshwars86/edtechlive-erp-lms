@@ -1,6 +1,25 @@
 import { StyleSheet, Text, View } from 'react-native'
 import type { AssessmentReport, EnrollmentReport, TeacherWorkloadReport } from './api'
 
+export function CourseProgressReportPanel({ report, loading, role }: { report: { data: { course_id: number; title: string; lessons: number; learners: number; average_percent: number; completed_learners: number }[]; summary: { courses: number; learners: number; average_percent: number } } | null; loading: boolean; role: 'teacher' | 'manager' }) {
+  return <View>
+    <Text style={styles.sectionTitle} accessibilityRole="header">Course progress · {report?.summary.learners ?? 0} learners</Text>
+    <Text style={styles.description}>{role === 'teacher' ? 'Completion trends for published courses assigned to you.' : 'Completion trends across published courses in this workspace.'}</Text>
+    {report ? <>
+      {report.summary.courses ? <View style={styles.summaryGrid}>
+        <View style={styles.summaryCard}><Text style={styles.summaryValue}>{report.summary.average_percent}%</Text><Text style={styles.summaryLabel}>Average completion</Text></View>
+        <View style={styles.summaryCard}><Text style={styles.summaryValue}>{report.summary.courses}</Text><Text style={styles.summaryLabel}>Published courses</Text></View>
+        <View style={styles.summaryCard}><Text style={styles.summaryValue}>{report.summary.learners}</Text><Text style={styles.summaryLabel}>Active enrollments</Text></View>
+      </View> : null}
+      {report.data.slice(0, 5).map(course => <View style={styles.recordCard} key={course.course_id}>
+        <Text style={styles.cardTitle}>{course.title}</Text>
+        <Text style={styles.cardMeta}>{course.average_percent}% average · {course.completed_learners}/{course.learners} learners completed · {course.lessons} lessons</Text>
+      </View>)}
+      {report.summary.courses === 0 ? <Text style={styles.emptyText}>No published courses are available to report.</Text> : null}
+    </> : <Text style={styles.emptyText}>{loading ? 'Loading course progress…' : 'Course progress is unavailable.'}</Text>}
+  </View>
+}
+
 export function AssessmentReportPanel({ report, loading, role }: { report: AssessmentReport | null; loading: boolean; role: 'teacher' | 'manager' }) {
   return <View>
     <Text style={styles.sectionTitle} accessibilityRole="header">Quiz and assignment outcomes</Text>

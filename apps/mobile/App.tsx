@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
 import { ApiError, mobileApi, type ApiUser, type AssessmentReport, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type EnrollmentReport, type ExamSectionSummary, type ExamSeriesComparison, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type SchoolExam, type SchoolExamMark, type SchoolExamPaper, type StudentAttendance, type StudentProgress, type StudyMaterial, type TeacherWorkloadReport, type TeachingAssignment } from './src/api'
-import { AssessmentReportPanel, EnrollmentReportPanel, TeacherWorkloadReportPanel } from './src/ReportPanels'
+import { AssessmentReportPanel, CourseProgressReportPanel, EnrollmentReportPanel, TeacherWorkloadReportPanel } from './src/ReportPanels'
 
 const TOKEN_KEY = 'edtechlive.mobile.token'
 const ORGANIZATION_KEY = 'edtechlive.mobile.organization'
@@ -293,6 +293,10 @@ export default function App() {
         .catch(() => { if (!cancelled) setExamSeriesComparisons([]) }))
     }
     if (['admin', 'management', 'independent_educator', 'teacher'].includes(active.role)) {
+      tasks.push(mobileApi.get<MobileCourseProgressReport>(`${base}/reports/course-progress`, token)
+        .then(result => { if (!cancelled) setCourseProgressReport(result) }))
+    }
+    if (['admin', 'management', 'independent_educator', 'teacher'].includes(active.role)) {
       tasks.push(mobileApi.get<{ data: AssessmentReport }>(`${base}/reports/assessments`, token)
         .then(result => { if (!cancelled) setAssessmentReport(result.data) }))
     }
@@ -310,13 +314,11 @@ export default function App() {
     }
     if (active.role === 'admin' || active.role === 'management') {
       tasks.push(Promise.all([
-        mobileApi.get<MobileCourseProgressReport>(`${base}/reports/course-progress`, token),
         mobileApi.get<{ data: ExamSectionSummary[] }>(`${base}/reports/exams/sections`, token),
         mobileApi.get<{ data: ExamSeriesComparison[] }>(`${base}/reports/exams/comparisons`, token).catch(() => ({ data: [] as ExamSeriesComparison[] })),
         mobileApi.get<{ data: MobileFinanceReport }>(`${base}/reports/finance`, token),
-      ]).then(([progressResult, examResult, comparisonResult, financeResult]) => {
+      ]).then(([examResult, comparisonResult, financeResult]) => {
         if (!cancelled) {
-          setCourseProgressReport(progressResult)
           setExamSectionSummaries(examResult.data)
           setExamSeriesComparisons(comparisonResult.data)
           setFinanceReport(financeResult.data)
@@ -802,13 +804,13 @@ export default function App() {
             onChangeFrom={setAttendanceFrom} onChangeTo={setAttendanceTo} onApply={() => applyAttendanceRange()}
             onToday={() => { const today = organizationDate(active.organization.timezone); applyAttendanceRange(today, today) }}
             onWeek={() => { const today = organizationDate(active.organization.timezone); applyAttendanceRange(shiftDate(today, -6), today) }} />
-          <Text style={styles.sectionTitle}>Course progress · {courseProgressReport?.summary.learners ?? 0} learners</Text>
-          {courseProgressReport ? <>{courseProgressReport.summary.courses ? <View style={styles.infoCard}><Text style={styles.courseTitle}>{courseProgressReport.summary.average_percent}% average completion</Text><Text style={styles.courseMeta}>{courseProgressReport.summary.courses} published courses · {courseProgressReport.summary.learners} active course enrollments</Text></View> : null}{courseProgressReport.data.slice(0, 5).map(course => <View style={styles.recordCard} key={course.course_id}><Text style={styles.courseTitle}>{course.title}</Text><Text style={styles.courseMeta}>{course.average_percent}% average · {course.completed_learners}/{course.learners} learners completed · {course.lessons} lessons</Text></View>)}{courseProgressReport.summary.courses === 0 ? <Empty text="No published courses are available to report." /> : null}</> : <Empty text={busy ? 'Loading course progress report…' : 'No course progress report is available.'} />}
           <Text style={styles.sectionTitle}>Examination performance</Text>
           {examSectionSummaries.length ? examSectionSummaries.slice(0, 5).map(item => <View style={styles.recordCard} key={`${item.exam_id}-${item.class_section}`}><Text style={styles.courseTitle}>{item.exam} · {item.class_section}</Text><Text style={styles.courseMeta}>{item.session} · {item.paper_count} papers · {item.subject_count} subjects · {item.student_count} learners</Text><Text style={styles.courseMeta}>{item.average_percent === null ? 'No graded marks' : `${item.average_percent}% average graded result`} · {item.graded_count} graded · {item.absent_count} absent · {item.excused_count} excused</Text></View>) : <Empty text="No published school examination results are available." />}
           <Text style={styles.sectionTitle}>Exam series progress</Text>
           <ExamSeriesHistory items={examSeriesComparisons} emptyText="No published exams are available in a named series." />
         </> : null}
+        {['admin', 'management', 'independent_educator'].includes(active.role) ? <CourseProgressReportPanel report={courseProgressReport} loading={busy} role="manager" /> : null}
+        {active.role === 'teacher' ? <CourseProgressReportPanel report={courseProgressReport} loading={busy} role="teacher" /> : null}
         {active.role === 'independent_educator' ? <AttendanceReportPanel report={attendanceReport} from={attendanceFrom} to={attendanceTo} loading={attendanceReportLoading} error={attendanceReportError}
           onChangeFrom={setAttendanceFrom} onChangeTo={setAttendanceTo} onApply={() => applyAttendanceRange()}
           onToday={() => { const today = organizationDate(active.organization.timezone); applyAttendanceRange(today, today) }}

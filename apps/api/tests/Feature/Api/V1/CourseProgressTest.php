@@ -11,6 +11,7 @@ use App\Models\CourseLesson;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\Student;
+use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -69,6 +70,46 @@ class CourseProgressTest extends TestCase
 
         $this->getJson("{$base}/courses/{$course->id}/progress")->assertNotFound();
         $this->putJson("{$base}/courses/{$course->id}/lessons/{$lessons[0]->id}/progress", ['completed' => true])->assertNotFound();
+    }
+
+    public function test_independent_educator_can_read_organization_course_progress_report(): void
+    {
+        [, , $organization, $course] = $this->workspace();
+        $educator = User::factory()->create();
+        OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $educator->id,
+            'role' => OrganizationRole::IndependentEducator, 'status' => MembershipStatus::Active, 'accepted_at' => now(),
+        ]);
+        Sanctum::actingAs($educator);
+
+        $this->getJson("/api/v1/organizations/{$organization->id}/reports/course-progress")
+            ->assertOk()
+            ->assertJsonPath('summary.courses', 1)
+            ->assertJsonPath('data.0.course_id', $course->id);
+    }
+
+    public function test_teacher_course_progress_report_is_limited_to_assigned_courses(): void
+    {
+        [$admin, , $organization, $course] = $this->workspace();
+        $teacherUser = User::factory()->create();
+        OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $teacherUser->id,
+            'role' => OrganizationRole::Teacher, 'status' => MembershipStatus::Active, 'accepted_at' => now(),
+        ]);
+        $teacher = Teacher::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $teacherUser->id, 'name' => 'Assigned Teacher', 'status' => 'active',
+        ]);
+        $course->update(['teacher_id' => $teacher->id]);
+        Course::query()->create([
+            'organization_id' => $organization->id, 'created_by' => $admin->id,
+            'title' => 'Another teacher course', 'status' => 'published', 'published_at' => now(),
+        ]);
+        Sanctum::actingAs($teacherUser);
+
+        $this->getJson("/api/v1/organizations/{$organization->id}/reports/course-progress")
+            ->assertOk()
+            ->assertJsonPath('summary.courses', 1)
+            ->assertJsonPath('data.0.course_id', $course->id);
     }
 
     private function workspace(): array
