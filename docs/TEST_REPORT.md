@@ -8,7 +8,7 @@
 
 ## Platform account identity maintenance (20 November 2026)
 
-- Allowlisted operators can edit ordinary account names/emails with a required audit reason. Email changes clear prior verification, send a new notification and expose a short-lived signed link in local mode; allowlisted operator accounts cannot be edited, and the endpoint cannot set passwords. `PlatformOverviewTest` passed (**7 tests / 96 assertions**), including duplicate email and protected-operator checks; Pint passed. Browser coverage verified the dashboard edit form, audit reason, pending verification state and local link. The full API suite passed **194 tests / 1,687 assertions** on in-memory SQLite. PostgreSQL 17 remains to be rerun against the latest migrations.
+- Allowlisted operators can edit ordinary account names/emails with a required audit reason. Email changes clear prior verification, send a new notification and expose a short-lived signed link in local mode; allowlisted operator accounts cannot be edited, and the endpoint cannot set passwords. `PlatformOverviewTest` passed (**7 tests / 96 assertions**), including duplicate email and protected-operator checks; Pint passed. Browser coverage verified the dashboard edit form, audit reason, pending verification state and local link. The full API suite passed **194 tests / 1,687 assertions** on in-memory SQLite, and the complete Playwright Chromium suite passed **25 tests in 2.6 minutes**. PostgreSQL 17 remains to be rerun against the latest migrations.
 
 ## Mobile attendance report date filters (20 November 2026)
 
