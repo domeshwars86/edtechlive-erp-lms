@@ -56,12 +56,15 @@ The Expo client setup and role/workflow coverage are documented in [`apps/mobile
 
 ```sh
 npm run typecheck
+npm run test:unit
 npm run lint
 npm run build
 npm run test:e2e
 ```
 
 The Playwright suite starts Vite and Laravel on ports 4188/4189 and uses an isolated, temporary SQLite database with an in-memory mailer; it removes the temporary data when the run ends. Install the browser once with `npx playwright install chromium` before running it locally; CI installs PHP dependencies and Chromium automatically. The suite includes mocked published-course listing/filter/detail behavior, a real local registration, signed verification, session login and workspace-selection flow. Contact-form requests and a separate UI regression case use mocked responses; no email is delivered.
+
+`npm run test:unit` runs the React component suite with Vitest, jsdom, and React Testing Library. It currently verifies account registration with a local verification action and the unverified-account login recovery flow.
 
 To run a mocked UI test against an already-running local Vite preview, set `PLAYWRIGHT_BASE_URL` to its origin (for example `http://127.0.0.1:4180`). This skips the disposable test server; API calls in the targeted Google Meet UI test are intercepted by Playwright.
 
