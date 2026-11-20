@@ -54,6 +54,8 @@ test('platform user status changes require a reason and refresh the account list
 test('platform operators can send a reasoned staff invitation and receive the local acceptance link', async ({ page }) => {
   let signedIn = false
   let invitation: { organization_id: number; email: string; role: string; reason: string } | null = null
+  let invitationStatus: 'pending' | 'revoked' = 'pending'
+  let revocationReason = ''
   const account = { id: 84, name: 'Platform Operator', email: 'operator@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', is_platform_admin: true }
   const invitationUrl = 'http://127.0.0.1:4188/invitations/accept?token=local-invitation-token'
 
@@ -71,12 +73,25 @@ test('platform operators can send a reasoned staff invitation and receive the lo
   }) }))
   await page.route('**/api/v1/platform/users**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { current_page: 1, last_page: 1, per_page: 20, total: 0 } }) }))
   await page.route('**/api/v1/platform/audit-events**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { current_page: 1, last_page: 1, per_page: 25, total: 0 } }) }))
-  await page.route('**/api/v1/platform/invitations', async route => {
-    invitation = route.request().postDataJSON() as { organization_id: number; email: string; role: string; reason: string }
-    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({
-      data: { id: 72, organization_id: 31, organization: 'Northstar Academy', email: invitation.email, role: invitation.role, expires_at: '2026-11-27T12:00:00.000Z' },
-      message: 'Invitation sent.',
-      invitation_url: invitationUrl,
+  await page.route('**/api/v1/platform/invitations**', async route => {
+    if (route.request().method() === 'POST') {
+      invitation = route.request().postDataJSON() as { organization_id: number; email: string; role: string; reason: string }
+      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({
+        data: { id: 72, organization_id: 31, organization: 'Northstar Academy', email: invitation.email, role: invitation.role, expires_at: '2026-11-27T12:00:00.000Z' },
+        message: 'Invitation sent.',
+        invitation_url: invitationUrl,
+      }) })
+    }
+    if (route.request().method() === 'DELETE') {
+      revocationReason = (route.request().postDataJSON() as { reason: string }).reason
+      invitationStatus = 'revoked'
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { id: 72, status: 'revoked' }, message: 'Invitation revoked.' }) })
+    }
+    const requestedStatus = new URL(route.request().url()).searchParams.get('status')
+    const includeInvitation = invitation !== null && requestedStatus === invitationStatus
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      data: includeInvitation ? [{ id: 72, organization_id: 31, organization: 'Northstar Academy', email: 'new.teacher@example.test', role: 'teacher', status: invitationStatus, expires_at: '2026-11-27T12:00:00.000Z', created_at: '2026-11-20T12:00:00.000Z', revocation_reason: invitationStatus === 'revoked' ? revocationReason : null }] : [],
+      meta: { current_page: 1, last_page: 1, per_page: 20, total: includeInvitation ? 1 : 0 },
     }) })
   })
 
@@ -100,4 +115,13 @@ test('platform operators can send a reasoned staff invitation and receive the lo
   })
   await expect(page.getByRole('status')).toContainText('was invited to Northstar Academy as teacher')
   await expect(page.getByRole('link', { name: 'Open local invitation link' })).toHaveAttribute('href', invitationUrl)
+  await page.getByRole('button', { name: 'Refresh staff invitations' }).click()
+  await expect(page.getByRole('table').getByText('new.teacher@example.test')).toBeVisible()
+  await page.getByRole('button', { name: 'Revoke', exact: true }).click()
+  await page.getByLabel('Required audit reason').last().fill('Staffing request was withdrawn.')
+  await page.getByRole('button', { name: 'Confirm revoke' }).click()
+  await expect.poll(() => revocationReason).toBe('Staffing request was withdrawn.')
+  await expect(page.getByRole('status').filter({ hasText: 'Invitation revoked.' })).toBeVisible()
+  await page.getByLabel('Filter invitation status').selectOption('revoked')
+  await expect(page.getByRole('table').getByText('revoked', { exact: true })).toBeVisible()
 })

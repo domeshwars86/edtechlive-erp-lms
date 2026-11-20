@@ -10,11 +10,12 @@ class OrganizationInvitation extends Model
 {
     protected $fillable = [
         'organization_id', 'email', 'role', 'token_hash', 'invited_by', 'expires_at', 'accepted_at', 'accepted_by',
+        'revoked_at', 'revoked_by', 'revocation_reason',
     ];
 
     protected function casts(): array
     {
-        return ['expires_at' => 'datetime', 'accepted_at' => 'datetime'];
+        return ['expires_at' => 'datetime', 'accepted_at' => 'datetime', 'revoked_at' => 'datetime'];
     }
 
     public function organization(): BelongsTo
@@ -25,6 +26,11 @@ class OrganizationInvitation extends Model
     public function inviter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'invited_by');
+    }
+
+    public function revoker(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'revoked_by');
     }
 
     public function students(): BelongsToMany

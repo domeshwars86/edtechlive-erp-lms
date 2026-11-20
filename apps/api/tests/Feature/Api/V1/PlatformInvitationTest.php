@@ -130,6 +130,76 @@ class PlatformInvitationTest extends TestCase
         $this->assertDatabaseCount('platform_audit_events', 0);
     }
 
+    public function test_allowlisted_operator_can_filter_and_revoke_staff_invitations_with_audited_reason(): void
+    {
+        Config::set('services.platform.admin_emails', ['operator@example.com']);
+        $operator = User::factory()->create(['email' => 'operator@example.com']);
+        $organization = $this->organization('Northstar Academy');
+        $token = str()->random(64);
+        $invitation = OrganizationInvitation::query()->create([
+            'organization_id' => $organization->id,
+            'email' => 'pending.teacher@example.com',
+            'role' => 'teacher',
+            'token_hash' => hash('sha256', $token),
+            'invited_by' => $operator->id,
+            'expires_at' => now()->addDays(3),
+        ]);
+        Sanctum::actingAs($operator);
+
+        $this->getJson('/api/v1/platform/invitations?status=pending&q=Northstar')
+            ->assertOk()->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.id', $invitation->id)
+            ->assertJsonPath('data.0.organization', 'Northstar Academy')
+            ->assertJsonPath('data.0.email', 'pending.teacher@example.com')
+            ->assertJsonMissingPath('data.0.token_hash');
+        $this->deleteJson("/api/v1/platform/invitations/{$invitation->id}", ['reason' => 'Staffing request was withdrawn.'])
+            ->assertOk()->assertJsonPath('data.status', 'revoked');
+
+        $this->getJson('/api/v1/platform/invitations?status=revoked')
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.status', 'revoked')
+            ->assertJsonPath('data.0.revocation_reason', 'Staffing request was withdrawn.');
+        $this->getJson("/api/v1/auth/invitations/{$token}")->assertNotFound();
+        $this->assertDatabaseHas('organization_invitations', [
+            'id' => $invitation->id,
+            'revoked_by' => $operator->id,
+            'revocation_reason' => 'Staffing request was withdrawn.',
+        ]);
+        $this->assertDatabaseHas('platform_audit_events', [
+            'actor_user_id' => $operator->id,
+            'organization_id' => $organization->id,
+            'action' => 'organization.invitation_revoked',
+            'reason' => 'Staffing request was withdrawn.',
+            'after->status' => 'revoked',
+        ]);
+        $this->assertStringNotContainsString($token, (string) PlatformAuditEvent::query()->firstOrFail()->getRawOriginal('after'));
+    }
+
+    public function test_only_platform_operators_can_list_or_revoke_and_accepted_invites_are_immutable(): void
+    {
+        Config::set('services.platform.admin_emails', ['operator@example.com']);
+        $operator = User::factory()->create(['email' => 'operator@example.com']);
+        $ordinary = User::factory()->create(['email' => 'school-admin@example.com']);
+        $organization = $this->organization('Northstar Academy');
+        $accepted = OrganizationInvitation::query()->create([
+            'organization_id' => $organization->id,
+            'email' => 'accepted.teacher@example.com',
+            'role' => 'teacher',
+            'token_hash' => hash('sha256', str()->random(64)),
+            'invited_by' => $operator->id,
+            'expires_at' => now()->addDays(3),
+            'accepted_at' => now(),
+            'accepted_by' => $ordinary->id,
+        ]);
+        Sanctum::actingAs($ordinary);
+        $this->getJson('/api/v1/platform/invitations')->assertForbidden();
+        $this->deleteJson("/api/v1/platform/invitations/{$accepted->id}", ['reason' => 'Account access was withdrawn.'])->assertForbidden();
+
+        Sanctum::actingAs($operator);
+        $this->deleteJson("/api/v1/platform/invitations/{$accepted->id}", ['reason' => 'Account access was withdrawn.'])
+            ->assertConflict();
+        $this->assertNull($accepted->fresh()->revoked_at);
+    }
+
     private function organization(string $name, string $status = 'active'): Organization
     {
         return Organization::query()->create([

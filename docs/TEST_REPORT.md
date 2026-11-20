@@ -4,7 +4,7 @@
 
 ## Platform staff account invitations (20 November 2026)
 
-- Verified allowlisted Super Admins can send reason-audited invitations for Admin, Management, Teacher and Independent Educator roles at active organizations. The recipient establishes their own account/password and activates the organization membership by accepting the email link; local mode returns the invitation URL to the operator. The token is stored as a hash and excluded from audit data. `PlatformInvitationTest` plus `OrganizationInvitationTest` passed (**11 tests / 96 assertions**); Pint passed. Focused Playwright coverage for staff invitations and account status changes passed (**2/2**). Root typecheck, ESLint and `npm run build` passed (17 prerendered public routes). No deployment or production email delivery was performed.
+- Verified allowlisted Super Admins can send reason-audited invitations for Admin, Management, Teacher and Independent Educator roles at active organizations, review invitations, and revoke unaccepted staff invitations with a reason while retaining the row and invalidating the token. The recipient establishes their own account/password and activates membership by accepting the link; local mode returns the invitation URL to the operator. Invitation tokens are stored as hashes and excluded from audit data. `PlatformInvitationTest` plus `OrganizationInvitationTest` passed (**13 tests / 116 assertions**); Pint passed. Focused Playwright coverage for staff invitation creation/revocation and account status changes passed (**2/2**). Root typecheck, ESLint and `npm run build` passed (17 prerendered public routes). No deployment or production email delivery was performed.
 
 ## Mobile attendance report date filters (20 November 2026)
 
@@ -40,11 +40,11 @@
 
 ## Local browser preview verification (20 November 2026)
 
-- Started the guarded local Laravel/SQLite plus Vite stack in the host network context on ports 8008 and 4181. `GET /login` and `GET /api/v1/health/ready` each returned HTTP 200. Chromium successfully rendered screenshots of the public homepage and login page at 1440×1000; no authenticated account or production data was used. The preview remains available at `http://127.0.0.1:4181/` while the local server process is running.
+- Started the guarded local Laravel/SQLite plus Vite stack in the host network context on ports 8002 and 4174. `GET /login` and `GET /api/v1/health/ready` each returned HTTP 200 after the additive invitation-revocation migration was applied to the local SQLite database. The preview is available at `http://127.0.0.1:4174/` while the local server process is running; production databases and data were not used.
 
 ## Full Laravel API regression (20 November 2026)
 
-- The complete Laravel API suite passed **177 tests / 1,547 assertions** on in-memory SQLite (**72.99 seconds**) and a fresh disposable PostgreSQL 17 cluster (**39.87 seconds**); all migrations applied on PostgreSQL. The cluster was isolated to a unique system-temp path on loopback, then stopped and removed. The local development SQLite database and production databases were not used. Hosted PostgreSQL 16 CI remains unverified.
+- The latest complete Laravel API suite passed **192 tests / 1,653 assertions** on in-memory SQLite (**32.76 seconds**), including the invitation-revocation migration. Before that migration, the full suite passed **177 tests / 1,547 assertions** on in-memory SQLite and a disposable PostgreSQL 17 cluster; PostgreSQL 17 has not yet been rerun against the latest migration. Hosted PostgreSQL 16 CI remains unverified. The local development SQLite database was not used for these test runs.
 
 ## Local email verification and sign-in (20 November 2026)
 

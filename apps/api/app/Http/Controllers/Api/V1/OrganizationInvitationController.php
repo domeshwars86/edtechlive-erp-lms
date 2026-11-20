@@ -37,9 +37,10 @@ class OrganizationInvitationController
                 'id' => $invitation->id,
                 'email' => $invitation->email,
                 'role' => $invitation->role,
-                'status' => $invitation->accepted_at ? 'accepted' : ($invitation->expires_at->isPast() ? 'expired' : 'pending'),
+                'status' => $invitation->revoked_at ? 'revoked' : ($invitation->accepted_at ? 'accepted' : ($invitation->expires_at->isPast() ? 'expired' : 'pending')),
                 'expires_at' => $invitation->expires_at->toISOString(),
                 'accepted_at' => $invitation->accepted_at?->toISOString(),
+                'revoked_at' => $invitation->revoked_at?->toISOString(),
                 'created_at' => $invitation->created_at->toISOString(),
             ])->values(),
             'meta' => ['current_page' => $invitations->currentPage(), 'last_page' => $invitations->lastPage(), 'per_page' => $invitations->perPage(), 'total' => $invitations->total()],
@@ -97,6 +98,9 @@ class OrganizationInvitationController
                 'invited_by' => $request->user()->id,
                 'expires_at' => now()->addDays(7),
                 'accepted_by' => null,
+                'revoked_at' => null,
+                'revoked_by' => null,
+                'revocation_reason' => null,
             ],
         );
         $invitation->students()->sync(collect($data['student_ids'] ?? [])->mapWithKeys(fn ($studentId): array => [
@@ -128,7 +132,8 @@ class OrganizationInvitationController
         $this->authorizeInvitations($request, $organization, true);
         $invitation = OrganizationInvitation::query()->where('organization_id', $organization)->findOrFail($record);
         abort_if($invitation->accepted_at !== null, 409, 'Accepted invitations cannot be revoked.');
-        $invitation->delete();
+        abort_if($invitation->revoked_at !== null, 409, 'This invitation has already been revoked.');
+        $invitation->update(['revoked_at' => now(), 'revoked_by' => $request->user()->id]);
 
         return response()->json(['message' => 'Invitation revoked.']);
     }
@@ -213,7 +218,7 @@ class OrganizationInvitationController
     private function activateInvitation(OrganizationInvitation $invitation, User $user): void
     {
         $invitation = OrganizationInvitation::query()->whereKey($invitation->id)->lockForUpdate()->firstOrFail();
-        if ($invitation->accepted_at !== null || $invitation->expires_at->isPast()) {
+        if ($invitation->accepted_at !== null || $invitation->revoked_at !== null || $invitation->expires_at->isPast()) {
             abort(410, 'This invitation has expired or has already been accepted.');
         }
         $existing = OrganizationMembership::query()->where('organization_id', $invitation->organization_id)->where('user_id', $user->id)->first();
@@ -286,7 +291,7 @@ class OrganizationInvitationController
     {
         $invitation = OrganizationInvitation::query()->with('organization:id,name,status')
             ->where('token_hash', hash('sha256', $plainToken))->first();
-        abort_unless($invitation !== null && $invitation->accepted_at === null && $invitation->expires_at->isFuture(), 404);
+        abort_unless($invitation !== null && $invitation->accepted_at === null && $invitation->revoked_at === null && $invitation->expires_at->isFuture(), 404);
         abort_unless($invitation->organization?->status === 'active', 404);
 
         return $invitation;
