@@ -44,14 +44,7 @@ class AiAssistanceController
 
     public function lessonPlan(Request $request, int $organization, int $course): JsonResponse
     {
-        if (! $this->assistant->enabled()) {
-            abort(503, 'Educator AI drafts are disabled until a local provider and model are configured.');
-        }
-
-        $record = Course::query()->where('organization_id', $organization)->with('subject:id,name')->findOrFail($course);
-        $membership = $this->access->membership($request, $organization);
-        $this->assertCourseEditor($request, $membership->role, $organization, $record);
-
+        $record = $this->editableCourse($request, $organization, $course);
         $data = $request->validate([
             'topic' => ['required', 'string', 'min:3', 'max:180'],
             'grade_level' => ['nullable', 'string', 'max:80'],
@@ -59,13 +52,54 @@ class AiAssistanceController
             'language' => ['required', Rule::in(['English', 'Hindi'])],
         ]);
 
+        return $this->makeDraft(
+            $request,
+            $organization,
+            fn (): array => $this->assistant->draftLessonPlan($record, $data),
+        );
+    }
+
+    public function questionDraft(Request $request, int $organization, int $course): JsonResponse
+    {
+        $record = $this->editableCourse($request, $organization, $course);
+        $data = $request->validate([
+            'topic' => ['required', 'string', 'min:3', 'max:180'],
+            'grade_level' => ['nullable', 'string', 'max:80'],
+            'objectives' => ['required', 'string', 'min:10', 'max:1000'],
+            'language' => ['required', Rule::in(['English', 'Hindi'])],
+            'question_count' => ['required', 'integer', 'min:3', 'max:10'],
+            'difficulty' => ['required', Rule::in(['easy', 'medium', 'hard'])],
+        ]);
+
+        return $this->makeDraft(
+            $request,
+            $organization,
+            fn (): array => $this->assistant->draftQuestions($record, $data),
+        );
+    }
+
+    private function editableCourse(Request $request, int $organization, int $course): Course
+    {
+        if (! $this->assistant->enabled()) {
+            abort(503, 'Educator AI drafts are disabled until a private local provider and model are configured.');
+        }
+
+        $record = Course::query()->where('organization_id', $organization)->with('subject:id,name')->findOrFail($course);
+        $membership = $this->access->membership($request, $organization);
+        $this->assertCourseEditor($request, $membership->role, $organization, $record);
+
+        return $record;
+    }
+
+    private function makeDraft(Request $request, int $organization, \Closure $generate): JsonResponse
+    {
         $limit = min(max((int) config('services.ai.daily_user_limit', 10), 1), 100);
-        $usageKey = 'ai-lesson-plan:'.$organization.':'.$request->user()->id.':'.now()->toDateString();
+        $usageKey = 'ai-assistant:'.$organization.':'.$request->user()->id.':'.now()->toDateString();
         abort_if(RateLimiter::tooManyAttempts($usageKey, $limit), 429, 'Your daily AI draft limit has been reached. Try again tomorrow.');
         RateLimiter::hit($usageKey, max(60, (int) now()->diffInSeconds(now()->copy()->addDay()->startOfDay())));
 
         try {
-            $result = $this->assistant->draftLessonPlan($record, $data);
+            $result = $generate();
             AiAssistanceUsage::query()->create([
                 'organization_id' => $organization,
                 'user_id' => $request->user()->id,

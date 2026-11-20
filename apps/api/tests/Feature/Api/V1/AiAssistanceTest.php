@@ -103,6 +103,44 @@ class AiAssistanceTest extends TestCase
             ->assertJsonPath('usage.requests_today', 1)->assertJsonPath('usage.prompt_tokens_30_days', 123);
     }
 
+    public function test_teacher_can_generate_validated_mcq_drafts_but_malformed_model_json_is_rejected(): void
+    {
+        [$teacherUser, $organization, $course] = $this->workspace(withTeacher: true);
+        $this->enableAi();
+        $questions = ['questions' => array_map(fn (int $index): array => [
+            'question' => 'Which process changes water vapor into liquid droplets? '.$index,
+            'options' => ['Condensation', 'Evaporation', 'Sublimation', 'Filtration'],
+            'correct_index' => 0,
+            'explanation' => 'Cooling water vapor causes condensation.',
+        ], range(1, 3))];
+        Http::fake(['*' => Http::sequence()
+            ->push(['model' => 'educator-model', 'response' => json_encode($questions), 'prompt_eval_count' => 80, 'eval_count' => 100])
+            ->push(['model' => 'educator-model', 'response' => '{"questions":[]}', 'prompt_eval_count' => 75, 'eval_count' => 20])]);
+        Sanctum::actingAs($teacherUser);
+        $base = "/api/v1/organizations/{$organization->id}";
+        $payload = [
+            'topic' => 'The water cycle', 'grade_level' => 'Grade 6',
+            'objectives' => 'Explain how water changes state during the water cycle.',
+            'language' => 'English', 'question_count' => 3, 'difficulty' => 'medium',
+        ];
+
+        $response = $this->postJson("{$base}/ai/courses/{$course->id}/question-drafts", $payload)
+            ->assertOk()->assertJsonPath('data.model', 'educator-model')->assertJsonPath('data.review_required', true);
+        $draft = json_decode($response->json('data.draft'), true);
+        $this->assertCount(3, $draft['questions']);
+        $this->assertSame(4, count($draft['questions'][0]['options']));
+        $this->assertSame(0, $draft['questions'][0]['correct_index']);
+        Http::assertSent(fn ($request): bool => $request['format'] === 'json'
+            && str_contains($request['prompt'], 'Create exactly 3 original multiple-choice questions.')
+            && str_contains($request['system'], 'Do not include student names'));
+
+        $this->postJson("{$base}/ai/courses/{$course->id}/question-drafts", $payload)
+            ->assertServiceUnavailable()->assertDontSee('questions');
+        $this->assertDatabaseHas('ai_assistance_usages', ['user_id' => $teacherUser->id, 'status' => 'succeeded', 'completion_tokens' => 100]);
+        $this->assertDatabaseHas('ai_assistance_usages', ['user_id' => $teacherUser->id, 'status' => 'failed', 'completion_tokens' => 0]);
+        $this->assertDatabaseCount('ai_assistance_usages', 2);
+    }
+
     public function test_teacher_cannot_use_ai_on_another_teachers_course_and_students_are_denied(): void
     {
         [$teacherUser, $studentUser, $organization, $course] = $this->workspace(withTeacher: true, withStudent: true);
@@ -138,7 +176,7 @@ class AiAssistanceTest extends TestCase
         $this->postJson("{$base}/ai/courses/{$course->id}/lesson-plan", $payload)->assertTooManyRequests();
         $this->assertDatabaseCount('ai_assistance_usages', 1);
 
-        RateLimiter::clear('ai-lesson-plan:'.$organization->id.':'.$admin->id.':'.now()->toDateString());
+        RateLimiter::clear('ai-assistant:'.$organization->id.':'.$admin->id.':'.now()->toDateString());
         $this->postJson("{$base}/ai/courses/{$course->id}/lesson-plan", $payload)->assertServiceUnavailable()
             ->assertDontSee('provider-secret-must-not-leak');
         $this->assertDatabaseHas('ai_assistance_usages', ['user_id' => $admin->id, 'status' => 'failed']);

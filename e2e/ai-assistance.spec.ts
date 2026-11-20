@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test('educator course workspace creates a locally configured AI lesson-plan draft for review', async ({ page }) => {
   let signedIn = false
-  let submittedPrompt: Record<string, unknown> | null = null
+  const submittedPrompts: Record<string, unknown>[] = []
   const account = { id: 42, name: 'Course Author', email: 'author@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', is_platform_admin: false }
   const membership = {
     membership_id: 12,
@@ -40,9 +40,16 @@ test('educator course workspace creates a locally configured AI lesson-plan draf
       usage: { requests_30_days: 1, prompt_tokens_30_days: 100, completion_tokens_30_days: 50, requests_today: 0 },
     }) })
     if (pathname.endsWith('/courses/7/lesson-plan') && request.method() === 'POST') {
-      submittedPrompt = request.postDataJSON() as Record<string, unknown>
+      submittedPrompts.push(request.postDataJSON() as Record<string, unknown>)
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: {
         draft: 'Learning goals\nExplain how the water cycle moves water through the environment.\n\nLesson sequence\n1. Observe a diagram.',
+        model: 'educator-test-model', usage: { prompt_tokens: 125, completion_tokens: 42 }, review_required: true,
+      } }) })
+    }
+    if (pathname.endsWith('/courses/7/question-drafts') && request.method() === 'POST') {
+      submittedPrompts.push(request.postDataJSON() as Record<string, unknown>)
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: {
+        draft: JSON.stringify({ questions: [{ question: 'What changes water vapor into droplets?', options: ['Condensation', 'Evaporation', 'Sublimation', 'Filtration'], correct_index: 0, explanation: 'Cooling water vapor condenses.' }] }, null, 2),
         model: 'educator-test-model', usage: { prompt_tokens: 125, completion_tokens: 42 }, review_required: true,
       } }) })
     }
@@ -68,5 +75,20 @@ test('educator course workspace creates a locally configured AI lesson-plan draf
   await expect(page.getByText(/Explain how the water cycle moves water/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Copy draft to edit' })).toBeVisible()
   await expect(page.getByText(/Draft generated with educator-test-model/)).toBeVisible()
-  expect(submittedPrompt).toEqual({ topic: 'The water cycle', grade_level: null, objectives: 'Explain how water moves through the environment.', language: 'English' })
+  expect(submittedPrompts[0]).toEqual({ topic: 'The water cycle', grade_level: null, objectives: 'Explain how water moves through the environment.', language: 'English' })
+
+  await page.getByLabel('Draft type').selectOption('questions')
+  await page.getByLabel('Question count').selectOption('3')
+  await page.getByLabel('Difficulty').selectOption('medium')
+  await page.getByRole('button', { name: 'Generate MCQ drafts' }).click()
+  await expect(page.locator('.course-ai-result pre')).toContainText('What changes water vapor into droplets?')
+  await expect(page.locator('.course-ai-result pre')).toContainText('correct_index')
+  expect(submittedPrompts[1]).toEqual({
+    topic: 'The water cycle', grade_level: null, objectives: 'Explain how water moves through the environment.', language: 'English',
+    question_count: 3, difficulty: 'medium',
+  })
+
+  await page.setViewportSize({ width: 320, height: 900 })
+  const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
+  expect(hasHorizontalOverflow).toBe(false)
 })

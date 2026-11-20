@@ -246,6 +246,8 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/ai/config', [AiAssistanceController::class, 'config']);
                 Route::post('/ai/courses/{course}/lesson-plan', [AiAssistanceController::class, 'lessonPlan'])
                     ->whereNumber('course')->middleware('throttle:3,1');
+                Route::post('/ai/courses/{course}/question-drafts', [AiAssistanceController::class, 'questionDraft'])
+                    ->whereNumber('course')->middleware('throttle:3,1');
                 Route::get('/courses', [CourseController::class, 'index']);
                 Route::post('/courses', [CourseController::class, 'store']);
                 Route::patch('/courses/{record}', [CourseController::class, 'update'])->whereNumber('record');
