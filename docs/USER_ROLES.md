@@ -2,7 +2,7 @@
 
 ## Platform scope
 
-- **Super Admin:** platform-wide role is represented in the current role model. Current web/API platform controls are limited to allowlisted verified operators who can review aggregate metrics and organization/user directories, suspend/reactivate organizations, and read the audit history for those status changes. Account mutation, role configuration, subscription controls and support tooling remain planned; platform status privileges do not imply access to student content.
+- **Super Admin:** platform-wide role is represented in the current role model. Allowlisted verified operators can review aggregate metrics and organization/user directories, suspend/reactivate organizations and ordinary accounts, invite staff into active organizations with a required reason, and read the corresponding audit history. Invitees set their own password and activate membership by accepting the invitation. Direct account mutation, pending-invitation administration, detailed role configuration, subscription controls and support tooling remain planned; platform status privileges do not imply access to student content.
 - **Platform Support:** a target role for narrowly scoped diagnostics and support actions; a separate implementation and permission set are not yet available. No default access to private learning content is intended.
 
 ## Organization scope

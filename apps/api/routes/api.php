@@ -45,6 +45,7 @@ use App\Http\Controllers\Api\V1\OrganizationMembershipController;
 use App\Http\Controllers\Api\V1\OrganizationSettingsController;
 use App\Http\Controllers\Api\V1\PeopleController;
 use App\Http\Controllers\Api\V1\PlatformAuditEventController;
+use App\Http\Controllers\Api\V1\PlatformInvitationController;
 use App\Http\Controllers\Api\V1\PlatformOrganizationController;
 use App\Http\Controllers\Api\V1\PlatformOverviewController;
 use App\Http\Controllers\Api\V1\PlatformUserController;
@@ -120,6 +121,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/platform/audit-events', [PlatformAuditEventController::class, 'index'])->middleware('verified');
         Route::get('/platform/users', [PlatformUserController::class, 'index'])->middleware('verified');
         Route::patch('/platform/users/{user}', [PlatformUserController::class, 'update'])->whereNumber('user')->middleware('verified');
+        Route::post('/platform/invitations', [PlatformInvitationController::class, 'store'])->middleware(['verified', 'throttle:6,1']);
         Route::middleware('verified')->group(function (): void {
             Route::get('/organizations', [OrganizationController::class, 'index'])->name('api.v1.organizations.index');
             Route::patch('/me/organization', [OrganizationController::class, 'select'])->name('api.v1.organizations.select');

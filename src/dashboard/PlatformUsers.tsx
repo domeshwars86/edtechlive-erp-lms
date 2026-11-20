@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { AlertCircle, LoaderCircle, RefreshCw, Search, Users } from 'lucide-react'
 import { api } from '../lib/api'
+import PlatformInvitationForm from './PlatformInvitationForm'
 import './platform-users.css'
 
 type UserRow = {
@@ -83,6 +84,7 @@ export default function PlatformUsers({ initialRole = '' }: { initialRole?: stri
 
   return <section className="dash-panel dash-masters-panel platform-org-directory">
     <div className="dash-panel-heading"><div><span className="dash-panel-kicker">PLATFORM OPERATIONS</span><h2>Users</h2><p className="dash-record-subtitle">Review account access and record a reason when suspending or restoring an account. Passwords and private tokens are never returned.</p></div><button type="button" className="dash-icon-button" onClick={() => setRefresh(value => value + 1)} aria-label="Refresh users"><RefreshCw size={16} /></button></div>
+    <PlatformInvitationForm onCreated={() => setRefresh(value => value + 1)} />
     <form className="platform-directory-filters" onSubmit={submitSearch}>
       <label><Search size={15} /><input aria-label="Search users" value={draftSearch} onChange={event => setDraftSearch(event.target.value)} placeholder="Search name or email" /></label>
       <select aria-label="Filter email verification" value={verified} onChange={event => { setVerified(event.target.value); setPage(1) }}><option value="">All email states</option><option value="true">Verified</option><option value="false">Not verified</option></select>
