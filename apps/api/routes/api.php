@@ -122,6 +122,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/platform/users', [PlatformUserController::class, 'index'])->middleware('verified');
         Route::patch('/platform/users/{user}', [PlatformUserController::class, 'update'])->whereNumber('user')->middleware('verified');
         Route::patch('/platform/users/{user}/profile', [PlatformUserController::class, 'updateProfile'])->whereNumber('user')->middleware('verified');
+        Route::post('/platform/users/{user}/password-reset', [PlatformUserController::class, 'requestPasswordReset'])->whereNumber('user')->middleware(['verified', 'throttle:6,1']);
         Route::get('/platform/invitations', [PlatformInvitationController::class, 'index'])->middleware('verified');
         Route::post('/platform/invitations', [PlatformInvitationController::class, 'store'])->middleware(['verified', 'throttle:6,1']);
         Route::delete('/platform/invitations/{invitation}', [PlatformInvitationController::class, 'revoke'])->whereNumber('invitation')->middleware('verified');

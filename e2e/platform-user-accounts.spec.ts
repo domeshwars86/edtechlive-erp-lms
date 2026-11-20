@@ -141,8 +141,10 @@ test('platform operators can send a reasoned staff invitation and receive the lo
 test('platform operators can edit account identity with an audited reason and email re-verification', async ({ page }) => {
   let signedIn = false
   let savedProfile: { name: string; email: string; reason: string } | null = null
+  let resetReason = ''
   const account = { id: 84, name: 'Platform Operator', email: 'operator@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', is_platform_admin: true }
   const verificationUrl = 'http://127.0.0.1:4188/api/v1/auth/verify-email/110/abc123?expires=1795170000&signature=valid'
+  const resetUrl = 'http://127.0.0.1:4188/reset-password?token=local-reset-token&email=updated.learner%40example.test'
 
   await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
   await page.route('**/api/v1/me', route => route.fulfill({ status: signedIn ? 200 : 401, contentType: 'application/json', body: JSON.stringify(signedIn ? { data: account } : { message: 'Unauthenticated.' }) }))
@@ -155,6 +157,10 @@ test('platform operators can edit account identity with an audited reason and em
   await page.route('**/api/v1/platform/audit-events**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { current_page: 1, last_page: 1, per_page: 25, total: 0 } }) }))
   await page.route('**/api/v1/platform/invitations**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { current_page: 1, last_page: 1, per_page: 20, total: 0 } }) }))
   await page.route('**/api/v1/platform/users**', async route => {
+    if (route.request().method() === 'POST' && new URL(route.request().url()).pathname.endsWith('/password-reset')) {
+      resetReason = (route.request().postDataJSON() as { reason: string }).reason
+      return route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ message: 'If the account can receive a password reset, instructions have been sent.', reset_url: resetUrl }) })
+    }
     if (route.request().method() === 'PATCH') {
       savedProfile = route.request().postDataJSON() as { name: string; email: string; reason: string }
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
@@ -185,4 +191,9 @@ test('platform operators can edit account identity with an audited reason and em
   await expect(page.getByRole('table').getByText('Pending', { exact: true })).toBeVisible()
   await expect(page.getByRole('status')).toContainText('must be verified before sign-in')
   await expect(page.getByRole('link', { name: 'Open local verification link' })).toHaveAttribute('href', verificationUrl)
+  await page.getByRole('button', { name: 'Reset password', exact: true }).click()
+  await page.getByLabel('Required audit reason').fill('Account owner requested recovery.')
+  await page.getByRole('button', { name: 'Send reset link' }).click()
+  await expect.poll(() => resetReason).toBe('Account owner requested recovery.')
+  await expect(page.getByRole('link', { name: 'Open local password-reset link' })).toHaveAttribute('href', resetUrl)
 })

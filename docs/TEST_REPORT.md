@@ -6,6 +6,10 @@
 
 - Verified allowlisted Super Admins can send, review, reason-resend and reason-revoke staff invitations at active organizations. Resend rotates the token and grants a fresh seven-day expiry; revocation retains the record and invalidates the token. Recipients choose their password and activate membership by accepting the link; local mode returns a development invitation URL. Tokens are stored as hashes and excluded from audit data. `PlatformInvitationTest` plus `OrganizationInvitationTest` passed (**14 tests / 130 assertions**); Pint passed. Focused Playwright coverage for invitation create/resend/revoke and platform account administration passed (**3/3**). Root typecheck, ESLint and `npm run build` passed (17 prerendered public routes). No deployment or production email delivery was performed.
 
+## Platform password-reset links (20 November 2026)
+
+- Allowlisted verified operators can request an ordinary account's password-reset link with a required reason. The recipient chooses the new password through the existing reset flow; platform operator accounts are protected, and reset tokens are not written to audit events. `PlatformOverviewTest` passed (**8 tests / 107 assertions**) including token secrecy, audit, recipient password update and operator protection. Focused Playwright coverage passed **3/3** platform account tests, including the local reset link UI. The full Laravel suite passed **195 tests / 1,698 assertions** on in-memory SQLite; Pint, ESLint, typecheck and the production frontend build passed. The complete Chromium suite passed **25 tests in 2.6 minutes**, including the platform reset link flow. PostgreSQL 17 remains to be rerun against the latest platform migrations.
+
 ## Platform account identity maintenance (20 November 2026)
 
 - Allowlisted operators can edit ordinary account names/emails with a required audit reason. Email changes clear prior verification, send a new notification and expose a short-lived signed link in local mode; allowlisted operator accounts cannot be edited, and the endpoint cannot set passwords. `PlatformOverviewTest` passed (**7 tests / 96 assertions**), including duplicate email and protected-operator checks; Pint passed. Browser coverage verified the dashboard edit form, audit reason, pending verification state and local link. The full API suite passed **194 tests / 1,687 assertions** on in-memory SQLite, and the complete Playwright Chromium suite passed **25 tests in 2.6 minutes**. PostgreSQL 17 remains to be rerun against the latest migrations.
@@ -48,7 +52,7 @@
 
 ## Full Laravel API regression (20 November 2026)
 
-- The latest complete Laravel API suite passed **194 tests / 1,687 assertions** on in-memory SQLite (**20.29 seconds**), including invitation lifecycle and account identity updates. Before the platform migrations, the full suite passed **177 tests / 1,547 assertions** on in-memory SQLite and a disposable PostgreSQL 17 cluster; PostgreSQL 17 has not yet been rerun against the latest migrations. Hosted PostgreSQL 16 CI remains unverified. The local development SQLite database was not used for these test runs.
+- The latest complete Laravel API suite passed **195 tests / 1,698 assertions** on in-memory SQLite (**18.52 seconds**), including invitation lifecycle, account identity updates and recipient-controlled password reset. Before the platform migrations, the full suite passed **177 tests / 1,547 assertions** on in-memory SQLite and a disposable PostgreSQL 17 cluster; PostgreSQL 17 has not yet been rerun against the latest migrations. Hosted PostgreSQL 16 CI remains unverified. The local development SQLite database was not used for these test runs.
 
 ## Local email verification and sign-in (20 November 2026)
 

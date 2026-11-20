@@ -11,6 +11,7 @@ use App\Services\PlatformOperatorAccess;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -165,5 +166,52 @@ class PlatformUserController
         }
 
         return response()->json($response);
+    }
+
+    public function requestPasswordReset(Request $request, int $user, PlatformOperatorAccess $platformAccess): JsonResponse
+    {
+        $actor = $request->user();
+        abort_unless($platformAccess->allows($actor), 403);
+        $data = $request->validate(['reason' => ['required', 'string', 'min:8', 'max:500']]);
+        if (mb_strlen(trim($data['reason'])) < 8) {
+            throw ValidationException::withMessages(['reason' => ['The reason must contain at least 8 non-whitespace characters.']]);
+        }
+
+        $record = User::query()->findOrFail($user);
+        abort_if($platformAccess->allows($record), 409, 'Password resets for allowlisted platform operators must use the account recovery flow.');
+        $resetUrl = null;
+        $status = Password::sendResetLink(
+            ['email' => $record->email],
+            config('app.env') === 'local'
+                ? function (User $notifiable, string $token) use (&$resetUrl): string {
+                    $resetUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/').'/reset-password?'.http_build_query([
+                        'token' => $token,
+                        'email' => $notifiable->getEmailForPasswordReset(),
+                    ]);
+
+                    return Password::RESET_LINK_SENT;
+                }
+            : null,
+        );
+        if ($status === Password::RESET_LINK_SENT) {
+            PlatformAuditEvent::query()->create([
+                'actor_user_id' => $actor->id,
+                'organization_id' => null,
+                'organization_name' => 'Platform accounts',
+                'action' => 'user.password_reset_requested',
+                'reason' => trim($data['reason']),
+                'before' => ['user_id' => $record->id, 'email' => $record->email],
+                'after' => ['user_id' => $record->id, 'email' => $record->email, 'status' => 'reset_link_sent'],
+            ]);
+        }
+
+        $response = [
+            'message' => 'If the account can receive a password reset, instructions have been sent.',
+        ];
+        if (config('app.env') === 'local' && $status === Password::RESET_LINK_SENT && $resetUrl !== null) {
+            $response['reset_url'] = $resetUrl;
+        }
+
+        return response()->json($response, 202);
     }
 }

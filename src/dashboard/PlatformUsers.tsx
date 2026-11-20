@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { AlertCircle, LoaderCircle, RefreshCw, Search, Users } from 'lucide-react'
+import { AlertCircle, KeyRound, LoaderCircle, RefreshCw, Search, Users } from 'lucide-react'
 import { api } from '../lib/api'
 import PlatformInvitationForm from './PlatformInvitationForm'
 import PlatformInvitationAdmin from './PlatformInvitationAdmin'
@@ -32,7 +32,9 @@ export default function PlatformUsers({ initialRole = '' }: { initialRole?: stri
   const [statusFilter, setStatusFilter] = useState('')
   const [pendingChange, setPendingChange] = useState<{ user: UserRow; status: 'active' | 'suspended'; reason: string } | null>(null)
   const [pendingProfile, setPendingProfile] = useState<{ user: UserRow; name: string; email: string; reason: string } | null>(null)
+  const [pendingPasswordReset, setPendingPasswordReset] = useState<{ user: UserRow; reason: string } | null>(null)
   const [verificationUrl, setVerificationUrl] = useState('')
+  const [passwordResetUrl, setPasswordResetUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [refresh, setRefresh] = useState(0)
 
@@ -108,6 +110,27 @@ export default function PlatformUsers({ initialRole = '' }: { initialRole?: stri
     }
   }
 
+  async function requestPasswordReset(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!pendingPasswordReset || pendingPasswordReset.reason.trim().length < 8 || saving) return
+    setSaving(true)
+    setError('')
+    setMessage('')
+    setVerificationUrl('')
+    setPasswordResetUrl('')
+    try {
+      const result = await api.post<{ message: string; reset_url?: string }>(`/api/v1/platform/users/${pendingPasswordReset.user.id}/password-reset`, { reason: pendingPasswordReset.reason.trim() })
+      setMessage(result.message)
+      setPasswordResetUrl(result.reset_url ?? '')
+      setPendingPasswordReset(null)
+      setRefresh(value => value + 1)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not request a password reset for this account.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return <section className="dash-panel dash-masters-panel platform-org-directory">
     <div className="dash-panel-heading"><div><span className="dash-panel-kicker">PLATFORM OPERATIONS</span><h2>Users</h2><p className="dash-record-subtitle">Review account access and record a reason when suspending or restoring an account. Passwords and private tokens are never returned.</p></div><button type="button" className="dash-icon-button" onClick={() => setRefresh(value => value + 1)} aria-label="Refresh users"><RefreshCw size={16} /></button></div>
     <PlatformInvitationForm onCreated={() => setRefresh(value => value + 1)} />
@@ -120,9 +143,10 @@ export default function PlatformUsers({ initialRole = '' }: { initialRole?: stri
       <button className="master-action" type="submit">Search</button><span>{total} accounts</span>
     </form>
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
-    {message && <div className="master-feedback master-success" role="status">{message}{verificationUrl ? <> <a href={verificationUrl} target="_blank" rel="noreferrer">Open local verification link</a></> : null}</div>}
-    {loading && rows.length === 0 ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading users…</p> : rows.length ? <div className="dash-table-scroll"><table><thead><tr><th>ACCOUNT</th><th>EMAIL</th><th>VERIFICATION</th><th>ACCOUNT STATUS</th><th>ACTIVE ORGANIZATIONS</th><th>CREATED</th><th>ACTION</th></tr></thead><tbody>{rows.map(user => <tr key={user.id}><td><b>{user.name}</b></td><td>{user.email}</td><td><span className={`table-status ${user.email_verified_at ? 'status-live' : ''}`}><i />{user.email_verified_at ? 'Verified' : 'Pending'}</span></td><td><span className={`table-status ${user.platform_status === 'active' ? 'status-live' : ''}`}><i />{user.platform_status === 'active' ? 'Active' : 'Suspended'}</span></td><td>{user.active_organizations}</td><td>{user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</td><td>{user.status_change_allowed ? <div className="platform-user-row-actions"><button className="master-action" type="button" onClick={() => { setError(''); setPendingChange(null); setPendingProfile({ user, name: user.name, email: user.email, reason: '' }) }}>Edit identity</button><button className="master-action" type="button" onClick={() => { setPendingProfile(null); setPendingChange({ user, status: user.platform_status === 'active' ? 'suspended' : 'active', reason: '' }) }}>{user.platform_status === 'active' ? 'Suspend' : 'Restore'}</button></div> : <span className="platform-user-protected">Operator protected</span>}</td></tr>)}</tbody></table></div> : !error && <p className="master-empty"><Users size={18} />No accounts match these filters.</p>}
+    {message && <div className="master-feedback master-success" role="status">{message}{verificationUrl ? <> <a href={verificationUrl} target="_blank" rel="noreferrer">Open local verification link</a></> : null}{passwordResetUrl ? <> <a href={passwordResetUrl} target="_blank" rel="noreferrer">Open local password-reset link</a></> : null}</div>}
+    {loading && rows.length === 0 ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading users…</p> : rows.length ? <div className="dash-table-scroll"><table><thead><tr><th>ACCOUNT</th><th>EMAIL</th><th>VERIFICATION</th><th>ACCOUNT STATUS</th><th>ACTIVE ORGANIZATIONS</th><th>CREATED</th><th>ACTION</th></tr></thead><tbody>{rows.map(user => <tr key={user.id}><td><b>{user.name}</b></td><td>{user.email}</td><td><span className={`table-status ${user.email_verified_at ? 'status-live' : ''}`}><i />{user.email_verified_at ? 'Verified' : 'Pending'}</span></td><td><span className={`table-status ${user.platform_status === 'active' ? 'status-live' : ''}`}><i />{user.platform_status === 'active' ? 'Active' : 'Suspended'}</span></td><td>{user.active_organizations}</td><td>{user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</td><td>{user.status_change_allowed ? <div className="platform-user-row-actions"><button className="master-action" type="button" onClick={() => { setError(''); setPendingChange(null); setPendingPasswordReset(null); setPendingProfile({ user, name: user.name, email: user.email, reason: '' }) }}>Edit identity</button><button className="master-action" type="button" onClick={() => { setPendingProfile(null); setPendingPasswordReset(null); setPendingChange({ user, status: user.platform_status === 'active' ? 'suspended' : 'active', reason: '' }) }}>{user.platform_status === 'active' ? 'Suspend' : 'Restore'}</button><button className="master-action" type="button" onClick={() => { setError(''); setPendingProfile(null); setPendingChange(null); setPendingPasswordReset({ user, reason: '' }) }}>Reset password</button></div> : <span className="platform-user-protected">Operator protected</span>}</td></tr>)}</tbody></table></div> : !error && <p className="master-empty"><Users size={18} />No accounts match these filters.</p>}
     {pendingProfile ? <form className="platform-user-profile-form" onSubmit={event => void saveProfile(event)}><div><b>Edit account identity · {pendingProfile.user.name}</b><p>A changed email address becomes unverified and requires a new verification link. Allowlisted platform operator accounts are protected.</p></div><label htmlFor="platform-user-name">Account name</label><input id="platform-user-name" required minLength={2} maxLength={120} value={pendingProfile.name} onChange={event => setPendingProfile(current => current ? { ...current, name: event.target.value } : current)} /><label htmlFor="platform-user-email">Email address</label><input id="platform-user-email" type="email" required maxLength={254} value={pendingProfile.email} onChange={event => setPendingProfile(current => current ? { ...current, email: event.target.value } : current)} /><label htmlFor="platform-user-profile-reason">Required audit reason</label><textarea id="platform-user-profile-reason" required minLength={8} maxLength={500} value={pendingProfile.reason} onChange={event => setPendingProfile(current => current ? { ...current, reason: event.target.value } : current)} placeholder="At least 8 characters" /><div><button type="button" className="master-action" disabled={saving} onClick={() => setPendingProfile(null)}>Cancel</button><button type="submit" className="master-submit" disabled={saving || pendingProfile.reason.trim().length < 8}>{saving ? 'Saving…' : 'Save identity'}</button></div></form> : null}
+    {pendingPasswordReset ? <form className="platform-user-profile-form" onSubmit={event => void requestPasswordReset(event)}><div><b>Request password reset · {pendingPasswordReset.user.name}</b><p>The reset link is sent to the account email. The recipient chooses the new password; operators never see it.</p></div><label htmlFor="platform-user-reset-reason">Required audit reason</label><textarea id="platform-user-reset-reason" required minLength={8} maxLength={500} value={pendingPasswordReset.reason} onChange={event => setPendingPasswordReset(current => current ? { ...current, reason: event.target.value } : current)} placeholder="At least 8 characters" /><div><button type="button" className="master-action" disabled={saving} onClick={() => setPendingPasswordReset(null)}>Cancel</button><button type="submit" className="master-submit" disabled={saving || pendingPasswordReset.reason.trim().length < 8}>{saving ? 'Sending…' : <><KeyRound size={14} /> Send reset link</>}</button></div></form> : null}
     {pendingChange ? <form className="platform-user-status-form" onSubmit={event => void saveStatus(event)}><div><b>{pendingChange.status === 'suspended' ? 'Suspend account' : 'Restore account'} · {pendingChange.user.name}</b><p>{pendingChange.status === 'suspended' ? 'The user will lose access to authenticated platform endpoints immediately.' : 'The user will regain account access.'} Allowlisted platform operator accounts are protected from this action.</p></div><label htmlFor="platform-user-reason">Required reason</label><textarea id="platform-user-reason" required minLength={8} maxLength={500} value={pendingChange.reason} onChange={event => setPendingChange(current => current ? { ...current, reason: event.target.value } : current)} placeholder="At least 8 characters" /><div><button type="button" className="master-action" disabled={saving} onClick={() => setPendingChange(null)}>Cancel</button><button type="submit" className="master-submit" disabled={saving || pendingChange.reason.trim().length < 8}>{saving ? 'Saving…' : 'Confirm status change'}</button></div></form> : null}
     <div className="platform-directory-pagination"><span>Page {page} of {lastPage}</span><button className="master-action" type="button" disabled={loading || page <= 1} onClick={() => setPage(value => value - 1)}>Previous</button><button className="master-action" type="button" disabled={loading || page >= lastPage} onClick={() => setPage(value => value + 1)}>Next</button></div>
   </section>

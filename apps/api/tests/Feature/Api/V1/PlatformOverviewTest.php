@@ -12,6 +12,7 @@ use App\Models\User;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -243,6 +244,45 @@ class PlatformOverviewTest extends TestCase
         $this->patchJson("/api/v1/platform/users/{$member->id}/profile", [
             'name' => 'Updated Name', 'email' => $member->email, 'reason' => '     ',
         ])->assertUnprocessable()->assertJsonValidationErrors('reason');
+        $this->assertDatabaseCount('platform_audit_events', 1);
+    }
+
+    public function test_allowlisted_operator_can_request_a_recipient_chosen_password_reset(): void
+    {
+        Config::set('services.platform.admin_emails', ['operator@example.com', 'protected@example.com']);
+        Config::set('app.env', 'local');
+        $operator = User::factory()->create(['email' => 'operator@example.com']);
+        $member = User::factory()->create(['email' => 'reset-me@example.com', 'password' => 'OriginalPass123']);
+        $protectedOperator = User::factory()->create(['email' => 'protected@example.com']);
+        Sanctum::actingAs($operator);
+
+        $response = $this->postJson("/api/v1/platform/users/{$member->id}/password-reset", [
+            'reason' => 'Account owner requested recovery',
+        ])->assertAccepted()
+            ->assertJsonPath('message', 'If the account can receive a password reset, instructions have been sent.');
+        $resetUrl = $response->json('reset_url');
+        $this->assertIsString($resetUrl);
+        parse_str((string) parse_url($resetUrl, PHP_URL_QUERY), $query);
+        $this->assertSame($member->email, $query['email'] ?? null);
+        $this->assertIsString($query['token'] ?? null);
+        $this->assertDatabaseHas('platform_audit_events', [
+            'actor_user_id' => $operator->id,
+            'action' => 'user.password_reset_requested',
+            'reason' => 'Account owner requested recovery',
+            'after->status' => 'reset_link_sent',
+        ]);
+        $this->assertStringNotContainsString($query['token'], (string) PlatformAuditEvent::query()->firstOrFail()->getRawOriginal('after'));
+
+        $this->postJson('/api/v1/auth/reset-password', [
+            'email' => $member->email,
+            'token' => $query['token'],
+            'password' => 'UpdatedPassword123',
+            'password_confirmation' => 'UpdatedPassword123',
+        ])->assertOk();
+        $this->assertTrue(Hash::check('UpdatedPassword123', $member->fresh()->password));
+        $this->postJson("/api/v1/platform/users/{$protectedOperator->id}/password-reset", [
+            'reason' => 'Operator password request',
+        ])->assertStatus(409);
         $this->assertDatabaseCount('platform_audit_events', 1);
     }
 
