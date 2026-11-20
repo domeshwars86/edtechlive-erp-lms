@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureActivePlatformAccount;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
         $middleware->alias(['account.active' => EnsureActivePlatformAccount::class]);
+    })
+    ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command('ai:purge-usage')->dailyAt('03:10')->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

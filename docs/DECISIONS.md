@@ -39,3 +39,7 @@
 ## 2026-11-19 — Apply board-style scoring at the server boundary
 
 **Context:** Objective quizzes need optional penalty scoring and a clear pass threshold. **Decision:** Allow draft quizzes to set a negative-marking rate from 0 to 1 and an optional 0–100 pass percentage. Penalize only answered wrong objective questions by points × rate, clamp the combined score at zero, and defer pass/fail while written responses are pending. **Trade-off:** These scoring controls do not yet provide board-specific paper sections, exam series, or section-level analytics.
+
+## 2026-11-20 — Keep the first AI authoring feature local and reviewable
+
+**Context:** The educational platform needs a basic AI capability without making it mandatory or sending learner records to an unconfigured provider. **Decision:** Offer optional teacher lesson-plan drafts through an explicitly configured local Ollama model. The endpoint sends only course metadata and educator-entered topic/objectives, caps requests per user, reports model token usage without storing prompts or outputs, and requires manual educator review before use. Usage metadata expires after 90 days. **Trade-off:** Student tutoring, course-material retrieval, cloud providers and advanced moderation are not included; the feature is hidden and unavailable until an operator configures the local model.

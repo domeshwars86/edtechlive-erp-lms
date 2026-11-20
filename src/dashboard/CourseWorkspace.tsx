@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { AlertCircle, BookOpen, Check, CheckCircle2, LoaderCircle, Plus, Save } from 'lucide-react'
-import { api } from '../lib/api'
+import { AlertCircle, BookOpen, Check, CheckCircle2, LoaderCircle, Plus, Save, Sparkles } from 'lucide-react'
+import { ApiError, api } from '../lib/api'
 import { useAuth } from '../auth/useAuth'
 
 type Course = { id: number; title: string; slug: string | null; level: string | null; description: string | null; status: 'draft' | 'published' | 'archived'; is_public_listing: boolean; subject: { id: number; name: string } | null; teacher: { id: number; name: string } | null }
@@ -13,6 +13,7 @@ type CourseProgressSummary = { completed: number; total: number; percent: number
 type StudentProgress = { data: { lesson_id: number; completed_at: string | null }[]; summary: CourseProgressSummary }
 type LearnerProgress = { student: Student; completed: number; total: number; percent: number }
 type LearnerProgressReport = { data: LearnerProgress[]; summary: { learners: number; average_percent: number; lessons: number } }
+type AiConfiguration = { enabled: boolean; model: string | null; daily_limit: number; usage: { requests_30_days: number; prompt_tokens_30_days: number; completion_tokens_30_days: number; requests_today: number } }
 
 export default function CourseWorkspace({ organizationId, mode }: { organizationId: number; mode: 'manage' | 'student' }) {
   const base = `/api/v1/organizations/${organizationId}`
@@ -42,6 +43,13 @@ export default function CourseWorkspace({ organizationId, mode }: { organization
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [aiConfiguration, setAiConfiguration] = useState<AiConfiguration | null>(null)
+  const [aiTopic, setAiTopic] = useState('')
+  const [aiGradeLevel, setAiGradeLevel] = useState('')
+  const [aiObjectives, setAiObjectives] = useState('')
+  const [aiLanguage, setAiLanguage] = useState<'English' | 'Hindi'>('English')
+  const [aiDraft, setAiDraft] = useState('')
+  const [aiGenerating, setAiGenerating] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -53,10 +61,14 @@ export default function CourseWorkspace({ organizationId, mode }: { organization
     if (mode === 'manage') api.get<{ data: Student[] }>(`${base}/students?status=active&per_page=100`)
       .then(result => { if (!cancelled) setStudents(result.data) })
       .catch(() => { if (!cancelled) setStudents([]) })
+    if (mode === 'manage') api.get<AiConfiguration>(`${base}/ai/config`)
+      .then(result => { if (!cancelled) setAiConfiguration(result) })
+      .catch(() => { if (!cancelled) setAiConfiguration(null) })
     return () => { cancelled = true }
   }, [base, mode])
 
   const selectedCourse = courses.find(course => course.id === selectedId) ?? null
+  useEffect(() => { setAiDraft('') }, [selectedId])
   const publicCoursePath = selectedCourse?.slug && activeMembership?.organization.slug
     ? `/courses/${encodeURIComponent(activeMembership.organization.slug)}/${encodeURIComponent(selectedCourse.slug)}`
     : null
@@ -187,6 +199,31 @@ export default function CourseWorkspace({ organizationId, mode }: { organization
     }
   }
 
+  async function generateLessonPlan(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!selectedCourse) return
+    setAiGenerating(true); setError(''); setMessage('')
+    try {
+      const result = await api.post<{ data: { draft: string; model: string; usage: { prompt_tokens: number; completion_tokens: number }; review_required: true } }>(`${base}/ai/courses/${selectedCourse.id}/lesson-plan`, {
+        topic: aiTopic, grade_level: aiGradeLevel || null, objectives: aiObjectives, language: aiLanguage,
+      })
+      setAiDraft(result.data.draft)
+      setAiConfiguration(current => current ? { ...current, usage: { ...current.usage, requests_today: current.usage.requests_today + 1, requests_30_days: current.usage.requests_30_days + 1, prompt_tokens_30_days: current.usage.prompt_tokens_30_days + result.data.usage.prompt_tokens, completion_tokens_30_days: current.usage.completion_tokens_30_days + result.data.usage.completion_tokens } } : current)
+      setMessage(`Draft generated with ${result.data.model}. Review and edit it before using.`)
+    } catch (reason) {
+      if (reason instanceof ApiError && reason.status === 503) {
+        setAiConfiguration(current => current ? { ...current, usage: { ...current.usage, requests_today: current.usage.requests_today + 1, requests_30_days: current.usage.requests_30_days + 1 } } : current)
+      }
+      setError(reason instanceof Error ? reason.message : 'Could not generate a lesson-plan draft.')
+    } finally { setAiGenerating(false) }
+  }
+
+  async function copyAiDraft() {
+    if (!aiDraft) return
+    try { await navigator.clipboard.writeText(aiDraft); setMessage('AI lesson-plan draft copied for educator review.') }
+    catch { setError('Could not copy the draft. Select the text and copy it manually.') }
+  }
+
   async function enrollStudents(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!selectedCourse || selectedStudents.length === 0) return
     setSaving(true); setError(''); setMessage('')
@@ -223,6 +260,7 @@ export default function CourseWorkspace({ organizationId, mode }: { organization
     <section className="dash-panel dash-masters-panel"><div className="dash-panel-heading"><div><span className="dash-panel-kicker">{mode === 'student' ? 'MY LEARNING' : 'COURSE LIBRARY'}</span><h2>{mode === 'student' ? 'Enrolled courses' : 'Courses and lessons'}</h2><p className="dash-record-subtitle">{mode === 'student' ? 'Published courses you have been enrolled in by your institution.' : 'Manage lesson content and enrollment using saved organization records.'}</p></div>{loading && <LoaderCircle className="master-spin" size={18} />}</div>
       {loading ? <p className="master-empty">Loading courses…</p> : courses.length === 0 ? <p className="master-empty"><BookOpen size={18} />{mode === 'student' ? 'You are not enrolled in a published course yet.' : 'No courses yet. Create one above to begin.'}</p> : <div className="course-layout"><nav className="course-list" aria-label="Courses">{courses.map(course => <button key={course.id} className={course.id === selectedId ? 'course-selected' : ''} onClick={() => setSelectedId(course.id)}><b>{course.title}</b><small>{course.level ?? 'Course'} · {course.status}</small></button>)}</nav>{selectedCourse && <article className="course-detail"><div className="course-detail-heading"><div><span className={`course-status ${selectedCourse.status}`}>{selectedCourse.status}</span><h3>{selectedCourse.title}</h3><p>{selectedCourse.description || 'No course description has been added.'}</p>{mode === 'student' && <p className="course-progress-label">Progress: {progressSummary.completed} of {progressSummary.total} lessons · {progressSummary.percent}%</p>}</div>{mode === 'manage' && selectedCourse.status === 'draft' && <button className="master-submit" onClick={() => void publishCourse()} disabled={saving}>Publish course</button>}</div>
         {mode === 'manage' && <section className="course-public-listing" aria-labelledby={`public-listing-heading-${selectedCourse.id}`}><div><h4 id={`public-listing-heading-${selectedCourse.id}`}>Public course listing</h4><p>When enabled, visitors can find this course on the public site and see its title, description, subject, level, institution, and published lesson count. Lesson content and learner records stay in the organization workspace.</p></div>{selectedCourse.status === 'published' ? <div className="course-public-listing-controls"><label className="course-public-listing-toggle"><input type="checkbox" checked={selectedCourse.is_public_listing} disabled={saving} onChange={event => void setPublicListing(event.currentTarget.checked)} /><span>List this course publicly</span></label>{selectedCourse.is_public_listing && publicCoursePath && <div className="course-public-listing-actions"><a className="master-action" href={publicCoursePath} target="_blank" rel="noreferrer">Open public listing</a><button className="master-action" type="button" onClick={() => void copyPublicCourseLink()}>Copy link</button></div>}{selectedCourse.is_public_listing && !publicCoursePath && <p className="course-public-listing-note">The public link is not available yet. Refresh the course details and try again.</p>}</div> : <p className="course-public-listing-note">{selectedCourse.status === 'draft' ? 'Publish this course first to enable public listing.' : 'Only published courses can be listed publicly.'}</p>}</section>}
+        {mode === 'manage' && aiConfiguration?.enabled && <section className="course-ai-panel" aria-labelledby="course-ai-title"><div className="course-ai-heading"><span className="course-ai-icon"><Sparkles size={16} /></span><div><h4 id="course-ai-title">AI lesson-plan draft</h4><p>Uses your locally configured model. No student records are sent. Review every suggestion before using it.</p></div></div><form className="course-form course-ai-form" onSubmit={event => void generateLessonPlan(event)}><label>Topic<input value={aiTopic} onChange={event => setAiTopic(event.target.value)} required minLength={3} maxLength={180} placeholder="For example, the water cycle" /></label><label>Grade or age range (optional)<input value={aiGradeLevel} onChange={event => setAiGradeLevel(event.target.value)} maxLength={80} placeholder="For example, Grade 6" /></label><label>Learning objectives<textarea value={aiObjectives} onChange={event => setAiObjectives(event.target.value)} required minLength={10} maxLength={1000} rows={3} placeholder="What should learners understand or be able to do?" /></label><label>Draft language<select value={aiLanguage} onChange={event => setAiLanguage(event.target.value as 'English' | 'Hindi')}><option>English</option><option>Hindi</option></select></label><button className="master-submit" disabled={aiGenerating || saving || aiConfiguration.usage.requests_today >= aiConfiguration.daily_limit}><Sparkles size={15} />{aiGenerating ? 'Drafting…' : 'Generate lesson-plan draft'}</button></form><small className="course-ai-usage">{aiConfiguration.usage.requests_today} of {aiConfiguration.daily_limit} daily requests used · Last 30 days: {aiConfiguration.usage.prompt_tokens_30_days + aiConfiguration.usage.completion_tokens_30_days} model tokens recorded. Prompt and draft text are not stored.</small>{aiDraft && <div className="course-ai-result"><pre>{aiDraft}</pre><button className="master-action" type="button" onClick={() => void copyAiDraft()}>Copy draft to edit</button></div>}</section>}
         {mode === 'manage' && <section className="course-module-manager"><h4>Course modules</h4><p className="course-module-note">Group lessons into a clear learning sequence. Lessons can also stay outside a module.</p>{modules.length ? <div className="course-module-list">{modules.map(module => <form className="course-module-edit" key={module.id} onSubmit={event => void updateModule(event, module)}><label>Module title<input name="title" defaultValue={module.title} required minLength={2} maxLength={160} /></label><label>Description<input name="description" defaultValue={module.description ?? ''} maxLength={5000} /></label><label>Order<input name="sort_order" type="number" defaultValue={module.sort_order} min={0} max={10000} /></label><button className="master-action" disabled={saving}>Save</button></form>)}</div> : <p className="master-empty">No modules have been added yet.</p>}<form className="course-form course-module-form" onSubmit={event => void createModule(event)}><h5>Add a module</h5><label>Module title<input value={moduleTitle} onChange={event => setModuleTitle(event.target.value)} required minLength={2} maxLength={160} placeholder="For example, Getting started" /></label><label>Description<textarea value={moduleDescription} onChange={event => setModuleDescription(event.target.value)} maxLength={5000} rows={2} /></label><button className="master-submit" disabled={saving}><Plus size={15} />{saving ? 'Saving…' : 'Create module'}</button></form></section>}
         <div className="course-lessons"><h4>Lessons</h4>{lessons.length ? <>{modules.map(module => { const moduleLessons = lessons.filter(lesson => lesson.module?.id === module.id); return moduleLessons.length ? <section className="course-module-content" key={module.id}><h5>{module.sort_order}. {module.title}</h5>{module.description && <p>{module.description}</p>}{moduleLessons.map(renderLesson)}</section> : null })}{lessons.some(lesson => !lesson.module) && <section className="course-module-content"><h5>Other lessons</h5>{lessons.filter(lesson => !lesson.module).map(renderLesson)}</section>}</> : <p className="master-empty">No lessons have been added to this course.</p>}</div>
         <div className="course-assets"><h4>Study materials</h4>{assets.length ? <ul>{assets.map(asset => <li key={asset.id}><div><b>{asset.title}</b><small>{asset.filename} · {Math.ceil(asset.size_bytes / 1024)} KB{mode === 'manage' && !asset.is_published ? ' · Private draft' : ''}</small></div>{mode === 'manage' && !asset.is_published ? <button className="master-action" onClick={() => void publishAsset(asset)} disabled={saving || selectedCourse.status !== 'published'}>Publish</button> : <a href={asset.download_url}>Download</a>}</li>)}</ul> : <p className="master-empty">No files have been added to this course.</p>}{mode === 'manage' && <form className="course-form course-asset-form" onSubmit={event => void uploadAsset(event)}><h4>Upload a private study file</h4><label>Display title<input value={assetTitle} onChange={event => setAssetTitle(event.target.value)} required minLength={2} maxLength={180} /></label><label>File (PDF, Office document, or image · up to 20 MB)<input ref={assetInput} type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg,.webp" onChange={event => setAssetFile(event.target.files?.[0] ?? null)} required /></label><button className="master-submit" disabled={saving || !assetFile}><Save size={15} />{saving ? 'Uploading…' : 'Upload privately'}</button></form>}</div>

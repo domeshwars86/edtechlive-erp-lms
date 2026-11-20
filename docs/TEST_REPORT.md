@@ -6,6 +6,10 @@
 
 - Added optional Test Mode checkout for a student's or explicitly linked parent's outstanding fee balance. The API derives the amount, creates idempotent orders, verifies signed callbacks against Razorpay's fetched captured payment, and deduplicates signed captured-payment webhooks before updating the ledger. Staff-entered receipts are blocked while an online order is pending to avoid double collection. `RazorpayPaymentTest` passed (**7 tests / 56 assertions**); full API suite passed (**202 tests / 1,754 assertions**). Typecheck, ESLint, Pint and production build passed. The full serial Chromium suite passed (**26 tests in 3.5 minutes**), including local account verification/login and mocked provider checkout. No Razorpay sandbox credentials were available, so an external sandbox payment was not performed. Test Mode is the only accepted configuration; live charges and refunds are not enabled.
 
+## Local Ollama educator lesson-plan drafts (20 November 2026)
+
+- Added an opt-in course-workspace generator for teacher-reviewed lesson plans in English or Hindi. Only educator topic/objectives and course metadata are sent to a configured local Ollama service; public hosts and cloud metadata addresses are rejected. Student records and stored lesson content are not sent. A per-user daily quota and route throttle apply; usage persists token counts/model/status only, with an automated 90-day purge. `AiAssistanceTest` passed (**6 tests / 41 assertions**); the complete API suite passed (**208 tests / 1,795 assertions**). The focused browser flow and full 27-test Chromium suite passed; build, typecheck, ESLint and Pint passed. No Ollama model was configured in this environment, so provider behavior was mocked in tests and the feature remains hidden in the local preview by default.
+
 ## Platform staff account invitations (20 November 2026)
 
 - Verified allowlisted Super Admins can send, review, reason-resend and reason-revoke staff invitations at active organizations. Resend rotates the token and grants a fresh seven-day expiry; revocation retains the record and invalidates the token. Recipients choose their password and activate membership by accepting the link; local mode returns a development invitation URL. Tokens are stored as hashes and excluded from audit data. `PlatformInvitationTest` plus `OrganizationInvitationTest` passed (**14 tests / 130 assertions**); Pint passed. Focused Playwright coverage for invitation create/resend/revoke and platform account administration passed (**3/3**). Root typecheck, ESLint and `npm run build` passed (17 prerendered public routes). No deployment or production email delivery was performed.
@@ -56,7 +60,7 @@
 
 ## Full Laravel API regression (20 November 2026)
 
-- The latest complete Laravel API suite passed **195 tests / 1,698 assertions** on in-memory SQLite (**18.52 seconds**), including invitation lifecycle, account identity updates and recipient-controlled password reset. Before the platform migrations, the full suite passed **177 tests / 1,547 assertions** on in-memory SQLite and a disposable PostgreSQL 17 cluster; PostgreSQL 17 has not yet been rerun against the latest migrations. Hosted PostgreSQL 16 CI remains unverified. The local development SQLite database was not used for these test runs.
+- The latest complete Laravel API suite passed **208 tests / 1,795 assertions** on in-memory SQLite (**20.66 seconds**), including invitation lifecycle, account identity updates and recipient-controlled password reset. Before the platform migrations, the full suite passed **177 tests / 1,547 assertions** on in-memory SQLite and a disposable PostgreSQL 17 cluster; PostgreSQL 17 has not yet been rerun against the latest migrations. Hosted PostgreSQL 16 CI remains unverified. The local development SQLite database was not used for these test runs.
 
 ## Local email verification and sign-in (20 November 2026)
 

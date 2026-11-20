@@ -63,4 +63,12 @@ return [
         'brand_name' => env('RAZORPAY_BRAND_NAME', 'edTechLive'),
     ],
 
+    'ai' => [
+        // Optional local Ollama service. No provider is contacted until explicitly configured.
+        'driver' => env('AI_DRIVER', 'disabled'),
+        'base_url' => env('AI_BASE_URL', 'http://127.0.0.1:11434'),
+        'model' => env('AI_MODEL'),
+        'daily_user_limit' => (int) env('AI_DAILY_USER_LIMIT', 10),
+    ],
+
 ];

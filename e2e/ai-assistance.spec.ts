@@ -1,0 +1,72 @@
+import { expect, test } from '@playwright/test'
+
+test('educator course workspace creates a locally configured AI lesson-plan draft for review', async ({ page }) => {
+  let signedIn = false
+  let submittedPrompt: Record<string, unknown> | null = null
+  const account = { id: 42, name: 'Course Author', email: 'author@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', is_platform_admin: false }
+  const membership = {
+    membership_id: 12,
+    role: 'admin',
+    organization: { id: 18, name: 'Browser Test School', slug: 'browser-test-school', type: 'school', status: 'active', timezone: 'Asia/Kolkata' },
+  }
+  const course = { id: 7, title: 'Foundations of Science', slug: 'foundations-of-science', level: 'Grade 6', description: 'Explore natural systems.', status: 'draft', is_public_listing: false, subject: { id: 3, name: 'Science' }, teacher: null }
+
+  await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
+  await page.route('**/api/v1/me', route => route.fulfill({
+    status: signedIn ? 200 : 401,
+    contentType: 'application/json',
+    body: JSON.stringify(signedIn ? { data: account } : { message: 'Unauthenticated.' }),
+  }))
+  await page.route('**/api/v1/auth/login', route => {
+    signedIn = true
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: account }) })
+  })
+  await page.route('**/api/v1/organizations?per_page=100', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ data: [membership], preferred_organization_id: null, meta: { current_page: 1, last_page: 1, per_page: 100, total: 1 } }),
+  }))
+  await page.route('**/api/v1/me/organization', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: membership }) }))
+  await page.route('**/api/v1/organizations/18/**', async route => {
+    const request = route.request()
+    const pathname = new URL(request.url()).pathname
+    if (pathname.endsWith('/dashboard/summary')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: {
+        kind: 'admin', date: '2026-11-20', students: 0, teachers: 0, classes_today: 0, attendance_today: { records: 0, rate: null },
+      } }) })
+    }
+    if (pathname.endsWith('/dashboard/activity')) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { days: [] } }) })
+    if (pathname.endsWith('/ai/config')) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      enabled: true, model: 'educator-test-model', daily_limit: 10,
+      usage: { requests_30_days: 1, prompt_tokens_30_days: 100, completion_tokens_30_days: 50, requests_today: 0 },
+    }) })
+    if (pathname.endsWith('/courses/7/lesson-plan') && request.method() === 'POST') {
+      submittedPrompt = request.postDataJSON() as Record<string, unknown>
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: {
+        draft: 'Learning goals\nExplain how the water cycle moves water through the environment.\n\nLesson sequence\n1. Observe a diagram.',
+        model: 'educator-test-model', usage: { prompt_tokens: 125, completion_tokens: 42 }, review_required: true,
+      } }) })
+    }
+    if (pathname.endsWith('/courses') && request.method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [course] }) })
+    if (pathname.endsWith('/students')) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) })
+    if (/\/courses\/7\/(lessons|assets|modules)$/.test(pathname)) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) })
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { current_page: 1, last_page: 1, per_page: 25, total: 0 } }) })
+  })
+
+  await page.goto('/login')
+  await page.getByRole('textbox', { name: 'Email address' }).fill(account.email)
+  await page.getByLabel('Password', { exact: true }).fill('LocalBrowserPass123')
+  await page.getByRole('button', { name: 'Log in' }).click()
+  await page.getByRole('button', { name: /Browser Test School/ }).click()
+  await page.getByRole('button', { name: 'Courses', exact: true }).click()
+
+  await expect(page.getByRole('heading', { name: 'Courses and lessons' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'AI lesson-plan draft' })).toBeVisible()
+  await page.getByRole('textbox', { name: 'Topic' }).fill('The water cycle')
+  await page.getByRole('textbox', { name: 'Learning objectives' }).fill('Explain how water moves through the environment.')
+  await page.getByRole('button', { name: 'Generate lesson-plan draft' }).click()
+
+  await expect(page.getByText(/Explain how the water cycle moves water/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Copy draft to edit' })).toBeVisible()
+  await expect(page.getByText(/Draft generated with educator-test-model/)).toBeVisible()
+  expect(submittedPrompt).toEqual({ topic: 'The water cycle', grade_level: null, objectives: 'Explain how water moves through the environment.', language: 'English' })
+})
