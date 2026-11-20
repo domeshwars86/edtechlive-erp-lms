@@ -138,7 +138,7 @@ jobs:
           exit 1
 
   mobile:
-    name: Expo mobile typecheck and Android bundle
+    name: Expo mobile typecheck and Android/iOS bundle exports
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -153,3 +153,4 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npx expo export --platform android --no-bytecode --no-minify --output-dir .expo-build
+      - run: npx expo export --platform ios --no-bytecode --no-minify --output-dir .expo-build-ios

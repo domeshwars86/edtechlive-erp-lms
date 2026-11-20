@@ -13,6 +13,7 @@ test-results/
 apps/mobile/node_modules/
 apps/mobile/.expo/
 apps/mobile/.expo-build/
+apps/mobile/.expo-build-ios/
 apps/mobile/.expo-tmp/
 apps/mobile/.tmp/
 apps/mobile/dist-android/

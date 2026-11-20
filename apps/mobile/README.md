@@ -13,3 +13,5 @@ Use Node.js 20.19.4 or newer in the Node 20 line (or a newer SDK 56 supported LT
 3. Start the Metro development server with `npm start`.
 
 Tokens are stored using Expo SecureStore, not AsyncStorage. The API remains authoritative for verification, organization access, course enrollment, and permissions. Native Android/iOS builds require the respective SDK/toolchain and are not available in every development environment.
+
+CI typechecks the app and exports JavaScript bundles for both Android and iOS. These exports do not build native application packages; iOS signing, Xcode builds and device QA still require the Apple toolchain.

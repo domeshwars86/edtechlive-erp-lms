@@ -6,6 +6,10 @@
 
 - Added Vitest, jsdom and React Testing Library to the web project and CI. Component tests cover account creation with an in-page local verification action, plus the login recovery path when an unverified account requests a link, confirms it in-page, and proceeds to workspace selection. `npm run test:unit` passed (**2 tests**); typecheck, ESLint and production build passed. This is initial component coverage, not a complete component regression suite.
 
+## Mobile iOS bundle export (20 November 2026)
+
+- Expo exported the iOS JavaScript bundle successfully (**569 modules; 2.6 MB**) under supported Node 24.22.3. The CI mobile job now exports Android and iOS bundles. Native IPA/Xcode builds, signing, simulator and device QA remain unverified; the export is not a native app build.
+
 ## Razorpay Test Mode fee checkout (20 November 2026)
 
 - Added optional Test Mode checkout for a student's or explicitly linked parent's outstanding fee balance. The API derives the amount, creates idempotent orders, verifies signed callbacks against Razorpay's fetched captured payment, and deduplicates signed captured-payment webhooks before updating the ledger. Staff-entered receipts are blocked while an online order is pending to avoid double collection. `RazorpayPaymentTest` passed (**7 tests / 56 assertions**); full API suite passed (**202 tests / 1,754 assertions**). Typecheck, ESLint, Pint and production build passed. The full serial Chromium suite passed (**26 tests in 3.5 minutes**), including local account verification/login and mocked provider checkout. No Razorpay sandbox credentials were available, so an external sandbox payment was not performed. Test Mode is the only accepted configuration; live charges and refunds are not enabled.
