@@ -124,6 +124,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/platform/invitations', [PlatformInvitationController::class, 'index'])->middleware('verified');
         Route::post('/platform/invitations', [PlatformInvitationController::class, 'store'])->middleware(['verified', 'throttle:6,1']);
         Route::delete('/platform/invitations/{invitation}', [PlatformInvitationController::class, 'revoke'])->whereNumber('invitation')->middleware('verified');
+        Route::post('/platform/invitations/{invitation}/resend', [PlatformInvitationController::class, 'resend'])->whereNumber('invitation')->middleware(['verified', 'throttle:6,1']);
         Route::middleware('verified')->group(function (): void {
             Route::get('/organizations', [OrganizationController::class, 'index'])->name('api.v1.organizations.index');
             Route::patch('/me/organization', [OrganizationController::class, 'select'])->name('api.v1.organizations.select');

@@ -200,6 +200,44 @@ class PlatformInvitationTest extends TestCase
         $this->assertNull($accepted->fresh()->revoked_at);
     }
 
+    public function test_allowlisted_operator_can_resend_an_invitation_and_invalidate_the_previous_link(): void
+    {
+        Config::set('services.platform.admin_emails', ['operator@example.com']);
+        Config::set('app.env', 'local');
+        Mail::fake();
+        $operator = User::factory()->create(['email' => 'operator@example.com']);
+        $organization = $this->organization('Northstar Academy');
+        $oldToken = str()->random(64);
+        $invitation = OrganizationInvitation::query()->create([
+            'organization_id' => $organization->id,
+            'email' => 'pending.teacher@example.com',
+            'role' => 'teacher',
+            'token_hash' => hash('sha256', $oldToken),
+            'invited_by' => $operator->id,
+            'expires_at' => now()->subDay(),
+        ]);
+        Sanctum::actingAs($operator);
+
+        $response = $this->postJson("/api/v1/platform/invitations/{$invitation->id}/resend", [
+            'reason' => 'Recipient requested a fresh link',
+        ])->assertOk()->assertJsonPath('data.status', 'pending')
+            ->assertJsonPath('message', 'Invitation renewed and email sent.');
+        $newUrl = $response->json('invitation_url');
+        $this->assertIsString($newUrl);
+        parse_str((string) parse_url($newUrl, PHP_URL_QUERY), $query);
+        $newToken = $query['token'] ?? null;
+        $this->assertIsString($newToken);
+        $this->assertNotSame($oldToken, $newToken);
+        $this->assertSame(hash('sha256', $newToken), $invitation->fresh()->token_hash);
+        $this->assertTrue($invitation->fresh()->expires_at->isFuture());
+        $this->getJson("/api/v1/auth/invitations/{$oldToken}")->assertNotFound();
+        $this->getJson("/api/v1/auth/invitations/{$newToken}")->assertOk()->assertJsonPath('data.email', $invitation->email);
+        Mail::assertSent(OrganizationInvitationMail::class, fn (OrganizationInvitationMail $mail): bool => $mail->hasTo($invitation->email) && $mail->invitationUrl === $newUrl);
+        $event = PlatformAuditEvent::query()->where('action', 'organization.invitation_resent')->firstOrFail();
+        $this->assertSame('Recipient requested a fresh link', $event->reason);
+        $this->assertStringNotContainsString($newToken, (string) $event->getRawOriginal('after'));
+    }
+
     private function organization(string $name, string $status = 'active'): Organization
     {
         return Organization::query()->create([

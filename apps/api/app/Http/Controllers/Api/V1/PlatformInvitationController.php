@@ -219,4 +219,54 @@ class PlatformInvitationController
 
         return response()->json(['data' => ['id' => $revoked->id, 'status' => 'revoked'], 'message' => 'Invitation revoked.']);
     }
+
+    public function resend(Request $request, int $invitation, PlatformOperatorAccess $platformAccess, DatabaseManager $database): JsonResponse
+    {
+        $actor = $request->user();
+        abort_unless($platformAccess->allows($actor), 403);
+        $data = $request->validate(['reason' => ['required', 'string', 'min:8', 'max:500']]);
+        if (mb_strlen(trim($data['reason'])) < 8) {
+            throw ValidationException::withMessages(['reason' => ['The reason must contain at least 8 non-whitespace characters.']]);
+        }
+
+        $plainToken = Str::random(64);
+        [$record, $organization] = $database->transaction(function () use ($actor, $data, $invitation, $plainToken): array {
+            $record = OrganizationInvitation::query()->with('organization:id,name,status')->lockForUpdate()->findOrFail($invitation);
+            abort_if($record->accepted_at !== null, 409, 'Accepted invitations cannot be resent.');
+            abort_if($record->revoked_at !== null, 409, 'Revoked invitations cannot be resent.');
+            abort_unless($record->organization?->status === 'active', 409, 'Invitations cannot be resent for inactive organizations.');
+
+            $before = ['invitation_id' => $record->id, 'email' => $record->email, 'role' => $record->role, 'expires_at' => $record->expires_at->toISOString()];
+            $record->update(['token_hash' => hash('sha256', $plainToken), 'expires_at' => now()->addDays(7)]);
+            PlatformAuditEvent::query()->create([
+                'actor_user_id' => $actor->id,
+                'organization_id' => $record->organization_id,
+                'organization_name' => $record->organization?->name,
+                'action' => 'organization.invitation_resent',
+                'reason' => trim($data['reason']),
+                'before' => $before,
+                'after' => ['invitation_id' => $record->id, 'email' => $record->email, 'role' => $record->role, 'expires_at' => $record->expires_at->toISOString()],
+            ]);
+
+            return [$record, $record->organization];
+        });
+
+        $invitationUrl = rtrim((string) config('app.frontend_url'), '/').'/invitations/accept?token='.urlencode($plainToken);
+        Mail::to($record->email)->send(new OrganizationInvitationMail(
+            $organization->name,
+            $record->role,
+            $invitationUrl,
+            $actor->name,
+        ));
+
+        $response = [
+            'data' => ['id' => $record->id, 'status' => 'pending', 'expires_at' => $record->expires_at->toISOString()],
+            'message' => 'Invitation renewed and email sent.',
+        ];
+        if (config('app.env') === 'local') {
+            $response['invitation_url'] = $invitationUrl;
+        }
+
+        return response()->json($response);
+    }
 }

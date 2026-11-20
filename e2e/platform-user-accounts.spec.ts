@@ -56,6 +56,7 @@ test('platform operators can send a reasoned staff invitation and receive the lo
   let invitation: { organization_id: number; email: string; role: string; reason: string } | null = null
   let invitationStatus: 'pending' | 'revoked' = 'pending'
   let revocationReason = ''
+  let resendReason = ''
   const account = { id: 84, name: 'Platform Operator', email: 'operator@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', is_platform_admin: true }
   const invitationUrl = 'http://127.0.0.1:4188/invitations/accept?token=local-invitation-token'
 
@@ -74,6 +75,11 @@ test('platform operators can send a reasoned staff invitation and receive the lo
   await page.route('**/api/v1/platform/users**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { current_page: 1, last_page: 1, per_page: 20, total: 0 } }) }))
   await page.route('**/api/v1/platform/audit-events**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { current_page: 1, last_page: 1, per_page: 25, total: 0 } }) }))
   await page.route('**/api/v1/platform/invitations**', async route => {
+    const invitationPath = new URL(route.request().url()).pathname
+    if (route.request().method() === 'POST' && invitationPath.endsWith('/resend')) {
+      resendReason = (route.request().postDataJSON() as { reason: string }).reason
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { id: 72, status: 'pending', expires_at: '2026-11-27T12:00:00.000Z' }, message: 'Invitation renewed and email sent.', invitation_url: invitationUrl }) })
+    }
     if (route.request().method() === 'POST') {
       invitation = route.request().postDataJSON() as { organization_id: number; email: string; role: string; reason: string }
       return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({
@@ -117,6 +123,12 @@ test('platform operators can send a reasoned staff invitation and receive the lo
   await expect(page.getByRole('link', { name: 'Open local invitation link' })).toHaveAttribute('href', invitationUrl)
   await page.getByRole('button', { name: 'Refresh staff invitations' }).click()
   await expect(page.getByRole('table').getByText('new.teacher@example.test')).toBeVisible()
+  await page.getByRole('button', { name: 'Resend', exact: true }).click()
+  await page.getByLabel('Required audit reason').last().fill('Recipient requested a fresh link.')
+  await page.getByRole('button', { name: 'Confirm resend' }).click()
+  await expect.poll(() => resendReason).toBe('Recipient requested a fresh link.')
+  await expect(page.getByRole('status').filter({ hasText: 'Invitation renewed and email sent.' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Open renewed local invitation link' })).toHaveAttribute('href', invitationUrl)
   await page.getByRole('button', { name: 'Revoke', exact: true }).click()
   await page.getByLabel('Required audit reason').last().fill('Staffing request was withdrawn.')
   await page.getByRole('button', { name: 'Confirm revoke' }).click()

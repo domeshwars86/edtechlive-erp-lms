@@ -29,7 +29,8 @@ export default function PlatformInvitationAdmin() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const [revoking, setRevoking] = useState<{ id: number; reason: string } | null>(null)
+  const [localInvitationUrl, setLocalInvitationUrl] = useState('')
+  const [pendingAction, setPendingAction] = useState<{ id: number; action: 'resend' | 'revoke'; reason: string } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -55,16 +56,23 @@ export default function PlatformInvitationAdmin() {
     setSearch(draftSearch.trim())
   }
 
-  async function revoke(event: FormEvent<HTMLFormElement>) {
+  async function handleInvitationAction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!revoking || revoking.reason.trim().length < 8 || saving) return
+    if (!pendingAction || pendingAction.reason.trim().length < 8 || saving) return
     setSaving(true)
     setError('')
     setMessage('')
+    setLocalInvitationUrl('')
     try {
-      await api.delete<{ message: string }>(`/api/v1/platform/invitations/${revoking.id}`, { reason: revoking.reason.trim() })
-      setMessage('Invitation revoked. The saved invitation record and audit reason remain available.')
-      setRevoking(null)
+      if (pendingAction.action === 'revoke') {
+        await api.delete<{ message: string }>(`/api/v1/platform/invitations/${pendingAction.id}`, { reason: pendingAction.reason.trim() })
+        setMessage('Invitation revoked. The saved invitation record and audit reason remain available.')
+      } else {
+        const result = await api.post<{ message: string; invitation_url?: string }>(`/api/v1/platform/invitations/${pendingAction.id}/resend`, { reason: pendingAction.reason.trim() })
+        setMessage(result.message)
+        setLocalInvitationUrl(result.invitation_url ?? '')
+      }
+      setPendingAction(null)
       setRefresh(value => value + 1)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not revoke this invitation.')
@@ -88,13 +96,14 @@ export default function PlatformInvitationAdmin() {
     {error ? <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div> : null}
     {message ? <div className="master-feedback master-success" role="status">{message}</div> : null}
     {loading && rows.length === 0 ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading invitations…</p> : rows.length ? <div className="dash-table-scroll platform-invitation-table"><table><thead><tr><th>ORGANIZATION</th><th>EMAIL</th><th>ROLE</th><th>STATUS</th><th>EXPIRES</th><th>ACTION</th></tr></thead><tbody>{rows.map(invitation => <tr key={invitation.id}>
-      <td><b>{invitation.organization}</b></td><td>{invitation.email}</td><td>{invitation.role.replaceAll('_', ' ')}</td><td><span className={`table-status ${invitation.status === 'pending' ? 'status-live' : ''}`}><i />{invitation.status}</span></td><td>{new Date(invitation.expires_at).toLocaleDateString()}</td><td>{invitation.status === 'pending' || invitation.status === 'expired' ? <button type="button" className="master-action" onClick={() => { setMessage(''); setRevoking({ id: invitation.id, reason: '' }) }}>Revoke</button> : <span className="platform-user-protected">No action</span>}</td>
+      <td><b>{invitation.organization}</b></td><td>{invitation.email}</td><td>{invitation.role.replaceAll('_', ' ')}</td><td><span className={`table-status ${invitation.status === 'pending' ? 'status-live' : ''}`}><i />{invitation.status}</span></td><td>{new Date(invitation.expires_at).toLocaleDateString()}</td><td>{invitation.status === 'pending' || invitation.status === 'expired' ? <div className="platform-invitation-row-actions"><button type="button" className="master-action" onClick={() => { setError(''); setMessage(''); setPendingAction({ id: invitation.id, action: 'resend', reason: '' }) }}>Resend</button><button type="button" className="master-action" onClick={() => { setError(''); setMessage(''); setPendingAction({ id: invitation.id, action: 'revoke', reason: '' }) }}>Revoke</button></div> : <span className="platform-user-protected">No action</span>}</td>
     </tr>)}</tbody></table></div> : !error ? <p className="master-empty"><MailCheck size={18} />No {status} staff invitations match this view.</p> : null}
-    {revoking ? <form className="platform-invitation-revoke" onSubmit={event => void revoke(event)}>
-      <div><b>Revoke invitation</b><p>The recipient will no longer be able to accept this invitation. The invitation record is retained.</p></div>
+    {localInvitationUrl ? <p className="platform-invitation-local-link"><a href={localInvitationUrl} target="_blank" rel="noreferrer">Open renewed local invitation link</a></p> : null}
+    {pendingAction ? <form className="platform-invitation-revoke" onSubmit={event => void handleInvitationAction(event)}>
+      <div><b>{pendingAction.action === 'revoke' ? 'Revoke invitation' : 'Resend invitation'}</b><p>{pendingAction.action === 'revoke' ? 'The recipient will no longer be able to accept this invitation. The invitation record is retained.' : 'A new seven-day link will be sent; the previous link will stop working.'}</p></div>
       <label htmlFor="platform-invitation-reason">Required audit reason</label>
-      <textarea id="platform-invitation-reason" required minLength={8} maxLength={500} value={revoking.reason} onChange={event => setRevoking(current => current ? { ...current, reason: event.target.value } : current)} placeholder="At least 8 characters" />
-      <div><button type="button" className="master-action" disabled={saving} onClick={() => setRevoking(null)}>Cancel</button><button type="submit" className="master-submit" disabled={saving || revoking.reason.trim().length < 8}>{saving ? 'Revoking…' : <><ShieldX size={14} /> Confirm revoke</>}</button></div>
+      <textarea id="platform-invitation-reason" required minLength={8} maxLength={500} value={pendingAction.reason} onChange={event => setPendingAction(current => current ? { ...current, reason: event.target.value } : current)} placeholder="At least 8 characters" />
+      <div><button type="button" className="master-action" disabled={saving} onClick={() => setPendingAction(null)}>Cancel</button><button type="submit" className="master-submit" disabled={saving || pendingAction.reason.trim().length < 8}>{saving ? 'Saving…' : pendingAction.action === 'revoke' ? <><ShieldX size={14} /> Confirm revoke</> : <><MailCheck size={14} /> Confirm resend</>}</button></div>
     </form> : null}
     <div className="platform-directory-pagination"><span>Page {page} of {lastPage}</span><button className="master-action" type="button" disabled={loading || page <= 1} onClick={() => setPage(value => value - 1)}>Previous</button><button className="master-action" type="button" disabled={loading || page >= lastPage} onClick={() => setPage(value => value + 1)}>Next</button></div>
   </section>
