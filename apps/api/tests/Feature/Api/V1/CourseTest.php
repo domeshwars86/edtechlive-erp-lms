@@ -93,6 +93,30 @@ class CourseTest extends TestCase
         $this->getJson("{$base}/courses/{$courseId}/lessons")->assertNotFound();
     }
 
+    public function test_publishing_a_lesson_in_a_published_course_notifies_active_enrollees(): void
+    {
+        [$admin, $organization, , $student] = $this->workspace();
+        Sanctum::actingAs($admin);
+        $base = "/api/v1/organizations/{$organization->id}";
+        $courseId = $this->postJson("{$base}/courses", ['title' => 'Living Systems'])->assertCreated()->json('data.id');
+        $this->postJson("{$base}/courses/{$courseId}/lessons", [
+            'title' => 'Course introduction', 'content' => 'Start here.', 'status' => 'published',
+        ])->assertCreated();
+        $this->patchJson("{$base}/courses/{$courseId}", ['status' => 'published'])->assertOk();
+        $this->postJson("{$base}/courses/{$courseId}/enrollments", ['student_ids' => [$student->id]])->assertOk();
+
+        $this->postJson("{$base}/courses/{$courseId}/lessons", [
+            'title' => 'Cell structure', 'content' => 'Cells form the basis of life.', 'status' => 'published',
+        ])->assertCreated();
+
+        $this->assertDatabaseCount('notifications', 1);
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $student->user_id,
+            'type' => 'App\\Notifications\\WorkspaceNotification',
+            'data->kind' => 'learning_lesson_published',
+        ]);
+    }
+
     public function test_teacher_can_edit_only_assigned_courses(): void
     {
         [$admin, $organization, , , $teacherUser, $teacher] = $this->workspace(withTeacher: true);

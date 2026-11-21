@@ -37,6 +37,15 @@ class CourseQuizTest extends TestCase
             'prompt' => 'Where does condensation occur?', 'options' => ['In clouds', 'In soil'], 'correct_option' => 0, 'points' => 3,
         ])->assertCreated();
         $this->patchJson("{$base}/quizzes/{$quizId}", ['status' => 'published'])->assertOk();
+        $this->assertDatabaseCount('notifications', 1);
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $studentUser->id,
+            'type' => 'App\\Notifications\\WorkspaceNotification',
+            'data->kind' => 'learning_quiz_published',
+            'data->resource_id' => $quizId,
+        ]);
+        $this->patchJson("{$base}/quizzes/{$quizId}", ['status' => 'published'])->assertOk();
+        $this->assertDatabaseCount('notifications', 1);
 
         Sanctum::actingAs($studentUser);
         $this->getJson("{$base}/courses/{$course->id}/quizzes")->assertOk()

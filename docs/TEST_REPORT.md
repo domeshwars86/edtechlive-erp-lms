@@ -70,6 +70,10 @@
 
 - The latest complete Laravel API suite passed **209 tests / 1,807 assertions** on in-memory SQLite (**20.08 seconds**), including local AI MCQ output validation, invitation lifecycle, account identity updates and recipient-controlled password reset. Before the platform migrations, the full suite passed **177 tests / 1,547 assertions** on in-memory SQLite and a disposable PostgreSQL 17 cluster; PostgreSQL 17 has not yet been rerun against the latest migrations. Hosted PostgreSQL 16 CI remains unverified. The local development SQLite database was not used for these test runs.
 
+## LMS publication notifications (21 November 2026)
+
+- The full Laravel suite passed **211 tests / 1,828 assertions** on in-memory SQLite. API coverage verifies published lessons, quizzes, and assignments create notices; assignment recipients are limited to active enrolled learners and linked guardians, account opt-outs are respected, and republishing or editing a published resource does not duplicate its notice. Laravel Pint passed for the touched API code. Root TypeScript, ESLint, Vitest (2 tests), and production build passed; mobile TypeScript passed. Hosted PostgreSQL and native mobile QA were not part of this run.
+
 ## Local email verification and sign-in (20 November 2026)
 
 - Replaced the raw API tab opened by the development verification link with an in-page action. It confirms the signed URL through the same-origin API proxy, states that no email inbox is needed, and shows a clear “Email verified. You can log in now” result. The focused real Chromium flow passed **1 test in 39.1 seconds**, covering registration, in-place verification, sign-in and organization selection. The extended Chromium account-profile/recovery integration also passed (**1 test in 1.9 minutes**) after allowing adequate time for its complete profile, verification, reset and sign-out path. TypeScript, ESLint and the production build passed (17 public routes).
