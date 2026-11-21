@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\MembershipStatus;
 use App\Enums\OrganizationRole;
+use App\Models\Organization;
 use App\Models\OrganizationAccessAudit;
 use App\Models\OrganizationMembership;
 use App\Services\OrganizationAccess;
@@ -80,6 +81,8 @@ class OrganizationMembershipController
         }
 
         $updated = DB::transaction(function () use ($data, $organization, $membership, $request, $actor, $canManagePermissions): OrganizationMembership {
+            // Serialize membership and platform role changes so concurrent updates cannot remove the last active administrator.
+            Organization::query()->lockForUpdate()->findOrFail($organization);
             $target = OrganizationMembership::query()->where('organization_id', $organization)
                 ->whereIn('status', [MembershipStatus::Active, MembershipStatus::Suspended])
                 ->lockForUpdate()->findOrFail($membership);

@@ -16,6 +16,7 @@ type UserRow = {
   status_change_allowed: boolean
 }
 type UserPage = { data: UserRow[]; meta: { current_page: number; last_page: number; total: number } }
+type PlatformMembership = { id: number; organization_id: number; organization: string; organization_status: string; role: string; status: 'active' | 'suspended' }
 
 export default function PlatformUsers({ initialRole = '' }: { initialRole?: string }) {
   const [rows, setRows] = useState<UserRow[]>([])
@@ -33,6 +34,10 @@ export default function PlatformUsers({ initialRole = '' }: { initialRole?: stri
   const [pendingChange, setPendingChange] = useState<{ user: UserRow; status: 'active' | 'suspended'; reason: string } | null>(null)
   const [pendingProfile, setPendingProfile] = useState<{ user: UserRow; name: string; email: string; reason: string } | null>(null)
   const [pendingPasswordReset, setPendingPasswordReset] = useState<{ user: UserRow; reason: string } | null>(null)
+  const [membershipUser, setMembershipUser] = useState<UserRow | null>(null)
+  const [memberships, setMemberships] = useState<PlatformMembership[]>([])
+  const [membershipLoading, setMembershipLoading] = useState(false)
+  const [pendingRoleChange, setPendingRoleChange] = useState<{ membership: PlatformMembership; role: string; reason: string } | null>(null)
   const [verificationUrl, setVerificationUrl] = useState('')
   const [passwordResetUrl, setPasswordResetUrl] = useState('')
   const [saving, setSaving] = useState(false)
@@ -63,6 +68,44 @@ export default function PlatformUsers({ initialRole = '' }: { initialRole?: stri
     event.preventDefault()
     setPage(1)
     setSearch(draftSearch.trim())
+  }
+
+  async function openMemberships(user: UserRow) {
+    setMembershipUser(user)
+    setMemberships([])
+    setPendingRoleChange(null)
+    setMembershipLoading(true)
+    setError('')
+    try {
+      const result = await api.get<{ data: PlatformMembership[] }>(`/api/v1/platform/users/${user.id}/memberships`)
+      setMemberships(result.data)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not load organization memberships.')
+    } finally {
+      setMembershipLoading(false)
+    }
+  }
+
+  async function saveMembershipRole(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!membershipUser || !pendingRoleChange || pendingRoleChange.reason.trim().length < 8 || saving) return
+    setSaving(true)
+    setError('')
+    setMessage('')
+    try {
+      const result = await api.patch<{ data: PlatformMembership }>(`/api/v1/platform/users/${membershipUser.id}/memberships/${pendingRoleChange.membership.id}`, {
+        role: pendingRoleChange.role,
+        reason: pendingRoleChange.reason.trim(),
+      })
+      setMemberships(current => current.map(membership => membership.id === result.data.id ? result.data : membership))
+      setMessage(`${membershipUser.name}'s role at ${result.data.organization} is now ${result.data.role.replaceAll('_', ' ')}.`)
+      setPendingRoleChange(null)
+      setRefresh(value => value + 1)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not update this organization role.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function saveStatus(event: FormEvent<HTMLFormElement>) {
@@ -144,7 +187,8 @@ export default function PlatformUsers({ initialRole = '' }: { initialRole?: stri
     </form>
     {error && <div className="master-feedback master-error" role="alert"><AlertCircle size={16} />{error}</div>}
     {message && <div className="master-feedback master-success" role="status">{message}{verificationUrl ? <> <a href={verificationUrl} target="_blank" rel="noreferrer">Open local verification link</a></> : null}{passwordResetUrl ? <> <a href={passwordResetUrl} target="_blank" rel="noreferrer">Open local password-reset link</a></> : null}</div>}
-    {loading && rows.length === 0 ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading users…</p> : rows.length ? <div className="dash-table-scroll"><table><thead><tr><th>ACCOUNT</th><th>EMAIL</th><th>VERIFICATION</th><th>ACCOUNT STATUS</th><th>ACTIVE ORGANIZATIONS</th><th>CREATED</th><th>ACTION</th></tr></thead><tbody>{rows.map(user => <tr key={user.id}><td><b>{user.name}</b></td><td>{user.email}</td><td><span className={`table-status ${user.email_verified_at ? 'status-live' : ''}`}><i />{user.email_verified_at ? 'Verified' : 'Pending'}</span></td><td><span className={`table-status ${user.platform_status === 'active' ? 'status-live' : ''}`}><i />{user.platform_status === 'active' ? 'Active' : 'Suspended'}</span></td><td>{user.active_organizations}</td><td>{user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</td><td>{user.status_change_allowed ? <div className="platform-user-row-actions"><button className="master-action" type="button" onClick={() => { setError(''); setPendingChange(null); setPendingPasswordReset(null); setPendingProfile({ user, name: user.name, email: user.email, reason: '' }) }}>Edit identity</button><button className="master-action" type="button" onClick={() => { setPendingProfile(null); setPendingPasswordReset(null); setPendingChange({ user, status: user.platform_status === 'active' ? 'suspended' : 'active', reason: '' }) }}>{user.platform_status === 'active' ? 'Suspend' : 'Restore'}</button><button className="master-action" type="button" onClick={() => { setError(''); setPendingProfile(null); setPendingChange(null); setPendingPasswordReset({ user, reason: '' }) }}>Reset password</button></div> : <span className="platform-user-protected">Operator protected</span>}</td></tr>)}</tbody></table></div> : !error && <p className="master-empty"><Users size={18} />No accounts match these filters.</p>}
+    {loading && rows.length === 0 ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading users…</p> : rows.length ? <div className="dash-table-scroll"><table><thead><tr><th>ACCOUNT</th><th>EMAIL</th><th>VERIFICATION</th><th>ACCOUNT STATUS</th><th>ACTIVE ORGANIZATIONS</th><th>CREATED</th><th>ACTION</th></tr></thead><tbody>{rows.map(user => <tr key={user.id}><td><b>{user.name}</b></td><td>{user.email}</td><td><span className={`table-status ${user.email_verified_at ? 'status-live' : ''}`}><i />{user.email_verified_at ? 'Verified' : 'Pending'}</span></td><td><span className={`table-status ${user.platform_status === 'active' ? 'status-live' : ''}`}><i />{user.platform_status === 'active' ? 'Active' : 'Suspended'}</span></td><td>{user.active_organizations}</td><td>{user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</td><td>{user.status_change_allowed ? <div className="platform-user-row-actions"><button className="master-action" type="button" onClick={() => { setMembershipUser(null); void openMemberships(user) }}>Manage roles</button><button className="master-action" type="button" onClick={() => { setError(''); setPendingChange(null); setPendingPasswordReset(null); setPendingProfile({ user, name: user.name, email: user.email, reason: '' }) }}>Edit identity</button><button className="master-action" type="button" onClick={() => { setPendingProfile(null); setPendingPasswordReset(null); setPendingChange({ user, status: user.platform_status === 'active' ? 'suspended' : 'active', reason: '' }) }}>{user.platform_status === 'active' ? 'Suspend' : 'Restore'}</button><button className="master-action" type="button" onClick={() => { setError(''); setPendingProfile(null); setPendingChange(null); setPendingPasswordReset({ user, reason: '' }) }}>Reset password</button></div> : <span className="platform-user-protected">Operator protected</span>}</td></tr>)}</tbody></table></div> : !error && <p className="master-empty"><Users size={18} />No accounts match these filters.</p>}
+    {membershipUser ? <section className="platform-membership-panel" aria-label={`Organization roles for ${membershipUser.name}`}><div className="platform-membership-heading"><div><b>Organization roles · {membershipUser.name}</b><p>Changes require a reason and are recorded in the platform and organization access audits. Every organization must keep an active administrator or independent educator.</p></div><button type="button" className="master-action" disabled={saving} onClick={() => { setMembershipUser(null); setMemberships([]); setPendingRoleChange(null) }}>Close</button></div>{membershipLoading ? <p className="master-empty"><LoaderCircle className="master-spin" size={18} />Loading memberships…</p> : memberships.length ? <ul className="platform-membership-list">{memberships.map(membership => <li key={membership.id}><span><b>{membership.organization}</b><small>{membership.organization_status} organization · {membership.status} membership</small></span><span className="platform-membership-role">{membership.role.replaceAll('_', ' ')}</span><button type="button" className="master-action" onClick={() => { setError(''); setPendingRoleChange({ membership, role: membership.role, reason: '' }) }}>Change role</button></li>)}</ul> : !error && <p className="master-empty">This account has no active or suspended organization memberships.</p>}{pendingRoleChange ? <form className="platform-membership-edit" onSubmit={event => void saveMembershipRole(event)}><b>Change role · {pendingRoleChange.membership.organization}</b><label htmlFor="platform-membership-role">Organization role</label><select id="platform-membership-role" required value={pendingRoleChange.role} onChange={event => setPendingRoleChange(current => current ? { ...current, role: event.target.value } : current)}><option value="admin">Admin</option><option value="management">Management</option><option value="teacher">Teacher</option><option value="student">Student</option><option value="parent">Parent</option><option value="independent_educator">Independent educator</option></select><label htmlFor="platform-membership-reason">Required audit reason</label><textarea id="platform-membership-reason" required minLength={8} maxLength={500} value={pendingRoleChange.reason} onChange={event => setPendingRoleChange(current => current ? { ...current, reason: event.target.value } : current)} placeholder="At least 8 characters" /><div><button type="button" className="master-action" disabled={saving} onClick={() => setPendingRoleChange(null)}>Cancel</button><button type="submit" className="master-submit" disabled={saving || pendingRoleChange.reason.trim().length < 8 || pendingRoleChange.role === pendingRoleChange.membership.role}>{saving ? 'Saving…' : 'Save role'}</button></div></form> : null}</section> : null}
     {pendingProfile ? <form className="platform-user-profile-form" onSubmit={event => void saveProfile(event)}><div><b>Edit account identity · {pendingProfile.user.name}</b><p>A changed email address becomes unverified and requires a new verification link. Allowlisted platform operator accounts are protected.</p></div><label htmlFor="platform-user-name">Account name</label><input id="platform-user-name" required minLength={2} maxLength={120} value={pendingProfile.name} onChange={event => setPendingProfile(current => current ? { ...current, name: event.target.value } : current)} /><label htmlFor="platform-user-email">Email address</label><input id="platform-user-email" type="email" required maxLength={254} value={pendingProfile.email} onChange={event => setPendingProfile(current => current ? { ...current, email: event.target.value } : current)} /><label htmlFor="platform-user-profile-reason">Required audit reason</label><textarea id="platform-user-profile-reason" required minLength={8} maxLength={500} value={pendingProfile.reason} onChange={event => setPendingProfile(current => current ? { ...current, reason: event.target.value } : current)} placeholder="At least 8 characters" /><div><button type="button" className="master-action" disabled={saving} onClick={() => setPendingProfile(null)}>Cancel</button><button type="submit" className="master-submit" disabled={saving || pendingProfile.reason.trim().length < 8}>{saving ? 'Saving…' : 'Save identity'}</button></div></form> : null}
     {pendingPasswordReset ? <form className="platform-user-profile-form" onSubmit={event => void requestPasswordReset(event)}><div><b>Request password reset · {pendingPasswordReset.user.name}</b><p>The reset link is sent to the account email. The recipient chooses the new password; operators never see it.</p></div><label htmlFor="platform-user-reset-reason">Required audit reason</label><textarea id="platform-user-reset-reason" required minLength={8} maxLength={500} value={pendingPasswordReset.reason} onChange={event => setPendingPasswordReset(current => current ? { ...current, reason: event.target.value } : current)} placeholder="At least 8 characters" /><div><button type="button" className="master-action" disabled={saving} onClick={() => setPendingPasswordReset(null)}>Cancel</button><button type="submit" className="master-submit" disabled={saving || pendingPasswordReset.reason.trim().length < 8}>{saving ? 'Sending…' : <><KeyRound size={14} /> Send reset link</>}</button></div></form> : null}
     {pendingChange ? <form className="platform-user-status-form" onSubmit={event => void saveStatus(event)}><div><b>{pendingChange.status === 'suspended' ? 'Suspend account' : 'Restore account'} · {pendingChange.user.name}</b><p>{pendingChange.status === 'suspended' ? 'The user will lose access to authenticated platform endpoints immediately.' : 'The user will regain account access.'} Allowlisted platform operator accounts are protected from this action.</p></div><label htmlFor="platform-user-reason">Required reason</label><textarea id="platform-user-reason" required minLength={8} maxLength={500} value={pendingChange.reason} onChange={event => setPendingChange(current => current ? { ...current, reason: event.target.value } : current)} placeholder="At least 8 characters" /><div><button type="button" className="master-action" disabled={saving} onClick={() => setPendingChange(null)}>Cancel</button><button type="submit" className="master-submit" disabled={saving || pendingChange.reason.trim().length < 8}>{saving ? 'Saving…' : 'Confirm status change'}</button></div></form> : null}

@@ -125,6 +125,8 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/platform/audit-events', [PlatformAuditEventController::class, 'index'])->middleware('verified');
         Route::get('/platform/users', [PlatformUserController::class, 'index'])->middleware('verified');
         Route::patch('/platform/users/{user}', [PlatformUserController::class, 'update'])->whereNumber('user')->middleware('verified');
+        Route::get('/platform/users/{user}/memberships', [PlatformUserController::class, 'memberships'])->whereNumber('user')->middleware('verified');
+        Route::patch('/platform/users/{user}/memberships/{membership}', [PlatformUserController::class, 'updateMembership'])->whereNumber('user')->whereNumber('membership')->middleware('verified');
         Route::patch('/platform/users/{user}/profile', [PlatformUserController::class, 'updateProfile'])->whereNumber('user')->middleware('verified');
         Route::post('/platform/users/{user}/password-reset', [PlatformUserController::class, 'requestPasswordReset'])->whereNumber('user')->middleware(['verified', 'throttle:6,1']);
         Route::get('/platform/invitations', [PlatformInvitationController::class, 'index'])->middleware('verified');

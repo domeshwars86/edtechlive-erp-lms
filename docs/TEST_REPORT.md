@@ -2,6 +2,11 @@
 
 **Updated:** 21 November 2026
 
+## Platform membership role administration (21 November 2026)
+
+- Allowlisted platform operators can review active/suspended organization memberships for an ordinary account and correct a role with a required reason. The API confirms membership ownership, protects operator accounts, blocks removal of an organization's last active admin/independent educator, and writes both tenant access and platform audit events. Role updates and ordinary workspace membership changes acquire the organization lock first to serialize the last-administrator check.
+- Focused platform API tests passed (**10 tests / 133 assertions**); full Laravel regression passed (**213 tests / 1,858 assertions**) on in-memory SQLite. Pint, web typecheck, ESLint and production build passed. Focused role-management Chromium workflow passed (**1 test**) including the 320px viewport with no horizontal overflow; full serial Chromium suite passed (**28 tests in 3.6 minutes**).
+
 ## Local verification recovery and browser regression (21 November 2026)
 
 - The complete serial Chromium suite passed (**27 tests in 4.2 minutes**). Coverage includes real local registration, signed email verification and browser sign-in, the in-page verification/recovery path, all public/account routes at 320px and 1440px, seven dashboard previews, mocked Razorpay checkout, and locally configured AI drafting. E2E startup uses a disposable SQLite database; no production database or external mail/payment/AI provider was used.

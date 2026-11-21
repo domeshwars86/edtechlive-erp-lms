@@ -197,3 +197,53 @@ test('platform operators can edit account identity with an audited reason and em
   await expect.poll(() => resetReason).toBe('Account owner requested recovery.')
   await expect(page.getByRole('link', { name: 'Open local password-reset link' })).toHaveAttribute('href', resetUrl)
 })
+
+test('platform operators can change a membership role with an audited reason', async ({ page }) => {
+  test.setTimeout(60_000)
+  let signedIn = false
+  let savedChange: { role: string; reason: string } | null = null
+  let membership = { id: 504, organization_id: 42, organization: 'Harbor Academy', organization_status: 'active', role: 'teacher', status: 'active' }
+  const account = { id: 84, name: 'Platform Operator', email: 'operator@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', is_platform_admin: true }
+  const user = { id: 110, name: 'Learner Example', email: 'learner@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', created_at: '2026-11-18T10:00:00.000Z', active_organizations: 1, platform_status: 'active', status_change_allowed: true }
+
+  await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
+  await page.route('**/api/v1/me', route => route.fulfill({ status: signedIn ? 200 : 401, contentType: 'application/json', body: JSON.stringify(signedIn ? { data: account } : { message: 'Unauthenticated.' }) }))
+  await page.route('**/api/v1/auth/login', route => {
+    signedIn = true
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: account }) })
+  })
+  await page.route('**/api/v1/organizations?per_page=100', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], preferred_organization_id: null, meta: { current_page: 1, last_page: 1, per_page: 100, total: 0 } }) }))
+  await page.route('**/api/v1/platform/overview', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { organizations: { total: 1, active: 1, suspended: 0 }, users: { total: 2, verified: 2 }, educators: 1, open_enquiries: 0, recent_organizations: [] } }) }))
+  await page.route('**/api/v1/platform/users**', async route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/memberships') && route.request().method() === 'GET') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [membership] }) })
+    }
+    if (pathname.includes('/memberships/') && route.request().method() === 'PATCH') {
+      savedChange = route.request().postDataJSON() as { role: string; reason: string }
+      membership = { ...membership, role: savedChange.role }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: membership }) })
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [user], meta: { current_page: 1, last_page: 1, per_page: 20, total: 1 } }) })
+  })
+
+  await page.goto('/login')
+  await page.getByRole('textbox', { name: 'Email address' }).fill(account.email)
+  await page.getByLabel('Password', { exact: true }).fill('LocalBrowserPass123')
+  await page.getByRole('button', { name: 'Log in' }).click()
+  await page.getByRole('button', { name: 'Users', exact: true }).click()
+  await page.getByRole('button', { name: 'Manage roles', exact: true }).click()
+  const membershipPanel = page.getByRole('region', { name: 'Organization roles for Learner Example' })
+  await expect(membershipPanel).toContainText('Harbor Academy')
+  await page.setViewportSize({ width: 320, height: 780 })
+  await expect(membershipPanel).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
+  await page.getByRole('button', { name: 'Change role', exact: true }).click()
+  await page.getByLabel('Organization role', { exact: true }).selectOption('student')
+  await page.getByLabel('Required audit reason').last().fill('Corrected role after membership review.')
+  await page.getByRole('button', { name: 'Save role' }).click()
+
+  await expect.poll(() => savedChange).toEqual({ role: 'student', reason: 'Corrected role after membership review.' })
+  await expect(page.getByRole('status')).toContainText('role at Harbor Academy is now student')
+  await expect(membershipPanel).toContainText('student')
+})

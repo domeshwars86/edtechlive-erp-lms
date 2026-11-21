@@ -156,6 +156,105 @@ class PlatformOverviewTest extends TestCase
             ->assertJsonPath('data.0.email', 'pending-parent@example.com');
     }
 
+    public function test_platform_operator_can_review_and_change_membership_roles_with_audit_and_admin_protection(): void
+    {
+        Config::set('services.platform.admin_emails', ['operator@example.com']);
+        $operator = User::factory()->create(['email' => 'operator@example.com']);
+        $admin = User::factory()->create(['email' => 'admin@example.com']);
+        $teacher = User::factory()->create(['email' => 'teacher@example.com']);
+        $organization = $this->organization('Role Review Academy', 'role-review-academy', 'active');
+        $adminMembership = OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $admin->id,
+            'role' => OrganizationRole::Admin, 'status' => MembershipStatus::Active,
+        ]);
+        $teacherMembership = OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $teacher->id,
+            'role' => OrganizationRole::Teacher, 'status' => MembershipStatus::Active,
+        ]);
+        $teacherMembership->permissionOverrides()->create([
+            'permission_key' => 'organization.memberships.read', 'granted_by' => $operator->id,
+        ]);
+        Sanctum::actingAs($operator);
+
+        $this->getJson("/api/v1/platform/users/{$teacher->id}/memberships")
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.organization', 'Role Review Academy')
+            ->assertJsonPath('data.0.role', 'teacher')
+            ->assertJsonMissingPath('data.0.user.password');
+        $this->patchJson("/api/v1/platform/users/{$teacher->id}/memberships/{$adminMembership->id}", [
+            'role' => 'student', 'reason' => 'Attempted cross-account membership edit',
+        ])->assertNotFound();
+        $this->patchJson("/api/v1/platform/users/{$teacher->id}/memberships/{$teacherMembership->id}", [
+            'role' => 'student', 'reason' => 'Corrected organization role after review',
+        ])->assertOk()->assertJsonPath('data.role', 'student');
+        $this->assertSame('student', $teacherMembership->fresh()->role->value);
+        $this->assertDatabaseHas('organization_access_audits', [
+            'organization_id' => $organization->id,
+            'membership_id' => $teacherMembership->id,
+            'actor_user_id' => $operator->id,
+            'subject_user_id' => $teacher->id,
+            'previous_role' => 'teacher',
+            'role' => 'student',
+        ]);
+        $this->assertDatabaseHas('platform_audit_events', [
+            'actor_user_id' => $operator->id,
+            'organization_id' => $organization->id,
+            'action' => 'user.membership_role_changed',
+            'reason' => 'Corrected organization role after review',
+            'before->role' => 'teacher',
+            'after->role' => 'student',
+        ]);
+        $this->patchJson("/api/v1/platform/users/{$admin->id}/memberships/{$adminMembership->id}", [
+            'role' => 'teacher', 'reason' => 'Corrected organization role after review',
+        ])->assertStatus(409);
+        $this->assertSame('admin', $adminMembership->fresh()->role->value);
+        $this->patchJson("/api/v1/platform/users/{$teacher->id}/memberships/{$teacherMembership->id}", [
+            'role' => 'independent_educator', 'reason' => 'Promoted after organization review',
+        ])->assertOk()->assertJsonPath('data.role', 'independent_educator');
+        $this->assertDatabaseMissing('organization_membership_permissions', [
+            'organization_membership_id' => $teacherMembership->id,
+            'permission_key' => 'organization.memberships.read',
+        ]);
+        $this->assertDatabaseHas('organization_access_audits', [
+            'organization_id' => $organization->id,
+            'membership_id' => $teacherMembership->id,
+            'event_type' => 'membership_and_permissions',
+            'previous_permissions' => json_encode(['organization.memberships.read']),
+            'permissions' => json_encode([]),
+        ]);
+
+        Sanctum::actingAs($teacher->fresh());
+        $this->getJson("/api/v1/platform/users/{$teacher->id}/memberships")->assertForbidden();
+    }
+
+    public function test_platform_membership_role_change_rejects_bad_reasons_and_protected_operator_targets(): void
+    {
+        Config::set('services.platform.admin_emails', ['operator@example.com', 'protected@example.com']);
+        $operator = User::factory()->create(['email' => 'operator@example.com']);
+        $protectedOperator = User::factory()->create(['email' => 'protected@example.com']);
+        $member = User::factory()->create();
+        $organization = $this->organization('Protected Role Academy', 'protected-role-academy', 'active');
+        $protectedMembership = OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $protectedOperator->id,
+            'role' => OrganizationRole::Teacher, 'status' => MembershipStatus::Active,
+        ]);
+        $membership = OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $member->id,
+            'role' => OrganizationRole::Teacher, 'status' => MembershipStatus::Active,
+        ]);
+        Sanctum::actingAs($operator);
+
+        $this->getJson("/api/v1/platform/users/{$protectedOperator->id}/memberships")->assertStatus(409);
+        $this->patchJson("/api/v1/platform/users/{$protectedOperator->id}/memberships/{$protectedMembership->id}", [
+            'role' => 'student', 'reason' => 'Protect the allowlisted operator',
+        ])->assertStatus(409);
+        $this->patchJson("/api/v1/platform/users/{$member->id}/memberships/{$membership->id}", [
+            'role' => 'not-a-role', 'reason' => 'Short',
+        ])->assertUnprocessable()->assertJsonValidationErrors(['role', 'reason']);
+        $this->assertSame('teacher', $membership->fresh()->role->value);
+        $this->assertDatabaseCount('platform_audit_events', 0);
+    }
+
     public function test_platform_operator_can_reasonably_suspend_and_restore_user_accounts(): void
     {
         Config::set('services.platform.admin_emails', ['operator@example.com', 'second-operator@example.com']);
