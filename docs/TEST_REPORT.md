@@ -2,6 +2,11 @@
 
 **Updated:** 21 November 2026
 
+## Enrolled-student local AI study help (21 November 2026)
+
+- Added an optional English/Hindi student study-help panel and a local Ollama endpoint that only serves active student members with an active enrollment in a published course. Answers are grounded in up to four published lesson text excerpts; private files and learner profile data are excluded. The system prompt encourages age-appropriate, source-bounded help and hints instead of direct answers to active graded work. The route shares user quotas, rate limits and metadata-only usage retention; prompts and answers are not persisted.
+- Focused Laravel AI tests pass (**9 tests / 65 assertions**), the complete SQLite API regression passes (**220 tests / 1,895 assertions**), and the React Testing Library suite passes (**7 tests**). Web typecheck, ESLint, Pint and production build (17 pre-rendered public routes) pass. The existing educator AI Chromium workflow passes (**1 test**). The Ollama provider remains disabled locally, so no live model response was evaluated. A full authenticated student-dashboard browser flow did not complete in this run; it remained at the workspace loading fallback. The new student panel is covered at component level, and backend enrollment/lesson authorization is covered at API level.
+
 ## Contact enquiry retention controls (21 November 2026)
 
 - Added a `contact-enquiries:purge` Artisan command that defaults to dry-run, validates an explicitly configured 1–36500 day period, and rejects `--force` unless the operator also enables `CONTACT_ENQUIRY_RETENTION_ENABLED`. A daily 02:15 schedule is gated by those same settings; both settings remain off by default so no production records are deleted without an approved policy and explicit configuration.

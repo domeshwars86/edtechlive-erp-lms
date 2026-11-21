@@ -7,8 +7,11 @@ use App\Enums\OrganizationRole;
 use App\Enums\OrganizationType;
 use App\Models\AiAssistanceUsage;
 use App\Models\Course;
+use App\Models\CourseEnrollment;
+use App\Models\CourseLesson;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
+use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -160,6 +163,67 @@ class AiAssistanceTest extends TestCase
         $this->assertDatabaseCount('ai_assistance_usages', 0);
     }
 
+    public function test_enrolled_student_gets_private_local_study_help_from_published_course_notes(): void
+    {
+        [$admin, $studentUser, $organization, $course] = $this->workspace(withStudent: true);
+        $course->update(['status' => 'published']);
+        $student = Student::query()->where('organization_id', $organization->id)->where('user_id', $studentUser->id)->firstOrFail();
+        CourseEnrollment::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id, 'student_id' => $student->id,
+            'enrolled_by' => $admin->id, 'status' => 'active',
+        ]);
+        $lesson = CourseLesson::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id, 'title' => 'Water cycle',
+            'content' => 'The sun warms surface water. Evaporation turns liquid water into water vapor, which rises and cools to form clouds.',
+            'status' => 'published',
+        ]);
+        $this->enableAi();
+        Http::fake(['*' => Http::response([
+            'model' => 'educator-model', 'response' => 'The sun provides heat for evaporation.',
+            'prompt_eval_count' => 88, 'eval_count' => 12,
+        ])]);
+        Sanctum::actingAs($studentUser);
+        $base = "/api/v1/organizations/{$organization->id}";
+
+        $this->postJson("{$base}/ai/courses/{$course->id}/student-question", [
+            'question' => 'How does the sun start the water cycle?', 'language' => 'English', 'lesson_id' => $lesson->id,
+        ])->assertOk()->assertJsonPath('data.answer', 'The sun provides heat for evaporation.')
+            ->assertJsonPath('data.review_required', false);
+
+        Http::assertSent(fn ($request): bool => str_contains($request['prompt'], 'How does the sun start the water cycle?')
+            && str_contains($request['prompt'], 'Evaporation turns liquid water into water vapor')
+            && str_contains($request['system'], 'published lesson excerpts')
+            && str_contains($request['system'], 'Do not provide a direct answer to an active test')
+            && ! str_contains($request['prompt'], $student->name));
+        $usage = AiAssistanceUsage::query()->firstOrFail()->getAttributes();
+        $this->assertSame('succeeded', $usage['status']);
+        $this->assertArrayNotHasKey('prompt', $usage);
+        $this->assertArrayNotHasKey('draft', $usage);
+    }
+
+    public function test_student_study_help_requires_an_active_enrollment_and_published_text(): void
+    {
+        [, $studentUser, $organization, $course] = $this->workspace(withStudent: true);
+        $course->update(['status' => 'published']);
+        $this->enableAi();
+        Sanctum::actingAs($studentUser);
+        $base = "/api/v1/organizations/{$organization->id}";
+        $payload = ['question' => 'Can you explain this topic?', 'language' => 'English'];
+
+        $this->postJson("{$base}/ai/courses/{$course->id}/student-question", $payload)->assertNotFound();
+        $student = Student::query()->where('organization_id', $organization->id)->where('user_id', $studentUser->id)->firstOrFail();
+        CourseEnrollment::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id, 'student_id' => $student->id,
+            'enrolled_by' => OrganizationMembership::query()->where('organization_id', $organization->id)->where('role', OrganizationRole::Admin)->value('user_id'),
+            'status' => 'active',
+        ]);
+
+        $this->postJson("{$base}/ai/courses/{$course->id}/student-question", $payload)->assertUnprocessable()
+            ->assertJsonPath('message', 'No published lesson notes are available for study help yet. Ask your teacher to add lesson content.');
+        Http::assertNothingSent();
+        $this->assertDatabaseCount('ai_assistance_usages', 0);
+    }
+
     public function test_daily_limit_blocks_extra_requests_and_provider_errors_are_sanitized_and_recorded(): void
     {
         [$admin, $organization, $course] = $this->workspace();
@@ -242,6 +306,11 @@ class AiAssistanceTest extends TestCase
             OrganizationMembership::query()->create([
                 'organization_id' => $organization->id, 'user_id' => $studentUser->id,
                 'role' => OrganizationRole::Student, 'status' => MembershipStatus::Active, 'accepted_at' => now(),
+            ]);
+            Student::query()->create([
+                'organization_id' => $organization->id, 'user_id' => $studentUser->id,
+                'name' => 'Learner with private identity', 'admission_number' => 'STU-'.str()->upper(str()->random(8)),
+                'email' => $studentUser->email, 'status' => 'active',
             ]);
             $users = $withTeacher
                 ? [$users[0], $studentUser, $organization, $course]

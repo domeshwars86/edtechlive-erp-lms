@@ -96,7 +96,7 @@ function Dashboard({ role: inputRole, account, organization, organizationId, pla
     ...(account && organizationId && roleKey !== 'parent' && roleKey !== 'super-admin' ? [{ label: 'Inbox', icon: Bell }] : []),
   ]
   const rows = useMemo(() => sampleRows.filter(row => row.join(' ').toLowerCase().includes(query.toLowerCase())), [query])
-  const title = isOverview ? `Good morning, ${data.name}` : active
+  const title = isOverview ? `Good morning, ${account?.name || data.name}` : active
   const intro = isOverview ? data.summary : `A focused view of ${active.toLowerCase()} for your ${data.short.toLowerCase()}.`
   function selectNav(label: string) { setActive(label); setMobileOpen(false); setQuery('') }
   function openLearningNotice(resourceType: string) {

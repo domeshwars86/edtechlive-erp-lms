@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\OrganizationRole;
 use App\Models\AiAssistanceUsage;
 use App\Models\Course;
+use App\Models\CourseEnrollment;
+use App\Models\CourseLesson;
+use App\Models\Student;
 use App\Models\Teacher;
 use App\Services\LocalAiAssistant;
 use App\Services\OrganizationAccess;
@@ -78,6 +81,50 @@ class AiAssistanceController
         );
     }
 
+    public function studentQuestion(Request $request, int $organization, int $course): JsonResponse
+    {
+        if (! $this->assistant->enabled()) {
+            abort(503, 'AI study help is disabled until a private local provider and model are configured.');
+        }
+
+        $membership = $this->access->membership($request, $organization);
+        abort_unless($membership->role === OrganizationRole::Student, 403);
+        $student = Student::query()->where('organization_id', $organization)
+            ->where('user_id', $request->user()->id)->where('status', 'active')->firstOrFail();
+        $courseRecord = Course::query()->where('organization_id', $organization)
+            ->where('status', 'published')->findOrFail($course);
+        abort_unless(CourseEnrollment::query()->where('organization_id', $organization)->where('course_id', $courseRecord->id)
+            ->where('student_id', $student->id)->where('status', 'active')->exists(), 404);
+
+        $data = $request->validate([
+            'question' => ['required', 'string', 'min:5', 'max:1000'],
+            'language' => ['required', Rule::in(['English', 'Hindi'])],
+            'lesson_id' => ['nullable', 'integer'],
+        ]);
+        $lessonQuery = CourseLesson::query()->where('organization_id', $organization)
+            ->where('course_id', $courseRecord->id)->where('status', 'published')
+            ->whereNotNull('content')->where('content', '!=', '')->orderBy('sort_order')->orderBy('id');
+        if (isset($data['lesson_id'])) {
+            $lessonQuery->whereKey($data['lesson_id']);
+        }
+        $materials = $lessonQuery->limit(4)->get(['title', 'content'])->map(fn (CourseLesson $lesson): array => [
+            'title' => $lesson->title,
+            'content' => mb_substr((string) $lesson->content, 0, 2500),
+        ])->all();
+
+        if ($materials === []) {
+            return response()->json(['message' => 'No published lesson notes are available for study help yet. Ask your teacher to add lesson content.'], 422);
+        }
+
+        return $this->makeDraft(
+            $request,
+            $organization,
+            fn (): array => $this->assistant->answerStudentQuestion($courseRecord, $materials, $data),
+            false,
+            'answer',
+        );
+    }
+
     private function editableCourse(Request $request, int $organization, int $course): Course
     {
         if (! $this->assistant->enabled()) {
@@ -91,7 +138,7 @@ class AiAssistanceController
         return $record;
     }
 
-    private function makeDraft(Request $request, int $organization, \Closure $generate): JsonResponse
+    private function makeDraft(Request $request, int $organization, \Closure $generate, bool $reviewRequired = true, string $resultKey = 'draft'): JsonResponse
     {
         $limit = min(max((int) config('services.ai.daily_user_limit', 10), 1), 100);
         $usageKey = 'ai-assistant:'.$organization.':'.$request->user()->id.':'.now()->toDateString();
@@ -112,10 +159,10 @@ class AiAssistanceController
             ]);
 
             return response()->json(['data' => [
-                'draft' => $result['draft'],
+                $resultKey => $result['draft'],
                 'model' => $result['model'],
                 'usage' => ['prompt_tokens' => $result['prompt_tokens'], 'completion_tokens' => $result['completion_tokens']],
-                'review_required' => true,
+                'review_required' => $reviewRequired,
             ]]);
         } catch (RuntimeException $exception) {
             AiAssistanceUsage::query()->create([

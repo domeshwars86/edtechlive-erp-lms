@@ -26,6 +26,8 @@ Set `FRONTEND_URL` to the SPA origin used in reset links, `CORS_ALLOWED_ORIGINS`
 
 Google Meet room creation is optional. To enable it, configure `GOOGLE_MEET_CLIENT_ID`, `GOOGLE_MEET_CLIENT_SECRET`, and `GOOGLE_MEET_REDIRECT_URI` in the API environment. Register the redirect URI exactly in the Google OAuth web client; locally it is `{APP_URL}/api/v1/integrations/google-meet/callback`. Enable the Google Meet REST API for that Cloud project. An authorized organizer connects their account from the meeting form; tokens are encrypted at rest and scoped to creating Meet spaces. OAuth consent/public-app verification and provider setup are operator responsibilities. Without credentials, staff can continue pasting HTTPS meeting links.
 
+Optional teacher drafting and student study help use a private local Ollama service only. Set `AI_DRIVER=ollama`, `AI_MODEL`, `AI_BASE_URL` (loopback/private host only), and `AI_DAILY_USER_LIMIT` in the API environment. When enabled, enrolled students can ask about published lesson text in a published course; private uploads and learner profile fields are not sent. Prompts and answers are not stored. The AI UI stays hidden while the driver or model is disabled. Model quality and age-appropriateness still require human review; Ollama is not configured in the default local preview.
+
 ## Migrations and tests
 
 After confirming the local database target, migrate the development database:
@@ -49,6 +51,7 @@ The production container recipe is `apps/api/Dockerfile` (build context: `apps/a
 - `GET /api/v1/organizations/{organization}/documents` — paginated private course-file library; admin/management/educator are tenant scoped, teachers see their courses, and students see published assets from active enrollments only.
 - Under `/api/v1/organizations/{organization}`: `GET/POST /fees` and `POST /fees/{fee}/payments` maintain manual fee records and staff-entered receipts. Students and explicitly linked parents can read only authorized fees; no payment is initiated or charged by these routes.
 - Under `/api/v1/organizations/{organization}`: `GET/POST /meetings`, `PATCH /meetings/{meeting}`, `GET/POST /meetings/google/status|connect|spaces`, and `DELETE /meetings/google/connect` provide role-scoped schedules and optional Google Meet OAuth room creation. Teachers need a matching assignment to schedule a class meeting; student and parent listings are enrollment/link scoped. Manual HTTPS links remain available without Google credentials. The OAuth callback is `GET /api/v1/integrations/google-meet/callback`.
+- Under `/api/v1/organizations/{organization}`: `GET /ai/config`, `POST /ai/courses/{course}/lesson-plan`, `POST /ai/courses/{course}/question-drafts`, and `POST /ai/courses/{course}/student-question` provide optional local-Ollama educator drafts and enrolled-student Q&A grounded only in published lesson text. AI is disabled by default; usage is rate-limited and prompts/responses are not stored.
 - `POST /api/v1/auth/register` — creates a user, organization and initial admin membership, then sends a verification email. Responds with 202.
 - `POST /api/v1/auth/login` — verified accounts only. Uses a first-party session by default or issues a 30-day token when `device_name` is supplied.
 - `POST /api/v1/auth/logout` — revokes the current token or ends the browser session.
