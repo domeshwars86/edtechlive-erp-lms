@@ -9,6 +9,7 @@ use App\Models\CourseAssignment;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Services\OrganizationAccess;
+use App\Services\OrganizationNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +18,7 @@ use Illuminate\Validation\ValidationException;
 
 class CourseAssignmentController
 {
-    public function __construct(private readonly OrganizationAccess $access) {}
+    public function __construct(private readonly OrganizationAccess $access, private readonly OrganizationNotifier $notifier) {}
 
     public function index(Request $request, int $organization, int $course): JsonResponse
     {
@@ -67,6 +68,10 @@ class CourseAssignmentController
             'max_points' => $data['max_points'] ?? 100,
             'status' => $data['status'] ?? 'draft',
         ]);
+        if ($assignment->status === 'published') {
+            $this->notifier->learningActivity($courseRecord, $request->user()->id, 'learning_assignment_published', 'course_assignment', $assignment->id,
+                'New assignment available', "{$courseRecord->title}: {$assignment->title}");
+        }
 
         return response()->json(['data' => $this->assignmentData($assignment)], 201);
     }
@@ -86,7 +91,12 @@ class CourseAssignmentController
         if (($data['status'] ?? $assignment->status) === 'published' && $assignment->course->status !== 'published') {
             throw ValidationException::withMessages(['status' => ['Publish the course before publishing assignments to students.']]);
         }
+        $wasPublished = $assignment->status === 'published';
         $assignment->update($data);
+        if (! $wasPublished && $assignment->status === 'published') {
+            $this->notifier->learningActivity($assignment->course, $request->user()->id, 'learning_assignment_published', 'course_assignment', $assignment->id,
+                'New assignment available', "{$assignment->course->title}: {$assignment->title}");
+        }
 
         return response()->json(['data' => $this->assignmentData($assignment->refresh())]);
     }

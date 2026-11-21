@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from 'react-native'
 import { ApiError, mobileApi } from './api'
 
-type Category = 'announcements' | 'meetings' | 'fees'
+type Category = 'announcements' | 'meetings' | 'fees' | 'learning'
 type Preferences = {
   announcements: boolean
   meetings: boolean
   fees: boolean
+  learning: boolean
   email: Record<Category, boolean>
 }
 type Delivery = {
@@ -24,12 +25,14 @@ const defaults: Preferences = {
   announcements: true,
   meetings: true,
   fees: true,
-  email: { announcements: false, meetings: false, fees: false },
+  learning: true,
+  email: { announcements: false, meetings: false, fees: false, learning: false },
 }
 const categories: { key: Category; title: string; description: string }[] = [
   { key: 'announcements', title: 'Announcements', description: 'Updates shared by your organization.' },
   { key: 'meetings', title: 'Scheduled meetings', description: 'Changes to classes and meeting schedules.' },
   { key: 'fees', title: 'Fee updates', description: 'New fee records and receipt confirmations.' },
+  { key: 'learning', title: 'Learning updates', description: 'New lessons, assignments, and quizzes in your courses.' },
 ]
 
 export function NotificationPreferencesPanel({ token, organizationId }: { token: string; organizationId: number }) {
@@ -63,7 +66,7 @@ export function NotificationPreferencesPanel({ token, organizationId }: { token:
   async function save(next: Preferences): Promise<void> {
     if (saving) return
     const previous = preferences
-    const payload = emailAvailable ? next : { ...next, email: { announcements: false, meetings: false, fees: false } }
+    const payload = emailAvailable ? next : { ...next, email: { announcements: false, meetings: false, fees: false, learning: false } }
     setPreferences(payload)
     setSaving(true)
     setError('')

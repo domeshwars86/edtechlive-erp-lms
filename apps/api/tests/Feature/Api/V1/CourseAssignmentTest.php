@@ -11,6 +11,7 @@ use App\Models\CourseEnrollment;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\Student;
+use App\Models\StudentGuardian;
 use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -83,6 +84,55 @@ class CourseAssignmentTest extends TestCase
         ])->assertUnprocessable()->assertJsonValidationErrors('status');
         $this->postJson("{$base}/courses/{$draft->id}/assignments", ['title' => 'Draft work'])
             ->assertCreated()->assertJsonPath('data.status', 'draft');
+    }
+
+    public function test_publishing_an_assignment_notifies_only_enrolled_learners_and_linked_guardians_once(): void
+    {
+        [$admin, $teacherUser, $studentUser, $organization, $course] = $this->classroom();
+        $parent = User::factory()->create(['email' => 'parent@example.com']);
+        OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $parent->id, 'role' => OrganizationRole::Parent,
+            'status' => MembershipStatus::Active, 'accepted_at' => now(),
+        ]);
+        $student = Student::query()->where('user_id', $studentUser->id)->firstOrFail();
+        StudentGuardian::query()->create([
+            'organization_id' => $organization->id, 'student_id' => $student->id, 'guardian_user_id' => $parent->id,
+            'linked_by' => $admin->id, 'relationship' => 'parent', 'is_primary' => true, 'linked_at' => now(),
+        ]);
+        $unsubscribed = User::factory()->create(['email' => 'unsubscribed@example.com', 'notification_preferences' => ['learning' => false]]);
+        OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $unsubscribed->id, 'role' => OrganizationRole::Student,
+            'status' => MembershipStatus::Active, 'accepted_at' => now(),
+        ]);
+        $unsubscribedStudent = Student::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $unsubscribed->id,
+            'name' => 'Unsubscribed Learner', 'admission_number' => 'S-201', 'status' => 'active',
+        ]);
+        CourseEnrollment::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id, 'student_id' => $unsubscribedStudent->id,
+            'enrolled_by' => $admin->id, 'status' => 'active',
+        ]);
+        $assignment = CourseAssignment::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id, 'created_by' => $teacherUser->id,
+            'title' => 'Prepare a food web', 'instructions' => 'Label each organism.', 'max_points' => 10, 'status' => 'draft',
+        ]);
+
+        Sanctum::actingAs($teacherUser);
+        $base = "/api/v1/organizations/{$organization->id}/assignments/{$assignment->id}";
+        $this->patchJson($base, ['status' => 'published'])->assertOk()->assertJsonPath('data.status', 'published');
+        $this->patchJson($base, ['instructions' => 'Use arrows to show energy flow.'])->assertOk();
+
+        $this->assertDatabaseCount('notifications', 2);
+        foreach ([$studentUser, $parent] as $recipient) {
+            $this->assertDatabaseHas('notifications', [
+                'notifiable_id' => $recipient->id,
+                'type' => 'App\\Notifications\\WorkspaceNotification',
+                'data->kind' => 'learning_assignment_published',
+                'data->resource_id' => $assignment->id,
+            ]);
+        }
+        $this->assertDatabaseMissing('notifications', ['notifiable_id' => $admin->id]);
+        $this->assertDatabaseMissing('notifications', ['notifiable_id' => $unsubscribed->id]);
     }
 
     private function classroom(): array

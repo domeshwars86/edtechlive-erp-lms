@@ -12,6 +12,7 @@ use App\Models\QuizQuestion;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Services\OrganizationAccess;
+use App\Services\OrganizationNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -21,7 +22,7 @@ use Illuminate\Validation\ValidationException;
 
 class CourseQuizController
 {
-    public function __construct(private readonly OrganizationAccess $access) {}
+    public function __construct(private readonly OrganizationAccess $access, private readonly OrganizationNotifier $notifier) {}
 
     public function index(Request $request, int $organization, int $course): JsonResponse
     {
@@ -96,7 +97,12 @@ class CourseQuizController
         if ($record->status === 'published' && $request->hasAny(['title', 'instructions', 'time_limit_minutes', 'max_attempts', 'opens_at', 'closes_at', 'negative_marking_rate', 'pass_percent'])) {
             throw ValidationException::withMessages(['status' => ['Published quiz settings cannot be changed after attempts are enabled.']]);
         }
+        $wasPublished = $record->status === 'published';
         $record->update($data);
+        if (! $wasPublished && $record->status === 'published') {
+            $this->notifier->learningActivity($record->course, $request->user()->id, 'learning_quiz_published', 'course_quiz', $record->id,
+                'New quiz available', "{$record->course->title}: {$record->title}");
+        }
 
         return response()->json(['data' => $this->quizData($record->refresh()->load('questions'))]);
     }

@@ -3,16 +3,17 @@ import { Bell, CircleHelp, LoaderCircle, Mail, ShieldCheck } from 'lucide-react'
 import { ApiError, api } from '../lib/api'
 import './NotificationPreferences.css'
 
-type Category = 'announcements' | 'meetings' | 'fees'
-type Preferences = { announcements: boolean; meetings: boolean; fees: boolean; email: Record<Category, boolean> }
+type Category = 'announcements' | 'meetings' | 'fees' | 'learning'
+type Preferences = { announcements: boolean; meetings: boolean; fees: boolean; learning: boolean; email: Record<Category, boolean> }
 type Delivery = { id: number; title: string; status: 'queued' | 'sent' | 'failed' | 'cancelled'; attempts: number; queued_at: string; sent_at: string | null; failed_at: string | null; cancelled_at: string | null }
 
 const categories: { key: Category; label: string; description: string }[] = [
   { key: 'announcements', label: 'Announcements', description: 'Updates shared by your organization.' },
   { key: 'meetings', label: 'Scheduled meetings', description: 'Changes to classes and meeting schedules.' },
   { key: 'fees', label: 'Fee updates', description: 'New fee records and receipt confirmations.' },
+  { key: 'learning', label: 'Learning updates', description: 'New lessons, assignments, and quizzes in your courses.' },
 ]
-const defaults: Preferences = { announcements: true, meetings: true, fees: true, email: { announcements: false, meetings: false, fees: false } }
+const defaults: Preferences = { announcements: true, meetings: true, fees: true, learning: true, email: { announcements: false, meetings: false, fees: false, learning: false } }
 
 export default function NotificationPreferences({ organizationId, connected = true, compact = false }: { organizationId?: number; connected?: boolean; compact?: boolean }) {
   const [preferences, setPreferences] = useState(defaults)

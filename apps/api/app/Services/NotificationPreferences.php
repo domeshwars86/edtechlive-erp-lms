@@ -10,10 +10,12 @@ class NotificationPreferences
         'announcements' => true,
         'meetings' => true,
         'fees' => true,
+        'learning' => true,
         'email' => [
             'announcements' => false,
             'meetings' => false,
             'fees' => false,
+            'learning' => false,
         ],
     ];
 
@@ -28,6 +30,7 @@ class NotificationPreferences
             'announcement' => 'announcements',
             'meeting_scheduled' => 'meetings',
             'fee_issued', 'fee_payment' => 'fees',
+            'learning_assignment_published', 'learning_quiz_published', 'learning_lesson_published' => 'learning',
             default => null,
         };
 
@@ -40,6 +43,7 @@ class NotificationPreferences
             'announcement' => 'announcements',
             'meeting_scheduled' => 'meetings',
             'fee_issued', 'fee_payment' => 'fees',
+            'learning_assignment_published', 'learning_quiz_published', 'learning_lesson_published' => 'learning',
             default => null,
         };
 

@@ -89,6 +89,33 @@ class OrganizationNotifier
         ], $actorId);
     }
 
+    public function learningActivity(Course $course, int $actorId, string $kind, string $resourceType, int $resourceId, string $title, string $body): void
+    {
+        if ($course->status !== 'published') {
+            return;
+        }
+
+        $students = Student::query()->where('organization_id', $course->organization_id)->where('status', 'active')
+            ->whereIn('id', CourseEnrollment::query()->where('organization_id', $course->organization_id)
+                ->where('course_id', $course->id)->where('status', 'active')->select('student_id'))
+            ->get(['id', 'user_id']);
+        $userIds = $students->pluck('user_id')->merge(StudentGuardian::query()
+            ->where('organization_id', $course->organization_id)->whereIn('student_id', $students->pluck('id'))
+            ->pluck('guardian_user_id'));
+        $activeRecipients = OrganizationMembership::query()->where('organization_id', $course->organization_id)
+            ->where('status', MembershipStatus::Active)->whereIn('role', [OrganizationRole::Student, OrganizationRole::Parent])
+            ->whereIn('user_id', $userIds->filter())->pluck('user_id');
+
+        $this->notify($activeRecipients, [
+            'organization_id' => $course->organization_id,
+            'kind' => $kind,
+            'title' => $title,
+            'body' => $body,
+            'resource_type' => $resourceType,
+            'resource_id' => $resourceId,
+        ], $actorId);
+    }
+
     private function notify(Collection|array $userIds, array $payload, int $actorId): void
     {
         $recipients = User::query()->whereIn('id', collect($userIds)->filter()->unique()->reject(fn (int $id): bool => $id === $actorId))->get();

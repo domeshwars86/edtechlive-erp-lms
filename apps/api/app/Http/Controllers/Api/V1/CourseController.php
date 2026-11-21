@@ -9,6 +9,7 @@ use App\Models\CourseLesson;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Services\OrganizationAccess;
+use App\Services\OrganizationNotifier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,7 @@ use Illuminate\Validation\ValidationException;
 
 class CourseController
 {
-    public function __construct(private readonly OrganizationAccess $access) {}
+    public function __construct(private readonly OrganizationAccess $access, private readonly OrganizationNotifier $notifier) {}
 
     public function index(Request $request, int $organization): JsonResponse
     {
@@ -138,6 +139,10 @@ class CourseController
             throw ValidationException::withMessages(['content' => ['A published lesson needs written content or an external resource link.']]);
         }
         $lesson = $record->lessons()->create([...$data, 'organization_id' => $organization]);
+        if ($lesson->status === 'published') {
+            $this->notifier->learningActivity($record, $request->user()->id, 'learning_lesson_published', 'course_lesson', $lesson->id,
+                'New lesson available', "{$record->title}: {$lesson->title}");
+        }
 
         return response()->json(['data' => $this->lessonData($lesson)], 201);
     }

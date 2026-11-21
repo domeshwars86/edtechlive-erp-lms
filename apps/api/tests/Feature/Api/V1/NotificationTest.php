@@ -24,14 +24,15 @@ class NotificationTest extends TestCase
         Sanctum::actingAs($user);
 
         $this->getJson('/api/v1/me/notification-preferences')->assertOk()
-            ->assertJsonPath('data.announcements', true)->assertJsonPath('data.meetings', true)->assertJsonPath('data.fees', true);
+            ->assertJsonPath('data.announcements', true)->assertJsonPath('data.meetings', true)->assertJsonPath('data.fees', true)
+            ->assertJsonPath('data.learning', true)->assertJsonPath('data.email.learning', false);
         $this->patchJson('/api/v1/me/notification-preferences', [
-            'announcements' => false, 'meetings' => true, 'fees' => false,
-            'email' => ['announcements' => false, 'meetings' => false, 'fees' => false],
+            'announcements' => false, 'meetings' => true, 'fees' => false, 'learning' => true,
+            'email' => ['announcements' => false, 'meetings' => false, 'fees' => false, 'learning' => false],
         ])->assertOk()->assertJsonPath('data.announcements', false)->assertJsonPath('data.fees', false);
         $this->assertSame([
-            'announcements' => false, 'meetings' => true, 'fees' => false,
-            'email' => ['announcements' => false, 'meetings' => false, 'fees' => false],
+            'announcements' => false, 'meetings' => true, 'fees' => false, 'learning' => true,
+            'email' => ['announcements' => false, 'meetings' => false, 'fees' => false, 'learning' => false],
         ], $user->fresh()->notification_preferences);
         $this->patchJson('/api/v1/me/notification-preferences', ['announcements' => 'sometimes'])
             ->assertUnprocessable();
