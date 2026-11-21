@@ -6,6 +6,7 @@
 
 - Added `league/flysystem-aws-s3-v3` and made the `private` filesystem disk selectable with `PRIVATE_STORAGE_DRIVER`. Local storage remains the default; an S3-compatible provider can use environment-configured bucket, region, endpoint, private prefix, credentials and path-style setting. The private disk remains private and does not expose a public URL.
 - Focused private disk configuration and course asset tests pass (**6 tests / 49 assertions**); full API regression passes (**226 tests / 1,922 assertions**) and Pint passes. This verifies configuration against Laravel's S3 adapter locally, not connectivity to a live provider. No production bucket or credentials are configured, and existing object migration, backup/restore, retention and malware scanning remain open.
+- `composer validate --no-check-publish` passes and `composer audit --locked` reports no security vulnerability advisories for the locked PHP dependencies.
 
 ## Optional mobile push notifications (21 November 2026)
 
