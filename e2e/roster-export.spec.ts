@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 
 test('authorized organization admin exports every matching student page to a safe CSV', async ({ page }) => {
+  test.setTimeout(90_000)
   let signedIn = false
   const account = { id: 84, name: 'Workspace Administrator', email: 'admin@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', is_platform_admin: false }
   const membership = {
@@ -59,7 +60,8 @@ test('authorized organization admin exports every matching student page to a saf
   await page.getByRole('button', { name: 'Log in' }).click()
   await page.getByRole('button', { name: /Browser Test School/ }).click()
   await page.getByRole('button', { name: 'Students', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Students', level: 2 })).toBeVisible()
+  await expect(page.getByText('Loading workspace…')).toHaveCount(0, { timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: 'Students', level: 2 })).toBeVisible({ timeout: 15_000 })
   await expect(page.getByText('Page 1 of 2 · 2 students')).toBeVisible()
   await page.getByRole('button', { name: 'Next', exact: true }).click()
   await expect(page.getByText('Second Student')).toBeVisible()

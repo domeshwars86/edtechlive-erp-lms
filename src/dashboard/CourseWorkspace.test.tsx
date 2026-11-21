@@ -53,7 +53,7 @@ describe('student course study help', () => {
     expect(screen.getByText('1 of 10 daily requests used. Questions, lesson text and answers are not stored by edTechLive.')).toBeVisible()
   })
 
-  it('keeps the helper hidden when the local model is disabled', async () => {
+  it('explains when study help is unavailable after opening its dashboard shortcut', async () => {
     vi.mocked(api.get).mockImplementation(async <T,>(path: string) => {
       if (path.endsWith('/ai/config')) return { enabled: false, model: null, daily_limit: 10,
         usage: { requests_30_days: 0, prompt_tokens_30_days: 0, completion_tokens_30_days: 0, requests_today: 0 } } as T
@@ -62,9 +62,11 @@ describe('student course study help', () => {
       if (path.endsWith('/courses/8/progress')) return { data: [], summary: { completed: 0, total: 1, percent: 0 } } as T
       return { data: [] } as T
     })
-    render(<CourseWorkspace organizationId={19} mode="student" />)
+    render(<CourseWorkspace organizationId={19} mode="student" focusStudentAiHelp />)
 
-    await screen.findByText(/The Water Cycle/)
-    expect(screen.queryByRole('heading', { name: 'Study with your course lessons' })).not.toBeInTheDocument()
+    const heading = await screen.findByRole('heading', { name: 'Study with your course lessons' })
+    expect(heading).toHaveFocus()
+    expect(screen.getByText('Study help is not enabled for this workspace yet. Ask your school administrator for details.')).toBeVisible()
+    expect(screen.queryByRole('textbox', { name: 'Question' })).not.toBeInTheDocument()
   })
 })

@@ -36,4 +36,7 @@ test('student can open enrolled courses and use course lesson study help', async
   await page.getByRole('button', { name: 'Ask about this course' }).click()
   await expect(page.locator('.course-ai-result pre')).toHaveText('Evaporation changes liquid water into vapor.')
   expect(studentQuestion).toEqual({ question: 'What happens during evaporation?', language: 'English' })
+  await page.getByRole('button', { name: 'AI learning help', exact: true }).click()
+  const studyHelpHeading = page.getByRole('heading', { name: 'Study with your course lessons' })
+  await expect(studyHelpHeading).toBeFocused()
 })
