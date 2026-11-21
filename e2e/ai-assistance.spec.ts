@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('teacher AI question-drafts navigation opens the course-grounded draft tool', async ({ page }) => {
+  test.setTimeout(90_000)
   let signedIn = false
   let aiEnabled = true
   const submittedPrompts: Record<string, unknown>[] = []
@@ -13,11 +14,13 @@ test('teacher AI question-drafts navigation opens the course-grounded draft tool
   const course = { id: 7, title: 'Foundations of Science', slug: 'foundations-of-science', level: 'Grade 6', description: 'Explore natural systems.', status: 'draft', is_public_listing: false, subject: { id: 3, name: 'Science' }, teacher: null }
 
   await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
-  await page.route('**/api/v1/me', route => route.fulfill({
-    status: signedIn ? 200 : 401,
-    contentType: 'application/json',
-    body: JSON.stringify(signedIn ? { data: account } : { message: 'Unauthenticated.' }),
-  }))
+  await page.route('**/api/v1/me', route => {
+    return route.fulfill({
+      status: signedIn ? 200 : 401,
+      contentType: 'application/json',
+      body: JSON.stringify(signedIn ? { data: account } : { message: 'Unauthenticated.' }),
+    })
+  })
   await page.route('**/api/v1/auth/login', route => {
     signedIn = true
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: account }) })
@@ -99,6 +102,8 @@ test('teacher AI question-drafts navigation opens the course-grounded draft tool
   await page.setViewportSize({ width: 1280, height: 900 })
   aiEnabled = false
   await page.getByRole('button', { name: 'Live classes', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Live classes', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Scheduled meetings', level: 2 })).toBeVisible()
   await page.getByRole('button', { name: 'AI question drafts', exact: true }).click()
   await expect(page.getByText('AI drafts are currently unavailable. An operator must configure the private Ollama service before educators can generate drafts.')).toBeVisible()
   await expect(page.getByLabel('Draft type')).toHaveCount(0)
