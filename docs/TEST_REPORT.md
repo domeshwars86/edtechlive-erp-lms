@@ -2,6 +2,10 @@
 
 **Updated:** 21 November 2026
 
+## Teacher AI question-draft navigation (21 November 2026)
+
+- The teacher sidebar now opens the course workspace with MCQ drafting selected by default. The optional Ollama service's disabled or unavailable state is explained in the workspace. The mocked Chromium regression passed for draft generation and the disabled-provider message (**1 test / 6.6 seconds**). `npm run build`, `npm run lint`, and the frontend component suite (**7 tests**) pass. This does not verify a live model response.
+
 ## Configurable private S3-compatible file storage (21 November 2026)
 
 - Added `league/flysystem-aws-s3-v3` and made the `private` filesystem disk selectable with `PRIVATE_STORAGE_DRIVER`. Local storage remains the default; an S3-compatible provider can use environment-configured bucket, region, endpoint, private prefix, credentials and path-style setting. The private disk remains private and does not expose a public URL.

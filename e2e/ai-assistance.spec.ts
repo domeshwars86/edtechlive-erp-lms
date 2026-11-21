@@ -1,12 +1,13 @@
 import { expect, test } from '@playwright/test'
 
-test('educator course workspace creates a locally configured AI lesson-plan draft for review', async ({ page }) => {
+test('teacher AI question-drafts navigation opens the course-grounded draft tool', async ({ page }) => {
   let signedIn = false
+  let aiEnabled = true
   const submittedPrompts: Record<string, unknown>[] = []
   const account = { id: 42, name: 'Course Author', email: 'author@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', is_platform_admin: false }
   const membership = {
     membership_id: 12,
-    role: 'admin',
+    role: 'teacher',
     organization: { id: 18, name: 'Browser Test School', slug: 'browser-test-school', type: 'school', status: 'active', timezone: 'Asia/Kolkata' },
   }
   const course = { id: 7, title: 'Foundations of Science', slug: 'foundations-of-science', level: 'Grade 6', description: 'Explore natural systems.', status: 'draft', is_public_listing: false, subject: { id: 3, name: 'Science' }, teacher: null }
@@ -36,7 +37,7 @@ test('educator course workspace creates a locally configured AI lesson-plan draf
     }
     if (pathname.endsWith('/dashboard/activity')) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { days: [] } }) })
     if (pathname.endsWith('/ai/config')) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-      enabled: true, model: 'educator-test-model', daily_limit: 10,
+      enabled: aiEnabled, model: aiEnabled ? 'educator-test-model' : null, daily_limit: 10,
       usage: { requests_30_days: 1, prompt_tokens_30_days: 100, completion_tokens_30_days: 50, requests_today: 0 },
     }) })
     if (pathname.endsWith('/courses/7/lesson-plan') && request.method() === 'POST') {
@@ -64,10 +65,13 @@ test('educator course workspace creates a locally configured AI lesson-plan draf
   await page.getByLabel('Password', { exact: true }).fill('LocalBrowserPass123')
   await page.getByRole('button', { name: 'Log in' }).click()
   await page.getByRole('button', { name: /Browser Test School/ }).click()
-  await page.getByRole('button', { name: 'Courses', exact: true }).click()
+  await page.getByRole('button', { name: 'AI question drafts', exact: true }).click()
 
   await expect(page.getByRole('heading', { name: 'Courses and lessons' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'AI lesson-plan draft' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'AI question drafts', level: 4 })).toBeVisible()
+  await expect(page.getByLabel('Draft type')).toHaveValue('questions')
+  await page.getByLabel('Draft type').selectOption('lesson_plan')
+  await expect(page.getByRole('heading', { name: 'AI lesson-plan draft', level: 4 })).toBeVisible()
   await page.getByRole('textbox', { name: 'Topic' }).fill('The water cycle')
   await page.getByRole('textbox', { name: 'Learning objectives' }).fill('Explain how water moves through the environment.')
   await page.getByRole('button', { name: 'Generate lesson-plan draft' }).click()
@@ -91,4 +95,11 @@ test('educator course workspace creates a locally configured AI lesson-plan draf
   await page.setViewportSize({ width: 320, height: 900 })
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
   expect(hasHorizontalOverflow).toBe(false)
+
+  await page.setViewportSize({ width: 1280, height: 900 })
+  aiEnabled = false
+  await page.getByRole('button', { name: 'Live classes', exact: true }).click()
+  await page.getByRole('button', { name: 'AI question drafts', exact: true }).click()
+  await expect(page.getByText('AI drafts are currently unavailable. An operator must configure the private Ollama service before educators can generate drafts.')).toBeVisible()
+  await expect(page.getByLabel('Draft type')).toHaveCount(0)
 })
