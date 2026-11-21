@@ -15,6 +15,7 @@ use App\Models\StudentGuardian;
 use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -124,12 +125,9 @@ class CourseAssignmentTest extends TestCase
 
         $this->assertDatabaseCount('notifications', 2);
         foreach ([$studentUser, $parent] as $recipient) {
-            $this->assertDatabaseHas('notifications', [
-                'notifiable_id' => $recipient->id,
-                'type' => 'App\\Notifications\\WorkspaceNotification',
-                'data->kind' => 'learning_assignment_published',
-                'data->resource_id' => $assignment->id,
-                'data->course_id' => $course->id,
+            $this->assertWorkspaceNotification($recipient->id, 'learning_assignment_published', [
+                'resource_id' => $assignment->id,
+                'course_id' => $course->id,
             ]);
         }
         $this->assertDatabaseMissing('notifications', ['notifiable_id' => $admin->id]);
@@ -178,5 +176,18 @@ class CourseAssignmentTest extends TestCase
         ]);
 
         return [$admin, $teacherUser, $studentUser, $organization, $course, $assignment];
+    }
+
+    private function assertWorkspaceNotification(int $recipientId, string $kind, array $expected = []): void
+    {
+        $matches = DB::table('notifications')->where('notifiable_id', $recipientId)
+            ->where('type', 'App\\Notifications\\WorkspaceNotification')->get(['data'])
+            ->map(fn (object $notification): array => json_decode($notification->data, true, 512, JSON_THROW_ON_ERROR))
+            ->filter(fn (array $data): bool => ($data['kind'] ?? null) === $kind);
+        $this->assertCount(1, $matches);
+        $data = $matches->first();
+        foreach ($expected as $key => $value) {
+            $this->assertSame($value, $data[$key] ?? null);
+        }
     }
 }

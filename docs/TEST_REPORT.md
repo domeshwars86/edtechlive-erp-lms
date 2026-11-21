@@ -2,6 +2,11 @@
 
 **Updated:** 21 November 2026
 
+## PostgreSQL 17 cross-database API regression (21 November 2026)
+
+- Four PostgreSQL-specific test assertion failures were fixed by reading notification text payloads and cast audit values through Laravel models instead of relying on SQLite JSON column operators. The affected focused SQLite suites passed (**31 tests / 449 assertions**) and Pint passed for the four updated test files.
+- The complete Laravel API regression passed on in-memory SQLite and a fresh disposable PostgreSQL 17 cluster (**213 tests / 1,864 assertions on each**). The PostgreSQL cluster was bound to a dedicated loopback port, stopped and removed after the run. Hosted PostgreSQL 16 CI and production database validation remain open.
+
 ## Platform membership role administration (21 November 2026)
 
 - Allowlisted platform operators can review active/suspended organization memberships for an ordinary account and correct a role with a required reason. The API confirms membership ownership, protects operator accounts, blocks removal of an organization's last active admin/independent educator, and writes both tenant access and platform audit events. Role updates and ordinary workspace membership changes acquire the organization lock first to serialize the last-administrator check.

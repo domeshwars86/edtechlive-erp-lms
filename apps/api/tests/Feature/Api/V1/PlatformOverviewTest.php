@@ -6,6 +6,7 @@ use App\Enums\MembershipStatus;
 use App\Enums\OrganizationRole;
 use App\Enums\OrganizationType;
 use App\Models\Organization;
+use App\Models\OrganizationAccessAudit;
 use App\Models\OrganizationMembership;
 use App\Models\PlatformAuditEvent;
 use App\Models\User;
@@ -215,13 +216,11 @@ class PlatformOverviewTest extends TestCase
             'organization_membership_id' => $teacherMembership->id,
             'permission_key' => 'organization.memberships.read',
         ]);
-        $this->assertDatabaseHas('organization_access_audits', [
-            'organization_id' => $organization->id,
-            'membership_id' => $teacherMembership->id,
-            'event_type' => 'membership_and_permissions',
-            'previous_permissions' => json_encode(['organization.memberships.read']),
-            'permissions' => json_encode([]),
-        ]);
+        $permissionAudit = OrganizationAccessAudit::query()->where('organization_id', $organization->id)
+            ->where('membership_id', $teacherMembership->id)
+            ->where('event_type', 'membership_and_permissions')->firstOrFail();
+        $this->assertSame(['organization.memberships.read'], $permissionAudit->previous_permissions);
+        $this->assertSame([], $permissionAudit->permissions);
 
         Sanctum::actingAs($teacher->fresh());
         $this->getJson("/api/v1/platform/users/{$teacher->id}/memberships")->assertForbidden();

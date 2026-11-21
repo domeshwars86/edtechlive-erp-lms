@@ -15,6 +15,7 @@ use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -110,11 +111,7 @@ class CourseTest extends TestCase
         ])->assertCreated();
 
         $this->assertDatabaseCount('notifications', 1);
-        $this->assertDatabaseHas('notifications', [
-            'notifiable_id' => $student->user_id,
-            'type' => 'App\\Notifications\\WorkspaceNotification',
-            'data->kind' => 'learning_lesson_published',
-        ]);
+        $this->assertWorkspaceNotification($student->user_id, 'learning_lesson_published');
     }
 
     public function test_teacher_can_edit_only_assigned_courses(): void
@@ -341,5 +338,18 @@ class CourseTest extends TestCase
         ]);
 
         return [$admin, $organization, $studentUser, $student, $teacherUser, $teacher];
+    }
+
+    private function assertWorkspaceNotification(int $recipientId, string $kind, array $expected = []): void
+    {
+        $matches = DB::table('notifications')->where('notifiable_id', $recipientId)
+            ->where('type', 'App\\Notifications\\WorkspaceNotification')->get(['data'])
+            ->map(fn (object $notification): array => json_decode($notification->data, true, 512, JSON_THROW_ON_ERROR))
+            ->filter(fn (array $data): bool => ($data['kind'] ?? null) === $kind);
+        $this->assertCount(1, $matches);
+        $data = $matches->first();
+        foreach ($expected as $key => $value) {
+            $this->assertSame($value, $data[$key] ?? null);
+        }
     }
 }

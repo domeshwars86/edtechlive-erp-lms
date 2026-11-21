@@ -15,6 +15,7 @@ use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -38,12 +39,7 @@ class CourseQuizTest extends TestCase
         ])->assertCreated();
         $this->patchJson("{$base}/quizzes/{$quizId}", ['status' => 'published'])->assertOk();
         $this->assertDatabaseCount('notifications', 1);
-        $this->assertDatabaseHas('notifications', [
-            'notifiable_id' => $studentUser->id,
-            'type' => 'App\\Notifications\\WorkspaceNotification',
-            'data->kind' => 'learning_quiz_published',
-            'data->resource_id' => $quizId,
-        ]);
+        $this->assertWorkspaceNotification($studentUser->id, 'learning_quiz_published', ['resource_id' => $quizId]);
         $this->patchJson("{$base}/quizzes/{$quizId}", ['status' => 'published'])->assertOk();
         $this->assertDatabaseCount('notifications', 1);
 
@@ -444,5 +440,18 @@ class CourseQuizTest extends TestCase
         ]);
 
         return [$admin, $teacherUser, $studentUser, $organization, $course];
+    }
+
+    private function assertWorkspaceNotification(int $recipientId, string $kind, array $expected = []): void
+    {
+        $matches = DB::table('notifications')->where('notifiable_id', $recipientId)
+            ->where('type', 'App\\Notifications\\WorkspaceNotification')->get(['data'])
+            ->map(fn (object $notification): array => json_decode($notification->data, true, 512, JSON_THROW_ON_ERROR))
+            ->filter(fn (array $data): bool => ($data['kind'] ?? null) === $kind);
+        $this->assertCount(1, $matches);
+        $data = $matches->first();
+        foreach ($expected as $key => $value) {
+            $this->assertSame($value, $data[$key] ?? null);
+        }
     }
 }
