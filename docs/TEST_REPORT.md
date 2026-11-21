@@ -78,6 +78,10 @@
 
 - Student and parent inboxes now offer an action on published LMS notices that matches the resource type: assignments open student Assignments, quizzes open Tests & quizzes, lessons open My courses, and parent notices open Homework. It marks unread notices read before navigation. Component tests verify read handling, the resource label/type passed to navigation, and suppression for unrelated or unlinked notices. Root TypeScript, ESLint, Vitest (**5 tests**), and the production build passed.
 
+## Fee checkout conflict guidance (21 November 2026)
+
+- A manual receipt attempt against a fee with an open Razorpay checkout now returns a clear, actionable conflict telling staff to verify the order with Razorpay before recording another receipt. This avoids suggesting a provider close operation that the current integration does not implement. Pint and the focused Razorpay suite passed (**7 tests / 57 assertions**).
+
 ## Local email verification and sign-in (20 November 2026)
 
 - Replaced the raw API tab opened by the development verification link with an in-page action. It confirms the signed URL through the same-origin API proxy, states that no email inbox is needed, and shows a clear “Email verified. You can log in now” result. The focused real Chromium flow passed **1 test in 39.1 seconds**, covering registration, in-place verification, sign-in and organization selection. The extended Chromium account-profile/recovery integration also passed (**1 test in 1.9 minutes**) after allowing adequate time for its complete profile, verification, reset and sign-out path. TypeScript, ESLint and the production build passed (17 public routes).

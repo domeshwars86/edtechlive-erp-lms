@@ -119,7 +119,7 @@ class FeeRecordController
                 abort_if($record->status === 'paid', 409, 'This fee has already been settled.');
                 $openCheckout = RazorpayPaymentOrder::query()->where('organization_id', $organization)
                     ->where('fee_record_id', $record->id)->whereIn('status', ['creating', 'created'])->exists();
-                abort_if($openCheckout, 409, 'An online checkout is open for this fee. Finish or close that checkout before recording another payment.');
+                abort_if($openCheckout, 409, 'An online checkout is still open for this fee. Verify its status in Razorpay before recording a manual receipt to avoid duplicate collection.');
                 $paidCents = (int) round((float) $record->payments()->sum('amount') * 100);
                 $amountCents = (int) round((float) $data['amount'] * 100);
                 $totalCents = (int) round((float) $record->amount * 100);

@@ -86,7 +86,8 @@ class RazorpayPaymentTest extends TestCase
         Sanctum::actingAs($admin);
         $this->postJson("/api/v1/organizations/{$organization->id}/fees/{$fee->id}/payments", [
             'amount' => '400.00', 'method' => 'cash',
-        ], ['Idempotency-Key' => 'razorpay-manual-receipt-001'])->assertStatus(409);
+        ], ['Idempotency-Key' => 'razorpay-manual-receipt-001'])->assertStatus(409)
+            ->assertJsonPath('message', 'An online checkout is still open for this fee. Verify its status in Razorpay before recording a manual receipt to avoid duplicate collection.');
     }
 
     public function test_only_the_student_or_linked_parent_can_start_a_checkout(): void
