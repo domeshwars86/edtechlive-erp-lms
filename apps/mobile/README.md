@@ -4,14 +4,18 @@ Expo React Native application for Android and iOS. Verified account sign-in uses
 
 The Account screen also manages persistent in-app and optional email notification preferences for announcements, meetings and fees, and displays recent workspace email delivery statuses. Email preference controls appear only when an approved email transport and queue worker are enabled; in-app preferences remain available.
 
+The Account screen can also request permission and register this Android/iOS installation for optional Expo push notices. It uses the same category preferences as the in-app inbox; push text stays generic so private meeting, fee, and learner details are not exposed on the lock screen. The Laravel API encrypts stored Expo push tokens, queues delivery, and removes tokens Expo reports as unregistered. Push stays off until the API and app use the same Expo/EAS project ID. Expo remote push requires native development/production builds and platform push credentials; it does not work in Expo Go or web preview. Local settings and mocked API checks do not prove remote device delivery.
+
 ## Local setup
 
 Use Node.js 20.19.4 or newer in the Node 20 line (or a newer SDK 56 supported LTS runtime).
 
-1. Copy `.env.example` to `.env` and set `EXPO_PUBLIC_API_URL` to a reachable Laravel API origin. Android emulators can use `http://10.0.2.2:8001`; physical devices need the development computer's LAN IP and an API server bound to that interface. Do not commit production secrets in Expo public variables.
+1. Copy `.env.example` to `.env` and set `EXPO_PUBLIC_API_URL` to a reachable Laravel API origin. Android emulators can use `http://10.0.2.2:8001`; physical devices need the development computer's LAN IP and an API server bound to that interface. Set the public `EXPO_PUBLIC_EAS_PROJECT_ID` after linking an EAS project if push is needed. Do not put credentials in Expo public variables.
 2. Install dependencies with `npm install`.
 3. Start the Metro development server with `npm start`.
 
 Tokens are stored using Expo SecureStore, not AsyncStorage. The API remains authoritative for verification, organization access, course enrollment, and permissions. Native Android/iOS builds require the respective SDK/toolchain and are not available in every development environment.
 
-CI typechecks the app and exports JavaScript bundles for both Android and iOS. These exports do not build native application packages; iOS signing, Xcode builds and device QA still require the Apple toolchain.
+On the API, set `EXPO_PUSH_NOTIFICATIONS=true` and `EXPO_PROJECT_ID` to that same EAS project ID. Set `EXPO_ACCESS_TOKEN` only if enhanced Expo push security is enabled for the project, and store it in the API host's secret store. Keep a persistent queue worker running.
+
+CI typechecks the app and exports JavaScript bundles for both Android and iOS. These exports do not build native application packages; EAS development builds and platform push credentials are required for remote push. iOS signing, Xcode builds and device QA still require the Apple toolchain.

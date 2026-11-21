@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store'
 import { ApiError, mobileApi, type ApiUser, type AssessmentReport, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type EnrollmentReport, type ExamSectionSummary, type ExamSeriesComparison, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type SchoolExam, type SchoolExamMark, type SchoolExamPaper, type StudentAttendance, type StudentProgress, type StudyMaterial, type TeacherWorkloadReport, type TeachingAssignment } from './src/api'
 import { AssessmentReportPanel, CourseProgressReportPanel, EnrollmentReportPanel, ExamSectionReportPanel, TeacherWorkloadReportPanel } from './src/ReportPanels'
 import { NotificationPreferencesPanel } from './src/NotificationPreferencesPanel'
+import { mobilePushTokenKey } from './src/pushRegistration'
 
 const TOKEN_KEY = 'edtechlive.mobile.token'
 const ORGANIZATION_KEY = 'edtechlive.mobile.organization'
@@ -721,8 +722,14 @@ export default function App() {
   async function signOut() {
     const current = token
     setBusy(true)
+    try {
+      const pushToken = user ? await SecureStore.getItemAsync(mobilePushTokenKey(user.id)) : null
+      if (current && pushToken) await mobileApi.delete('/api/v1/me/push-devices', current, { token: pushToken })
+    }
+    catch { /* The logout below still runs if push registration cleanup is unavailable. */ }
     try { if (current) await mobileApi.post('/api/v1/auth/logout', current) }
     catch { /* Local credentials must still be removed if the API is offline. */ }
+    if (user) await SecureStore.deleteItemAsync(mobilePushTokenKey(user.id))
     await SecureStore.deleteItemAsync(TOKEN_KEY); await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
     workspaceContextRef.current = null
     setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setNoticePage(1); setNoticeLastPage(1); setNoticeLoading(false); setMeetings([]); setMeetingSections([]); setMeetingFormOpen(false); setMeetingKind('class'); setMeetingSectionId(''); setMeetingTitle(''); setMeetingDescription(''); setMeetingUrl(''); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setAssessmentReport(null); setEnrollmentReport(null); setTeacherWorkloadReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setAccountOpen(false); setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation(''); setVerificationUrl(''); setBusy(false)
@@ -753,7 +760,7 @@ export default function App() {
         <Text style={styles.inputLabel}>Confirm new password</Text><TextInput autoComplete="new-password" secureTextEntry value={passwordConfirmation} onChangeText={setPasswordConfirmation} maxLength={160} style={styles.input} editable={!busy} accessibilityLabel="Confirm new password" />
         <Text style={styles.courseMeta}>Your current password confirms each update. A changed email must be verified again. Password changes sign out your other app devices.</Text>
         <Pressable style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void saveAccountProfile()} disabled={busy || !profileName.trim() || !profileEmail.trim() || !currentPassword}><Text style={styles.primaryButtonText}>{busy ? 'Saving…' : 'Save account details'}</Text></Pressable>
-        <NotificationPreferencesPanel token={token} organizationId={active.organization.id} />
+        <NotificationPreferencesPanel token={token} organizationId={active.organization.id} userId={user.id} />
         {verificationUrl ? <View style={styles.activityCard}><Text style={styles.courseMeta}>Open the development verification link, then check your account status again.</Text><Pressable onPress={() => void Linking.openURL(verificationUrl)}><Text style={styles.link}>Verify email address</Text></Pressable><Pressable onPress={() => void refreshVerificationStatus()} disabled={busy}><Text style={styles.link}>Refresh verification status</Text></Pressable></View> : null}
       </> : attendanceSection ? <>
         <Pressable onPress={() => { setAttendanceSection(null); setAttendanceStudents([]) }}><Text style={styles.backLink}>‹  Dashboard</Text></Pressable>

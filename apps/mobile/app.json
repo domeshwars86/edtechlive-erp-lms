@@ -14,7 +14,8 @@
       "package": "com.edtechlive.mobile"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-notifications"
     ]
   }
 }

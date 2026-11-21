@@ -2,17 +2,22 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Services\ExpoPushService;
 use App\Services\NotificationPreferences;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class NotificationPreferencesController
 {
-    public function __construct(private readonly NotificationPreferences $preferences) {}
+    public function __construct(private readonly NotificationPreferences $preferences, private readonly ExpoPushService $push) {}
 
     public function show(Request $request): JsonResponse
     {
-        return response()->json(['data' => $this->preferences->for($request->user()), 'email_available' => config('workspace-notifications.email_enabled')]);
+        return response()->json([
+            'data' => $this->preferences->for($request->user()),
+            'email_available' => config('workspace-notifications.email_enabled'),
+            'push_available' => $this->push->enabled(),
+        ]);
     }
 
     public function update(Request $request): JsonResponse
@@ -34,6 +39,10 @@ class NotificationPreferencesController
         $user = $request->user();
         $user->forceFill(['notification_preferences' => $data])->save();
 
-        return response()->json(['data' => $this->preferences->for($user), 'email_available' => config('workspace-notifications.email_enabled')]);
+        return response()->json([
+            'data' => $this->preferences->for($user),
+            'email_available' => config('workspace-notifications.email_enabled'),
+            'push_available' => $this->push->enabled(),
+        ]);
     }
 }

@@ -51,6 +51,12 @@ return [
         'frontend_url' => env('FRONTEND_URL', 'http://127.0.0.1:4173'),
     ],
 
+    'expo_push' => [
+        'enabled' => (bool) env('EXPO_PUSH_NOTIFICATIONS', false),
+        'project_id' => env('EXPO_PROJECT_ID'),
+        'access_token' => env('EXPO_ACCESS_TOKEN'),
+    ],
+
     'razorpay' => [
         // Customer payments are deliberately limited to test credentials. Live charges are not enabled.
         'mode' => env('RAZORPAY_MODE', 'disabled'),

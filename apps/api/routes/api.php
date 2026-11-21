@@ -51,6 +51,7 @@ use App\Http\Controllers\Api\V1\PlatformOrganizationController;
 use App\Http\Controllers\Api\V1\PlatformOverviewController;
 use App\Http\Controllers\Api\V1\PlatformUserController;
 use App\Http\Controllers\Api\V1\PublicCourseController;
+use App\Http\Controllers\Api\V1\PushDeviceController;
 use App\Http\Controllers\Api\V1\RazorpayPaymentController;
 use App\Http\Controllers\Api\V1\StudentGuardianController;
 use App\Http\Controllers\Api\V1\TeacherWorkloadReportController;
@@ -119,6 +120,8 @@ Route::prefix('v1')->group(function (): void {
             ->middleware('throttle:12,1')->name('api.v1.me.profile.update');
         Route::get('/me/notification-preferences', [NotificationPreferencesController::class, 'show'])->name('api.v1.me.notification-preferences.show');
         Route::patch('/me/notification-preferences', [NotificationPreferencesController::class, 'update'])->name('api.v1.me.notification-preferences.update');
+        Route::post('/me/push-devices', [PushDeviceController::class, 'store'])->middleware(['verified', 'throttle:6,1']);
+        Route::delete('/me/push-devices', [PushDeviceController::class, 'destroy'])->middleware(['verified', 'throttle:12,1']);
         Route::get('/platform/overview', PlatformOverviewController::class)->middleware('verified');
         Route::get('/platform/organizations', [PlatformOrganizationController::class, 'index'])->middleware('verified');
         Route::patch('/platform/organizations/{organization}', [PlatformOrganizationController::class, 'update'])->whereNumber('organization')->middleware('verified');

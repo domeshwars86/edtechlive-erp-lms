@@ -73,4 +73,5 @@ export const mobileApi = {
   post: <T>(path: string, token: string, data?: unknown) => request<T>(path, token, { method: 'POST', ...(data === undefined ? {} : { body: JSON.stringify(data) }) }),
   patch: <T>(path: string, token: string, data: unknown) => request<T>(path, token, { method: 'PATCH', body: JSON.stringify(data) }),
   put: <T>(path: string, token: string, data: unknown) => request<T>(path, token, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: <T>(path: string, token: string, data?: unknown) => request<T>(path, token, { method: 'DELETE', ...(data === undefined ? {} : { body: JSON.stringify(data) }) }),
 }
