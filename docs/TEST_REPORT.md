@@ -1,6 +1,11 @@
 # Test Report
 
-**Updated:** 20 November 2026
+**Updated:** 21 November 2026
+
+## Local verification recovery and browser regression (21 November 2026)
+
+- The complete serial Chromium suite passed (**27 tests in 4.2 minutes**). Coverage includes real local registration, signed email verification and browser sign-in, the in-page verification/recovery path, all public/account routes at 320px and 1440px, seven dashboard previews, mocked Razorpay checkout, and locally configured AI drafting. E2E startup uses a disposable SQLite database; no production database or external mail/payment/AI provider was used.
+- `npm run dev:stack` started the local website at `http://127.0.0.1:4174/` and Laravel API at `http://127.0.0.1:8002` in this session. Direct HTTP probes from the restricted shell were denied by its socket policy, so access from the user's separate browser remains unconfirmed. The stack prints its current ports at startup; use the exact website URL shown there. The local signup flow exposes a verification button, then a login action; no inbox is needed.
 
 ## React component testing baseline (20 November 2026)
 
