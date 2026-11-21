@@ -48,6 +48,8 @@ Optional educator AI drafts are disabled by default. For a local-only trial, run
 
 The root `.env.example` configures Vite to proxy `/api` and `/sanctum` to Laravel. The API's `.env.example` documents `FRONTEND_URL`, CORS origins and Sanctum stateful domains.
 
+Contact-enquiry retention is unset and disabled by default. After an approved retention period is chosen, `php artisan contact-enquiries:purge` reports eligible records without deleting them; a manual purge requires `--force` plus `CONTACT_ENQUIRY_RETENTION_ENABLED=true`. The Laravel daily schedule also remains gated by that explicit setting.
+
 ## Mobile app
 
 The Expo client setup and role/workflow coverage are documented in [`apps/mobile/README.md`](apps/mobile/README.md). For Android emulator development, point `EXPO_PUBLIC_API_URL` at `http://10.0.2.2:8001`; physical devices need the development computer's LAN address and an API server bound to its network interface. Native Android/iOS builds still require the respective platform toolchains.

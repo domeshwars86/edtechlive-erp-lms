@@ -2,10 +2,15 @@
 
 **Updated:** 21 November 2026
 
+## Contact enquiry retention controls (21 November 2026)
+
+- Added a `contact-enquiries:purge` Artisan command that defaults to dry-run, validates an explicitly configured 1–36500 day period, and rejects `--force` unless the operator also enables `CONTACT_ENQUIRY_RETENTION_ENABLED`. A daily 02:15 schedule is gated by those same settings; both settings remain off by default so no production records are deleted without an approved policy and explicit configuration.
+- `ContactEnquiryRetentionTest` passed (**5 tests / 19 assertions**), and the full Laravel suite passed on in-memory SQLite and disposable PostgreSQL 17 (**218 tests / 1,883 assertions on each**). Pint passed. Tests cover unconfigured/off state, dry-run retention, force protection, valid purge boundaries and invalid periods.
+
 ## Login email-verification recovery clarity (21 November 2026)
 
 - When sign-in is rejected because the account is unverified, the resend action now appears directly in the accessible error panel instead of only in the form footer. Verification remains required; local registration still provides an in-page signed verification action and does not require an inbox.
-- `src/auth/AuthPages.test.tsx` passed (**2 tests**); the focused Chromium registration → verification → login flow passed (**1 test**); TypeScript, ESLint and the production build passed (17 prerendered public routes). The local API database was only counted using aggregate totals; no account identity was read or included in documentation.
+- `src/auth/AuthPages.test.tsx` passed (**2 tests**); the focused Chromium registration → verification → login flow passed (**1 test**); TypeScript, ESLint and the production build passed (17 prerendered public routes). The local API preview has not been verified from the user’s separate browser; HTTP requests from this runner were refused despite the local dev process reporting ready.
 
 ## PostgreSQL 17 cross-database API regression (21 November 2026)
 
