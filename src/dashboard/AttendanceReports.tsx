@@ -10,10 +10,11 @@ import ExamReport from './ExamReport'
 
 type SectionSummary = { section_id: number; class: string; section: string; records: number; present: number; late: number; absent: number; excused: number; attendance_rate: number }
 type Report = { from: string; to: string; totals: Omit<SectionSummary, 'section_id' | 'class' | 'section'>; sections: SectionSummary[] }
+export type AcademicReportTab = 'attendance' | 'courses' | 'enrollment' | 'workload' | 'assessments' | 'exams'
 
 function dateValue(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` }
 
-export default function AttendanceReports({ organizationId }: { organizationId: number }) {
+export default function AttendanceReports({ organizationId, initialReport = 'attendance' }: { organizationId: number; initialReport?: AcademicReportTab }) {
   const today = new Date()
   const prior = new Date(today)
   prior.setDate(prior.getDate() - 29)
@@ -22,7 +23,9 @@ export default function AttendanceReports({ organizationId }: { organizationId: 
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeReport, setActiveReport] = useState<'attendance' | 'courses' | 'enrollment' | 'workload' | 'assessments' | 'exams'>('attendance')
+  const [activeReport, setActiveReport] = useState<AcademicReportTab>(initialReport)
+
+  useEffect(() => { setActiveReport(initialReport) }, [initialReport])
 
   useEffect(() => {
     let cancelled = false
