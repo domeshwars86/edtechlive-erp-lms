@@ -74,6 +74,10 @@
 
 - The full Laravel suite passed **211 tests / 1,828 assertions** on in-memory SQLite. API coverage verifies published lessons, quizzes, and assignments create notices; assignment recipients are limited to active enrolled learners and linked guardians, account opt-outs are respected, and republishing or editing a published resource does not duplicate its notice. Laravel Pint passed for the touched API code. Root TypeScript, ESLint, Vitest (2 tests), and production build passed; mobile TypeScript passed. Hosted PostgreSQL and native mobile QA were not part of this run.
 
+## Learning notification navigation (21 November 2026)
+
+- Student and parent inboxes now offer an **Open learning** action on published LMS notices. It marks unread notices read, then opens the role-appropriate learning area (student courses or parent homework). Component tests verify this behavior and suppress the action for unrelated or unlinked notices. Root TypeScript, ESLint, Vitest (**4 tests**), and the production build passed.
+
 ## Local email verification and sign-in (20 November 2026)
 
 - Replaced the raw API tab opened by the development verification link with an in-page action. It confirms the signed URL through the same-origin API proxy, states that no email inbox is needed, and shows a clear “Email verified. You can log in now” result. The focused real Chromium flow passed **1 test in 39.1 seconds**, covering registration, in-place verification, sign-in and organization selection. The extended Chromium account-profile/recovery integration also passed (**1 test in 1.9 minutes**) after allowing adequate time for its complete profile, verification, reset and sign-out path. TypeScript, ESLint and the production build passed (17 public routes).
