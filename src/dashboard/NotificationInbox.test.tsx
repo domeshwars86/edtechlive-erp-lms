@@ -35,15 +35,16 @@ describe('NotificationInbox', () => {
     vi.mocked(api.post).mockResolvedValue({ data: { read_at: '2026-11-21T10:01:00Z' } })
   })
 
-  it('marks a learning notice read before opening the learning area', async () => {
+  it('marks a learning notice read before opening the resource destination', async () => {
     const user = userEvent.setup()
     const onOpenLearning = vi.fn()
 
     render(<NotificationInbox organizationId={7} onOpenLearning={onOpenLearning} />)
-    await user.click(await screen.findByRole('button', { name: 'Open learning' }))
+    await user.click(await screen.findByRole('button', { name: 'Open assignment' }))
 
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/api/v1/organizations/7/notifications/notice-1/read'))
     expect(onOpenLearning).toHaveBeenCalledOnce()
+    expect(onOpenLearning).toHaveBeenCalledWith('course_assignment')
     expect(screen.getByText(/0 unread\./)).toBeVisible()
   })
 
@@ -59,6 +60,24 @@ describe('NotificationInbox', () => {
     render(<NotificationInbox organizationId={7} onOpenLearning={vi.fn()} />)
 
     expect(await screen.findByText('School update')).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'Open learning' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Open (course|assignment|quiz)/ })).not.toBeInTheDocument()
+  })
+
+  it('labels a quiz notice with its matching destination', async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: [{
+        id: 'notice-3', type: 'learning_quiz_published', title: 'New quiz available', body: 'Earth Systems: Weather',
+        resource_type: 'course_quiz', resource_id: 43, read_at: '2026-11-21T10:01:00Z', created_at: '2026-11-21T10:00:00Z',
+      }],
+      meta: { current_page: 1, last_page: 1, total: 1, unread: 0 },
+    })
+    const onOpenLearning = vi.fn()
+    const user = userEvent.setup()
+
+    render(<NotificationInbox organizationId={7} onOpenLearning={onOpenLearning} />)
+    await user.click(await screen.findByRole('button', { name: 'Open quiz' }))
+
+    expect(api.post).not.toHaveBeenCalled()
+    expect(onOpenLearning).toHaveBeenCalledWith('course_quiz')
   })
 })

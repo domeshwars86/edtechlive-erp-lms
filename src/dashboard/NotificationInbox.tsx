@@ -6,7 +6,7 @@ import './NotificationInbox.css'
 type NotificationItem = { id: string; type: string; title: string; body: string; resource_type: string | null; resource_id: number | null; read_at: string | null; created_at: string }
 type NotificationResponse = { data: NotificationItem[]; meta: { current_page: number; last_page: number; total: number; unread: number } }
 
-export default function NotificationInbox({ organizationId, onOpenLearning }: { organizationId: number; onOpenLearning?: () => void }) {
+export default function NotificationInbox({ organizationId, onOpenLearning }: { organizationId: number; onOpenLearning?: (resourceType: string) => void }) {
   const [items, setItems] = useState<NotificationItem[]>([])
   const [page, setPage] = useState(1)
   const [lastPage, setLastPage] = useState(1)
@@ -52,7 +52,7 @@ export default function NotificationInbox({ organizationId, onOpenLearning }: { 
 
   async function openLearning(item: NotificationItem) {
     if (!item.read_at) await markRead(item)
-    onOpenLearning?.()
+    if (item.resource_type) onOpenLearning?.(item.resource_type)
   }
 
   return <section className="dash-panel dash-masters-panel notification-inbox" aria-labelledby="notification-inbox-title">
@@ -62,7 +62,7 @@ export default function NotificationInbox({ organizationId, onOpenLearning }: { 
       <ul className="notification-inbox-list">{items.map(item => <li key={item.id} className={item.read_at ? 'notification-inbox-read' : 'notification-inbox-unread'}>
         <div className="notification-inbox-icon" aria-hidden="true">{item.read_at ? <Check size={17} /> : <Bell size={17} />}</div>
         <div className="notification-inbox-copy"><div><h3>{item.title}</h3><span>{item.type.replaceAll('_', ' ')}</span></div><p>{item.body}</p><time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString()}</time></div>
-        {item.type.startsWith('learning_') && item.resource_type && item.resource_id !== null && onOpenLearning && <button className="master-action notification-mark-read" type="button" disabled={savingId !== null} onClick={() => void openLearning(item)}>Open learning</button>}
+        {item.type.startsWith('learning_') && item.resource_type && item.resource_id !== null && onOpenLearning && <button className="master-action notification-mark-read" type="button" disabled={savingId !== null} onClick={() => void openLearning(item)}>{item.resource_type === 'course_assignment' ? 'Open assignment' : item.resource_type === 'course_quiz' ? 'Open quiz' : 'Open course'}</button>}
         {!item.read_at && <button className="master-action notification-mark-read" type="button" disabled={savingId !== null} onClick={() => void markRead(item)}>{savingId === item.id ? 'Saving…' : 'Mark read'}</button>}
       </li>)}</ul>
       <div className="platform-directory-pagination"><span>{total} notice{total === 1 ? '' : 's'} · Page {page} of {lastPage}</span><button className="master-action" type="button" disabled={page <= 1 || loading} onClick={() => setPage(current => current - 1)}>Previous</button><button className="master-action" type="button" disabled={page >= lastPage || loading} onClick={() => setPage(current => current + 1)}>Next</button></div>

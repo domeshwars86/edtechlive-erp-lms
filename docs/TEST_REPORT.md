@@ -76,7 +76,7 @@
 
 ## Learning notification navigation (21 November 2026)
 
-- Student and parent inboxes now offer an **Open learning** action on published LMS notices. It marks unread notices read, then opens the role-appropriate learning area (student courses or parent homework). Component tests verify this behavior and suppress the action for unrelated or unlinked notices. Root TypeScript, ESLint, Vitest (**4 tests**), and the production build passed.
+- Student and parent inboxes now offer an action on published LMS notices that matches the resource type: assignments open student Assignments, quizzes open Tests & quizzes, lessons open My courses, and parent notices open Homework. It marks unread notices read before navigation. Component tests verify read handling, the resource label/type passed to navigation, and suppression for unrelated or unlinked notices. Root TypeScript, ESLint, Vitest (**5 tests**), and the production build passed.
 
 ## Local email verification and sign-in (20 November 2026)
 
