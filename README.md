@@ -48,6 +48,21 @@ Optional educator AI drafts are disabled by default. For a local-only trial, run
 
 The root `.env.example` configures Vite to proxy `/api` and `/sanctum` to Laravel. The API's `.env.example` documents `FRONTEND_URL`, CORS origins and Sanctum stateful domains.
 
+## Google Meet organizer setup
+
+The Google Meet connection controls appear in the signed-in **Admin**, **Management**, **Teacher**, or **Independent Educator** workspace under **Meetings**, **Management meetings**, **Live classes**, or **Class schedule**, respectively. Students and parents only see meetings they are allowed to join; they do not connect an organizer account. If Google Meet is not configured, staff can still schedule a meeting by pasting an HTTPS link created manually.
+
+To enable room creation, create an OAuth web client in Google Cloud, enable the Google Meet REST API, and register the exact API callback URL as an authorized redirect URI. Set these values in `apps/api/.env` (never commit the client secret):
+
+```dotenv
+GOOGLE_MEET_CLIENT_ID=your-oauth-client-id
+GOOGLE_MEET_CLIENT_SECRET=your-oauth-client-secret
+GOOGLE_MEET_REDIRECT_URI=https://your-api-origin/api/v1/integrations/google-meet/callback
+FRONTEND_URL=https://your-web-origin
+```
+
+For local development, replace the origins with the API and website URLs printed by `npm run dev:stack`; the redirect URI must match the Google Cloud entry exactly, including scheme, host, port, and path. Restart Laravel after changing the environment. Staff then open the scheduling screen, choose **Connect Google**, authorize their own organizer account, and use **Create Meet link**. Connections are per user and organization. The app requests the `meetings.space.created` scope and creates rooms only; it does not invite participants, capture meeting streams, or sync attendance. If OAuth is unavailable, the manual HTTPS link field continues to work.
+
 Contact-enquiry retention is unset and disabled by default. After an approved retention period is chosen, `php artisan contact-enquiries:purge` reports eligible records without deleting them; a manual purge requires `--force` plus `CONTACT_ENQUIRY_RETENTION_ENABLED=true`. The Laravel daily schedule also remains gated by that explicit setting.
 
 ## Mobile app
