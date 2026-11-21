@@ -2,15 +2,20 @@
 
 **Updated:** 21 November 2026
 
+## Configurable private S3-compatible file storage (21 November 2026)
+
+- Added `league/flysystem-aws-s3-v3` and made the `private` filesystem disk selectable with `PRIVATE_STORAGE_DRIVER`. Local storage remains the default; an S3-compatible provider can use environment-configured bucket, region, endpoint, private prefix, credentials and path-style setting. The private disk remains private and does not expose a public URL.
+- Focused private disk configuration and course asset tests pass (**6 tests / 49 assertions**); full API regression passes (**226 tests / 1,922 assertions**) and Pint passes. This verifies configuration against Laravel's S3 adapter locally, not connectivity to a live provider. No production bucket or credentials are configured, and existing object migration, backup/restore, retention and malware scanning remain open.
+
 ## Optional mobile push notifications (21 November 2026)
 
 - Added verified-account Expo device registration/removal, per-account encrypted push tokens with one-way lookup hashes, Android/iOS opt-in UI, queued delivery with generic lock-screen copy, in-app category preference enforcement, ownership-conflict protection, and cleanup for Expo `DeviceNotRegistered` tickets. Delivery remains disabled by default pending a linked EAS project ID, native credentials, and a persistent queue worker.
-- Focused API tests pass (**4 tests / 19 assertions**) and the complete SQLite API suite passes (**224 tests / 1,914 assertions**). Pint, mobile TypeScript, Android/iOS JavaScript bundle exports, web typecheck, lint, production build, and 7 frontend unit tests pass. The complete serial Chromium suite passes (**29 tests / 4.2 minutes**), including the targeted student workspace and study-help flow. No native app was built and no remote notification was sent or received; Expo Go/web preview and JS exports do not establish push delivery.
+- Focused API tests pass (**4 tests / 19 assertions**) and the complete SQLite API suite passes (**226 tests / 1,922 assertions**). Pint, mobile TypeScript, Android/iOS JavaScript bundle exports, web typecheck, lint, production build, and 7 frontend unit tests pass. The complete serial Chromium suite passes (**29 tests / 4.2 minutes**), including the targeted student workspace and study-help flow. No native app was built and no remote notification was sent or received; Expo Go/web preview and JS exports do not establish push delivery.
 
 ## Enrolled-student local AI study help (21 November 2026)
 
 - Added an optional English/Hindi student study-help panel and a local Ollama endpoint that only serves active student members with an active enrollment in a published course. Answers are grounded in up to four published lesson text excerpts; private files and learner profile data are excluded. The system prompt encourages age-appropriate, source-bounded help and hints instead of direct answers to active graded work. The route shares user quotas, rate limits and metadata-only usage retention; prompts and answers are not persisted.
-- Focused Laravel AI tests pass (**9 tests / 65 assertions**), the complete SQLite API regression passes (**224 tests / 1,914 assertions**, including the subsequent push changes), and the React Testing Library suite passes (**7 tests**). Web typecheck, ESLint, Pint and production build (17 pre-rendered public routes) pass. The full serial Chromium suite passes (**29 tests / 4.2 minutes**), including sign-in, organization selection, enrolled courses and a mocked course study-help response. The Ollama provider remains disabled locally, so no live model response was evaluated. Broader authenticated role-dashboard coverage remains open.
+- Focused Laravel AI tests pass (**9 tests / 65 assertions**), the complete SQLite API regression passes (**226 tests / 1,922 assertions**, including the subsequent push and private storage changes), and the React Testing Library suite passes (**7 tests**). Web typecheck, ESLint, Pint and production build (17 pre-rendered public routes) pass. The full serial Chromium suite passes (**29 tests / 4.2 minutes**), including sign-in, organization selection, enrolled courses and a mocked course study-help response. The Ollama provider remains disabled locally, so no live model response was evaluated. Broader authenticated role-dashboard coverage remains open.
 
 ## Contact enquiry retention controls (21 November 2026)
 

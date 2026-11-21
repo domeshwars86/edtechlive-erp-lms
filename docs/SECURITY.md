@@ -9,7 +9,7 @@ Laravel Sanctum session auth is connected to the web client; login, registration
 - MFA for sensitive roles where practical, production email transport, and security review of identity/session configuration.
 - Server-side tenant/resource authorization, membership revocation, least privilege and automated cross-tenant denial tests.
 - CSRF/XSS protections, strict input validation, safe output encoding, secure headers and dependency review.
-- Production private object storage and durable retention/deletion controls for uploads; the current API allow-lists formats and sizes, and rechecks enrollment/publication for each download. Decide and add malware scanning before accepting untrusted files in production.
+- A private S3-compatible storage driver is configurable for the existing API upload/download flows; the production bucket, credentials, object migration, backup/restore and retention controls are not configured or verified. The API allow-lists formats/sizes and rechecks enrollment/publication on every download. Add malware scanning before accepting untrusted files in production.
 - Secret manager/environment configuration; no credentials in repository or logs.
 - HTTPS, encryption-at-rest strategy, backup encryption, tested recovery and access logging.
 - Minimized audit records, redaction of student data from telemetry and safe notification previews.

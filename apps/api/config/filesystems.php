@@ -39,8 +39,16 @@ return [
         ],
 
         'private' => [
-            'driver' => 'local',
-            'root' => storage_path('app/private'),
+            'driver' => env('PRIVATE_STORAGE_DRIVER', 'local'),
+            'root' => env('PRIVATE_STORAGE_DRIVER', 'local') === 's3'
+                ? env('AWS_PRIVATE_PREFIX', 'private')
+                : storage_path('app/private'),
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+            'bucket' => env('AWS_BUCKET'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'visibility' => 'private',
             'throw' => true,
             'report' => false,
