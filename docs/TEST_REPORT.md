@@ -2,6 +2,11 @@
 
 **Updated:** 21 November 2026
 
+## Login email-verification recovery clarity (21 November 2026)
+
+- When sign-in is rejected because the account is unverified, the resend action now appears directly in the accessible error panel instead of only in the form footer. Verification remains required; local registration still provides an in-page signed verification action and does not require an inbox.
+- `src/auth/AuthPages.test.tsx` passed (**2 tests**); the focused Chromium registration → verification → login flow passed (**1 test**); TypeScript, ESLint and the production build passed (17 prerendered public routes). The local API database was only counted using aggregate totals; no account identity was read or included in documentation.
+
 ## PostgreSQL 17 cross-database API regression (21 November 2026)
 
 - Four PostgreSQL-specific test assertion failures were fixed by reading notification text payloads and cast audit values through Laravel models instead of relying on SQLite JSON column operators. The affected focused SQLite suites passed (**31 tests / 449 assertions**) and Pint passed for the four updated test files.

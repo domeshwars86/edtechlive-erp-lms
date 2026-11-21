@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -88,11 +88,12 @@ describe('account verification and sign-in', () => {
     await user.type(screen.getByLabelText('Password'), 'CorrectHorseBattery1')
     await user.click(screen.getByRole('button', { name: /Log in/ }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/Verify your email address/)
-    expect(screen.getByRole('button', { name: 'Need a verification link? Resend it' })).toBeVisible()
+    const verificationAlert = await screen.findByRole('alert')
+    expect(verificationAlert).toHaveTextContent(/Verify your email address/)
+    expect(within(verificationAlert).getByRole('button', { name: 'Resend verification link' })).toBeVisible()
 
     vi.mocked(api.post).mockResolvedValueOnce({ verification_url: verificationUrl })
-    await user.click(screen.getByRole('button', { name: 'Need a verification link? Resend it' }))
+    await user.click(within(verificationAlert).getByRole('button', { name: 'Resend verification link' }))
 
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/api/v1/auth/email/verification-notification', { email: account.email }))
     const verifyButton = await screen.findByRole('button', { name: 'Verify email to unlock sign-in' })

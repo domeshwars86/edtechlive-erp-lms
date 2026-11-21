@@ -31,6 +31,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const [message, setMessage] = useState('')
   const [verificationUrl, setVerificationUrl] = useState('')
   const [verificationComplete, setVerificationComplete] = useState(false)
+  const [verificationRequired, setVerificationRequired] = useState(false)
   const [passwordResetUrl, setPasswordResetUrl] = useState('')
   const [organizations, setOrganizations] = useState<OrganizationMembership[]>([])
   const [pendingWorkspace, setPendingWorkspace] = useState<OrganizationMembership | null>(null)
@@ -42,6 +43,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     setMessage('')
     setVerificationUrl('')
     setVerificationComplete(false)
+    setVerificationRequired(false)
     setPasswordResetUrl('')
   }, [mode])
 
@@ -70,6 +72,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     setMessage('')
     setVerificationUrl('')
     setVerificationComplete(false)
+    setVerificationRequired(false)
     setPasswordResetUrl('')
 
     try {
@@ -103,6 +106,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       }
     } catch (reason) {
       if (reason instanceof ApiError && reason.code === 'email_verification_required') {
+        setVerificationRequired(true)
         setError('Verify your email address before signing in. You can request a new link below.')
       } else {
         setError(reason instanceof Error ? reason.message : 'The request could not be completed.')
@@ -127,6 +131,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     try {
       const result = await api.post<{ verification_url?: string }>('/api/v1/auth/email/verification-notification', { email })
       setVerificationUrl(result.verification_url ?? '')
+      setVerificationRequired(false)
       setMessage(result.verification_url
         ? 'Use the local verification button below, then return here to sign in.'
         : `If that address has an unverified account, a new verification link has been sent.${localMailHint}`)
@@ -159,6 +164,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       if (result.status !== 'verified') throw new Error('The account service did not confirm email verification.')
       setVerificationUrl('')
       setVerificationComplete(true)
+      setVerificationRequired(false)
       setMessage('Your email is verified. You can now sign in.')
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not verify this email address. Request a new link and try again.')
@@ -203,7 +209,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       {mode === 'register' && <label>Organization type<select name="organization_type" required defaultValue="school"><option value="school">School</option><option value="college">College</option><option value="coaching_institute">Coaching institute</option><option value="academy">Academy</option><option value="independent_educator">Independent educator</option></select></label>}
       {(mode === 'register' || mode === 'reset') && <label>Confirm password<input name="password_confirmation" autoComplete="new-password" type="password" required minLength={12} placeholder="Enter the password again" /></label>}
       {mode === 'login' && <label className="auth-remember"><input name="remember" type="checkbox" /> Keep me signed in</label>}
-      {error && <div className="auth-error" role="alert">{error}</div>}
+      {error && <div className="auth-error" role="alert">{error}{verificationRequired && <button type="button" disabled={busy} onClick={resendVerification}>{busy ? 'Requesting link…' : 'Resend verification link'}</button>}</div>}
       <button className="button button-primary" type="submit" disabled={busy}>{busy ? <><LoaderCircle className="spin" /> Working…</> : <>{ { login: 'Log in', register: 'Create account', forgot: 'Send reset link', reset: 'Reset password' }[mode]} <ArrowUpRight size={16} /></>}</button>
     </>}
     {message && <div className="auth-success" role="status" aria-live="polite"><Check />{verificationComplete ? 'Email verified. You can log in now.' : verificationUrl ? 'Email verification is required before sign-in. Use the action below first.' : passwordResetUrl ? 'A local reset link is ready below.' : mode === 'register' ? 'Email verification is required before you can sign in.' : 'The request was sent securely.'}</div>}
@@ -211,7 +217,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     {verificationUrl && <div className="local-verification-link"><p>Step 1: Verify your email address.</p><button className="local-verification-action" type="button" disabled={busy} onClick={verifyLocalEmail}>{busy ? <><LoaderCircle className="spin" /> Verifying…</> : <>Verify email to unlock sign-in <ArrowUpRight size={16} /></>}</button><small>No inbox is needed for this local development link. It expires in 60 minutes. After it confirms, select “Log in” below.</small></div>}
     {passwordResetUrl && <div className="local-verification-link"><p>Open your local reset link to choose a new password.</p><a href={passwordResetUrl}>Reset your password <ArrowUpRight size={16} /></a><small>This local reset link expires in 60 minutes.</small></div>}
     {error && !message && mode !== 'login' && <div className="auth-error" role="alert">{error}</div>}
-    <div className="auth-links">{mode === 'login' && <><Link to="/forgot-password">Forgot password?</Link><button type="button" disabled={busy} onClick={resendVerification}>Need a verification link? Resend it</button><span>New here? <Link to="/register">Create an account</Link></span></>}{mode === 'register' && <span>Already have an account? <Link to="/login">Log in</Link></span>}{mode === 'forgot' && <Link to="/login">Back to log in</Link>}{mode === 'reset' && <Link to="/login">Back to log in</Link>}</div>
+    <div className="auth-links">{mode === 'login' && <><Link to="/forgot-password">Forgot password?</Link>{!verificationRequired && <button type="button" disabled={busy} onClick={resendVerification}>Need a verification link? Resend it</button>}<span>New here? <Link to="/register">Create an account</Link></span></>}{mode === 'register' && <span>Already have an account? <Link to="/login">Log in</Link></span>}{mode === 'forgot' && <Link to="/login">Back to log in</Link>}{mode === 'reset' && <Link to="/login">Back to log in</Link>}</div>
     <small className="auth-demo-note"><ShieldCheck size={13} />Your account requests are sent to the edTechLive API.</small>
   </form></AccountShell>
 }
