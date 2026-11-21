@@ -26,6 +26,7 @@ class NotificationController
                 'body' => $notification->data['body'] ?? '',
                 'resource_type' => $notification->data['resource_type'] ?? null,
                 'resource_id' => $notification->data['resource_id'] ?? null,
+                'course_id' => $notification->data['course_id'] ?? null,
                 'read_at' => $notification->read_at?->toISOString(),
                 'created_at' => $notification->created_at?->toISOString(),
             ])->values(),

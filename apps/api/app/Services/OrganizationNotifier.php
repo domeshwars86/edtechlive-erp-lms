@@ -108,6 +108,7 @@ class OrganizationNotifier
 
         $this->notify($activeRecipients, [
             'organization_id' => $course->organization_id,
+            'course_id' => $course->id,
             'kind' => $kind,
             'title' => $title,
             'body' => $body,

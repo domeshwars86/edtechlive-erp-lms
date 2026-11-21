@@ -72,7 +72,7 @@
 
 ## LMS publication notifications (21 November 2026)
 
-- The full Laravel suite passed **211 tests / 1,828 assertions** on in-memory SQLite. API coverage verifies published lessons, quizzes, and assignments create notices; assignment recipients are limited to active enrolled learners and linked guardians, account opt-outs are respected, and republishing or editing a published resource does not duplicate its notice. Laravel Pint passed for the touched API code. Root TypeScript, ESLint, Vitest (2 tests), and production build passed; mobile TypeScript passed. Hosted PostgreSQL and native mobile QA were not part of this run.
+- The full Laravel suite passed **211 tests / 1,832 assertions** on in-memory SQLite. API coverage verifies published lessons, quizzes, and assignments create notices; assignment recipients are limited to active enrolled learners and linked guardians, account opt-outs are respected, and republishing or editing a published resource does not duplicate its notice. Laravel Pint passed for the touched API code. Root TypeScript, ESLint, Vitest (2 tests), and production build passed; mobile TypeScript passed. Hosted PostgreSQL and native mobile QA were not part of this run.
 
 ## Learning notification navigation (21 November 2026)
 
@@ -81,6 +81,10 @@
 ## Fee checkout conflict guidance (21 November 2026)
 
 - A manual receipt attempt against a fee with an open Razorpay checkout now returns a clear, actionable conflict telling staff to verify the order with Razorpay before recording another receipt. This avoids suggesting a provider close operation that the current integration does not implement. Pint and the focused Razorpay suite passed (**7 tests / 57 assertions**).
+
+## Mobile learning notice navigation (21 November 2026)
+
+- Learning notices now include their course ID in the scoped API response. In the Expo app, a student can open the linked course from the notice; unread notices are marked read first, and a workspace switch during the request prevents stale navigation. The course-assignment API test verifies course ID and resource metadata in the inbox response; the focused assignment suite passed (**4 tests / 34 assertions**), Pint passed, and mobile TypeScript passed. Native-device QA remains unverified.
 
 ## Local email verification and sign-in (20 November 2026)
 

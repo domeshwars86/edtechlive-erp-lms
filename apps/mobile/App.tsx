@@ -10,7 +10,7 @@ const ORGANIZATION_KEY = 'edtechlive.mobile.organization'
 const roleNames: Record<OrganizationMembership['role'], string> = {
   admin: 'Administrator', management: 'Management', teacher: 'Teacher', student: 'Student', parent: 'Parent / guardian', independent_educator: 'Independent educator',
 }
-type MobileNotice = { id: string; type: string; title: string; body: string; read_at: string | null; created_at: string | null }
+type MobileNotice = { id: string; type: string; title: string; body: string; resource_type: string | null; resource_id: number | null; course_id: number | null; read_at: string | null; created_at: string | null }
 type MobileMeeting = { id: number; kind: 'class' | 'management'; title: string; description: string | null; starts_at: string; ends_at: string; meeting_url: string; status: 'scheduled' | 'cancelled'; section: { id: number; name: string; class: string | null } | null; course: { id: number; title: string } | null; creator: { id: number; name: string } | null }
 type MobileRecording = { id: number; title: string; description: string | null; external_url: string | null; download_url: string | null; status: 'draft' | 'published' | 'withdrawn' }
 type MobileMeetingSection = { id: number; name: string; academic_session_id: number; academic_class: { name: string } }
@@ -578,6 +578,19 @@ export default function App() {
     }
   }
 
+  async function openNotice(notice: MobileNotice) {
+    const workspaceContext = workspaceContextRef.current
+    await markNoticeRead(notice)
+    if (workspaceContextRef.current !== workspaceContext) return
+    if (active?.role !== 'student' || !notice.type.startsWith('learning_') || !notice.course_id) return
+    const course = courses.find(item => item.id === notice.course_id)
+    if (!course) {
+      setError('This course is no longer available in your workspace.')
+      return
+    }
+    await openCourse(course)
+  }
+
   async function loadMoreNotices() {
     if (!active || !token || noticeLoading || noticePage >= noticeLastPage) return
     const organizationId = active.organization.id
@@ -859,7 +872,7 @@ export default function App() {
         {!meetings.some(item => item.status === 'scheduled' && new Date(item.ends_at).getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000) ? <Empty text="No recent or upcoming meetings are available." /> : null}
         <Text style={styles.sectionTitle}>Recent updates</Text>
         {notices.length ? <>
-          {notices.map(notice => <Pressable key={notice.id} onPress={() => void markNoticeRead(notice)} style={[styles.noticeCard, !notice.read_at && styles.noticeUnread]} accessibilityRole="button" accessibilityLabel={`${notice.title}, ${notice.read_at ? 'read' : 'unread'}`} accessibilityHint={notice.read_at ? 'This notice is already read.' : 'Tap to mark this notice as read.'}><Text style={styles.courseTitle}>{notice.title}</Text><Text style={styles.courseMeta}>{notice.body}</Text>{notice.created_at ? <Text style={styles.noticeDate}>{new Date(notice.created_at).toLocaleString()}</Text> : null}{!notice.read_at ? <Text style={styles.noticeUnreadLabel}>Unread · tap to mark read</Text> : null}</Pressable>)}
+          {notices.map(notice => <Pressable key={notice.id} onPress={() => void openNotice(notice)} style={[styles.noticeCard, !notice.read_at && styles.noticeUnread]} accessibilityRole="button" accessibilityLabel={`${notice.title}, ${notice.read_at ? 'read' : 'unread'}`} accessibilityHint={active.role === 'student' && notice.course_id && notice.type.startsWith('learning_') ? 'Tap to open the related course.' : notice.read_at ? 'This notice is already read.' : 'Tap to mark this notice as read.'}><Text style={styles.courseTitle}>{notice.title}</Text><Text style={styles.courseMeta}>{notice.body}</Text>{notice.created_at ? <Text style={styles.noticeDate}>{new Date(notice.created_at).toLocaleString()}</Text> : null}{active.role === 'student' && notice.course_id && notice.type.startsWith('learning_') ? <Text style={styles.link}>Open related course</Text> : null}{!notice.read_at ? <Text style={styles.noticeUnreadLabel}>Unread · tap to open or mark read</Text> : null}</Pressable>)}
           {noticePage < noticeLastPage ? <Pressable style={styles.noticeLoadMore} onPress={() => void loadMoreNotices()} disabled={noticeLoading} accessibilityRole="button"><Text style={styles.noticeLoadMoreText}>{noticeLoading ? 'Loading updates…' : 'Load more updates'}</Text></Pressable> : null}
         </> : <Empty text="No recent updates." />}
         {active.role === 'student' && studentProfile ? <View style={styles.infoCard}><Text style={styles.courseTitle}>My profile</Text><Text style={styles.courseMeta}>{studentProfile.admission_number ? `Admission ${studentProfile.admission_number} · ` : ''}{studentProfile.academic_class?.name ?? 'Class not assigned'}{studentProfile.academic_section?.name ? ` · ${studentProfile.academic_section.name}` : ''}{studentProfile.academic_session?.name ? ` · ${studentProfile.academic_session.name}` : ''}</Text></View> : null}

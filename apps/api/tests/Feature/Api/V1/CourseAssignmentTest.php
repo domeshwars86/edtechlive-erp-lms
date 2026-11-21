@@ -129,10 +129,16 @@ class CourseAssignmentTest extends TestCase
                 'type' => 'App\\Notifications\\WorkspaceNotification',
                 'data->kind' => 'learning_assignment_published',
                 'data->resource_id' => $assignment->id,
+                'data->course_id' => $course->id,
             ]);
         }
         $this->assertDatabaseMissing('notifications', ['notifiable_id' => $admin->id]);
         $this->assertDatabaseMissing('notifications', ['notifiable_id' => $unsubscribed->id]);
+
+        Sanctum::actingAs($studentUser);
+        $this->getJson("/api/v1/organizations/{$organization->id}/notifications")
+            ->assertOk()->assertJsonPath('data.0.course_id', $course->id)
+            ->assertJsonPath('data.0.resource_type', 'course_assignment');
     }
 
     private function classroom(): array
