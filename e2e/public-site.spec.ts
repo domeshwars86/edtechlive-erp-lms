@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test('home labels illustrative dashboard data and explains current integrations', async ({ page }) => {
   await page.goto('/')
+  await expect(page.getByRole('link', { name: 'Explore the platform' }).first()).toHaveAttribute('href', '/features')
   await expect(page.getByText('Sample workspace')).toBeVisible()
   await expect(page.getByText('PREVIEW', { exact: true })).toBeVisible()
   await expect(page.getByText('Example class')).toBeVisible()

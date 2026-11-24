@@ -2,6 +2,10 @@
 
 **Updated:** 24 November 2026
 
+## Homepage platform CTA destination (24 November 2026)
+
+- Corrected the hero's **Explore the platform** link to open `/features`; its prior destination was `/contact`. The focused Chromium regression passes (**1 test**). Root typecheck, ESLint and the production client/SSR build pass; the complete serial Chromium suite remains at **35 tests** from the preceding run.
+
 ## Public course self-enrollment (24 November 2026)
 
 - Added idempotent API enrollment for verified users who have both an active Student organization membership and an active roster record. The course must still belong to an active organization, be published, be explicitly listed publicly, and contain a published lesson. The public detail screen offers enrollment to a selected student membership; visitors retain the contextual enquiry path. This path does not create student accounts or organization memberships.
