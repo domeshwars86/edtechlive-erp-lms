@@ -1,6 +1,11 @@
 # Test Report
 
-**Updated:** 24 November 2026
+**Updated:** 25 November 2026
+
+## Delegated organization finance capabilities (25 November 2026)
+
+- Finance fee, expense, report, category and reconciliation routes now enforce tenant-scoped read/manage capabilities. Admin and Independent Educator retain all capabilities, Management retains existing finance access, and eligible staff can receive explicit finance grants. Student and Parent memberships cannot receive organization finance grants; family-role transitions clear delegated overrides.
+- Focused finance and membership API coverage passes (**25 tests / 243 assertions**); the complete Laravel SQLite suite passes (**234 tests / 1,989 assertions**). Web production build and ESLint, mobile TypeScript verification, PHP Pint and `git diff --check` pass. Live payment providers and hosted PostgreSQL were not exercised.
 
 ## Responsive browser sweeps at all required widths (24 November 2026)
 
@@ -794,7 +799,7 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 ## Enrolled-student AI practice questions (25 November 2026)
 
 - Added an optional student course-workspace flow that requests 3 or 5 ungraded multiple-choice questions grounded in published lesson text. A learner picks an answer to reveal feedback; practice state stays in browser memory and is not recorded as a grade or saved attempt. The API checks active student enrollment, published course and lesson access, uses the configured private Ollama provider and shared quota, validates the model question structure, and stores usage metadata only.
-- Focused AI API suite: **11 tests / 78 assertions** passed; full Laravel suite on in-memory SQLite: **232 tests / 1,975 assertions** passed. The full Vitest/React Testing Library suite: **10 tests across 5 files passed**, including the three CourseWorkspace study-help/practice cases. Chromium verified student sign-in, workspace selection, lesson Q&A, practice generation, answer feedback and the AI help shortcut (**1 test passed in 49.9 seconds**).
+- Focused AI API suite: **11 tests / 78 assertions** passed; full Laravel suite on in-memory SQLite: **234 tests / 1,989 assertions** passed. The full Vitest/React Testing Library suite: **10 tests across 5 files passed**, including the three CourseWorkspace study-help/practice cases. Chromium verified student sign-in, workspace selection, lesson Q&A, practice generation, answer feedback and the AI help shortcut (**1 test passed in 49.9 seconds**).
 - Web typecheck, ESLint, production build (17 prerendered routes), Playwright TypeScript, Pint, and git diff --check passed. The local Ollama provider is not configured, so a live model response and model quality were not verified. The last full disposable PostgreSQL 17 suite ran before the new route and passed **230 tests / 1,962 assertions**; hosted PostgreSQL 16 CI remains unverified.
 
 ## Mobile organization invitations (25 November 2026)
