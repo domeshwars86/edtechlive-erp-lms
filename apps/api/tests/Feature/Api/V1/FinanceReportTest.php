@@ -101,6 +101,42 @@ class FinanceReportTest extends TestCase
         $this->getJson("/api/v1/organizations/{$organization->id}/reports/finance")->assertForbidden();
     }
 
+    public function test_admin_can_delegate_finance_read_and_manage_capabilities(): void
+    {
+        $organization = $this->organization('Northstar Academy');
+        $admin = User::factory()->create();
+        $this->membership($organization, $admin, OrganizationRole::Admin);
+        $teacher = User::factory()->create();
+        $teacherMembership = $this->membership($organization, $teacher, OrganizationRole::Teacher);
+        $base = "/api/v1/organizations/{$organization->id}";
+
+        Sanctum::actingAs($admin);
+        $this->patchJson("{$base}/memberships/{$teacherMembership->id}", [
+            'permissions' => ['organization.finance.read'],
+        ])->assertOk();
+
+        Sanctum::actingAs($teacher);
+        $this->getJson("{$base}/reports/finance")->assertOk();
+        $this->getJson("{$base}/expenses")->assertOk();
+        $this->postJson("{$base}/expenses", [
+            'title' => 'Should be denied', 'category' => 'supplies', 'amount' => '25',
+            'incurred_on' => now()->toDateString(), 'payment_method' => 'cash',
+        ])->assertForbidden();
+
+        Sanctum::actingAs($admin);
+        $this->patchJson("{$base}/memberships/{$teacherMembership->id}", [
+            'permissions' => ['organization.finance.manage'],
+        ])->assertOk()
+            ->assertJsonPath('data.permissions.overrides.0', 'organization.finance.manage')
+            ->assertJsonPath('data.permissions.overrides.1', 'organization.finance.read');
+
+        Sanctum::actingAs($teacher);
+        $this->postJson("{$base}/expenses", [
+            'title' => 'Delegated expense', 'category' => 'supplies', 'amount' => '25',
+            'incurred_on' => now()->toDateString(), 'payment_method' => 'cash',
+        ])->assertCreated()->assertJsonPath('data.title', 'Delegated expense');
+    }
+
     public function test_finance_receipt_period_requires_valid_bounded_dates(): void
     {
         $organization = $this->organization('Northstar Academy');
@@ -114,9 +150,9 @@ class FinanceReportTest extends TestCase
         $this->getJson("{$base}?from=2024-01-01&to=2025-01-02")->assertUnprocessable()->assertJsonValidationErrors('to');
     }
 
-    private function membership(Organization $organization, User $user, OrganizationRole $role): void
+    private function membership(Organization $organization, User $user, OrganizationRole $role): OrganizationMembership
     {
-        OrganizationMembership::query()->create([
+        return OrganizationMembership::query()->create([
             'organization_id' => $organization->id, 'user_id' => $user->id, 'role' => $role,
             'status' => MembershipStatus::Active, 'accepted_at' => now(),
         ]);

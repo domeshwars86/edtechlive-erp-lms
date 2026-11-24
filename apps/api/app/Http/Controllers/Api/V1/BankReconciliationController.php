@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\OrganizationRole;
 use App\Models\BankStatement;
 use App\Models\BankStatementLine;
 use App\Models\FeePayment;
 use App\Models\FinanceExpense;
-use App\Services\OrganizationAccess;
+use App\Services\OrganizationFinanceAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -19,11 +18,11 @@ use Illuminate\Validation\ValidationException;
 
 class BankReconciliationController
 {
-    public function __construct(private readonly OrganizationAccess $access) {}
+    public function __construct(private readonly OrganizationFinanceAccess $financeAccess) {}
 
     public function index(Request $request, int $organization): JsonResponse
     {
-        $membership = $this->manager($request, $organization);
+        $membership = $this->financeAccess->read($request, $organization);
         $statements = BankStatement::query()->where('organization_id', $organization)
             ->with(['lines.feePayment.feeRecord', 'lines.expense'])
             ->withCount(['lines as matched_count' => fn ($query) => $query->where(fn ($q) => $q->whereNotNull('fee_payment_id')->orWhereNotNull('finance_expense_id'))])
@@ -44,7 +43,7 @@ class BankReconciliationController
 
     public function store(Request $request, int $organization): JsonResponse
     {
-        $membership = $this->manager($request, $organization);
+        $membership = $this->financeAccess->manage($request, $organization);
         $data = $request->validate([
             'account_label' => ['required', 'string', 'min:2', 'max:120'],
             'period_from' => ['required', 'date_format:Y-m-d'],
@@ -107,7 +106,7 @@ class BankReconciliationController
 
     public function match(Request $request, int $organization, int $line): JsonResponse
     {
-        $membership = $this->manager($request, $organization);
+        $membership = $this->financeAccess->manage($request, $organization);
         $data = $request->validate([
             'ledger_type' => ['required', Rule::in(['fee_payment', 'expense'])],
             'ledger_id' => ['required', 'integer', 'min:1'],
@@ -152,7 +151,7 @@ class BankReconciliationController
 
     public function candidates(Request $request, int $organization, int $line): JsonResponse
     {
-        $membership = $this->manager($request, $organization);
+        $membership = $this->financeAccess->read($request, $organization);
         $statementLine = BankStatementLine::query()->whereKey($line)
             ->whereHas('statement', fn ($query) => $query->where('organization_id', $organization))->firstOrFail();
         $date = CarbonImmutable::parse($statementLine->transacted_on->toDateString(), $membership->organization->timezone);
@@ -180,7 +179,7 @@ class BankReconciliationController
 
     public function unmatch(Request $request, int $organization, int $line): JsonResponse
     {
-        $membership = $this->manager($request, $organization);
+        $membership = $this->financeAccess->manage($request, $organization);
         $statementLine = BankStatementLine::query()->whereKey($line)
             ->whereHas('statement', fn ($query) => $query->where('organization_id', $organization))->firstOrFail();
         $statementLine->fee_payment_id = null;
@@ -188,14 +187,6 @@ class BankReconciliationController
         $statementLine->save();
 
         return response()->json(['data' => $this->line($statementLine->load(['feePayment.feeRecord', 'expense']), $membership->organization->timezone)]);
-    }
-
-    private function manager(Request $request, int $organization)
-    {
-        $membership = $this->access->membership($request, $organization);
-        abort_unless(in_array($membership->role, [OrganizationRole::Admin, OrganizationRole::Management, OrganizationRole::IndependentEducator], true), 403);
-
-        return $membership;
     }
 
     private function cents(string|int|float $amount): int

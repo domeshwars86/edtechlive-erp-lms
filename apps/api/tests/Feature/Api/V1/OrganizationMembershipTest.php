@@ -115,7 +115,11 @@ class OrganizationMembershipTest extends TestCase
         $this->patchJson("{$base}/memberships/{$manager->id}", ['permissions' => []])
             ->assertOk()
             ->assertJsonPath('data.permissions.overrides', [])
-            ->assertJsonPath('data.permissions.effective', ['organization.memberships.read']);
+            ->assertJsonPath('data.permissions.effective', [
+                'organization.memberships.read',
+                'organization.finance.read',
+                'organization.finance.manage',
+            ]);
         $this->getJson("{$base}/membership-access-audit")
             ->assertOk()->assertJsonPath('data.0.previous_permissions.0', 'organization.memberships.audit')
             ->assertJsonPath('data.0.permissions', []);
@@ -162,6 +166,7 @@ class OrganizationMembershipTest extends TestCase
         [$admin, $organization, $adminMembership] = $this->workspace();
         $target = $this->membership($organization, User::factory()->create(), OrganizationRole::Teacher);
         $suspended = $this->membership($organization, User::factory()->create(), OrganizationRole::Teacher, MembershipStatus::Suspended);
+        $student = $this->membership($organization, User::factory()->create(), OrganizationRole::Student);
         $privileged = $this->membership($organization, User::factory()->create(), OrganizationRole::IndependentEducator);
         $foreignOrganization = $this->organization('Foreign workspace');
         $foreign = $this->membership($foreignOrganization, User::factory()->create(), OrganizationRole::Teacher);
@@ -173,6 +178,7 @@ class OrganizationMembershipTest extends TestCase
         $this->patchJson("{$base}/{$adminMembership->id}", ['permissions' => []])->assertStatus(409);
         $this->patchJson("{$base}/{$foreign->id}", $grant)->assertNotFound();
         $this->patchJson("{$base}/{$suspended->id}", $grant)->assertStatus(409);
+        $this->patchJson("{$base}/{$student->id}", ['permissions' => ['organization.finance.read']])->assertUnprocessable();
         $this->patchJson("{$base}/{$target->id}", [
             'permissions' => ['organization.memberships.audit'], 'status' => 'suspended',
         ])->assertStatus(409);
@@ -180,6 +186,22 @@ class OrganizationMembershipTest extends TestCase
 
         $this->assertDatabaseCount('organization_membership_permissions', 0);
         $this->assertDatabaseCount('organization_access_audits', 0);
+    }
+
+    public function test_changing_a_staff_membership_to_family_role_clears_delegated_overrides(): void
+    {
+        [$admin, $organization] = $this->workspace();
+        $staff = $this->membership($organization, User::factory()->create(), OrganizationRole::Teacher);
+        Sanctum::actingAs($admin);
+        $base = "/api/v1/organizations/{$organization->id}/memberships/{$staff->id}";
+
+        $this->patchJson($base, [
+            'permissions' => ['organization.memberships.manage', 'organization.finance.manage'],
+        ])->assertOk();
+        $this->assertDatabaseCount('organization_membership_permissions', 4);
+
+        $this->patchJson($base, ['role' => 'student'])->assertOk();
+        $this->assertDatabaseMissing('organization_membership_permissions', ['organization_membership_id' => $staff->id]);
     }
 
     public function test_suspended_actor_and_non_privileged_grantor_cannot_grant_permissions(): void
@@ -215,11 +237,7 @@ class OrganizationMembershipTest extends TestCase
 
         $this->getJson("{$base}/memberships")
             ->assertOk()->assertJsonPath('data.0.permissions.effective.0', 'organization.memberships.read');
-        $this->assertSame([
-            'organization.memberships.read',
-            'organization.memberships.manage',
-            'organization.memberships.audit',
-        ], app(OrganizationPermissions::class)->effective($independent));
+        $this->assertSame(app(OrganizationPermissions::class)->keys(), app(OrganizationPermissions::class)->effective($independent));
 
         $this->patchJson("{$base}/memberships/{$target->id}", ['permissions' => ['organization.memberships.audit']])->assertOk();
         $this->patchJson("{$base}/memberships/{$target->id}", ['role' => 'admin'])->assertOk();

@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\OrganizationRole;
 use App\Models\FeeCategory;
 use App\Services\OrganizationAccess;
+use App\Services\OrganizationFinanceAccess;
+use App\Services\OrganizationPermissions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,11 +14,18 @@ use Illuminate\Validation\Rule;
 
 class FeeCategoryController
 {
-    public function __construct(private readonly OrganizationAccess $access) {}
+    public function __construct(
+        private readonly OrganizationAccess $access,
+        private readonly OrganizationFinanceAccess $financeAccess,
+        private readonly OrganizationPermissions $permissions,
+    ) {}
 
     public function index(Request $request, int $organization): JsonResponse
     {
-        $this->access->membership($request, $organization);
+        $membership = $this->access->membership($request, $organization);
+        if (! in_array($membership->role, [OrganizationRole::Student, OrganizationRole::Parent], true)) {
+            abort_unless($this->permissions->allows($membership, 'organization.finance.read'), 403);
+        }
         $filters = $request->validate([
             'search' => ['sometimes', 'string', 'max:120'],
             'is_active' => ['sometimes', 'boolean'],
@@ -38,7 +48,7 @@ class FeeCategoryController
 
     public function store(Request $request, int $organization): JsonResponse
     {
-        $this->access->membership($request, $organization, true);
+        $this->financeAccess->manage($request, $organization);
         $data = $request->validate([
             'name' => ['required', 'string', 'min:2', 'max:120', Rule::unique('fee_categories', 'name')->where('organization_id', $organization)],
             'code' => ['nullable', 'string', 'max:32', Rule::unique('fee_categories', 'code')->where('organization_id', $organization)],
@@ -52,7 +62,7 @@ class FeeCategoryController
 
     public function update(Request $request, int $organization, int $record): JsonResponse
     {
-        $this->access->membership($request, $organization, true);
+        $this->financeAccess->manage($request, $organization);
         $category = FeeCategory::query()->where('organization_id', $organization)->findOrFail($record);
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'min:2', 'max:120', Rule::unique('fee_categories', 'name')->where('organization_id', $organization)->ignore($category->id)],

@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\OrganizationRole;
 use App\Models\FinanceExpense;
-use App\Services\OrganizationAccess;
+use App\Services\OrganizationFinanceAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,11 +11,11 @@ use Illuminate\Validation\Rule;
 
 class FinanceExpenseController
 {
-    public function __construct(private readonly OrganizationAccess $access) {}
+    public function __construct(private readonly OrganizationFinanceAccess $financeAccess) {}
 
     public function index(Request $request, int $organization): JsonResponse
     {
-        $this->manager($request, $organization);
+        $this->financeAccess->read($request, $organization);
         $data = $request->validate([
             'from' => ['sometimes', 'required_with:to', 'date_format:Y-m-d'],
             'to' => ['sometimes', 'required_with:from', 'date_format:Y-m-d', 'after_or_equal:from'],
@@ -39,7 +38,7 @@ class FinanceExpenseController
 
     public function store(Request $request, int $organization): JsonResponse
     {
-        $membership = $this->manager($request, $organization);
+        $membership = $this->financeAccess->manage($request, $organization);
         $data = $request->validate([
             'title' => ['required', 'string', 'min:2', 'max:160'],
             'category' => ['required', Rule::in(['salaries', 'utilities', 'supplies', 'maintenance', 'transport', 'technology', 'other'])],
@@ -52,14 +51,6 @@ class FinanceExpenseController
         $expense = FinanceExpense::query()->create([...$data, 'organization_id' => $organization, 'recorded_by' => $request->user()->id]);
 
         return response()->json(['data' => $this->row($expense)], 201);
-    }
-
-    private function manager(Request $request, int $organization)
-    {
-        $membership = $this->access->membership($request, $organization, true);
-        abort_unless(in_array($membership->role, [OrganizationRole::Admin, OrganizationRole::Management, OrganizationRole::IndependentEducator], true), 403);
-
-        return $membership;
     }
 
     private function row(FinanceExpense $expense): array

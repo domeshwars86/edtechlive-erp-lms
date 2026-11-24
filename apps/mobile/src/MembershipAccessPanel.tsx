@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { ApiError, mobileApi, type OrganizationMembership } from './api'
 
 type Role = OrganizationMembership['role']
@@ -41,6 +41,23 @@ const roleLabels: Record<Role, string> = {
 }
 const roleRank: Record<Role, number> = { admin: 100, independent_educator: 100, management: 50, teacher: 30, student: 10, parent: 10 }
 const isPrivileged = (role: Role) => role === 'admin' || role === 'independent_educator'
+const permissionReadDependencies: Record<string, string> = {
+  'organization.memberships.manage': 'organization.memberships.read',
+  'organization.memberships.audit': 'organization.memberships.read',
+  'organization.finance.manage': 'organization.finance.read',
+}
+const permissionWriteDependencies: Record<string, string[]> = {
+  'organization.memberships.read': ['organization.memberships.manage', 'organization.memberships.audit'],
+  'organization.finance.read': ['organization.finance.manage'],
+}
+
+function updatePermissions(current: string[], permission: string, enabled: boolean): string[] {
+  if (!enabled) {
+    return current.filter(key => key !== permission && !(permissionWriteDependencies[permission] ?? []).includes(key))
+  }
+  const requiredRead = permissionReadDependencies[permission]
+  return [...new Set([...current, permission, ...(requiredRead ? [requiredRead] : [])])]
+}
 
 export function MembershipAccessPanel({ organizationId, token, userId }: { organizationId: number; token: string; userId: number }) {
   const [members, setMembers] = useState<Member[]>([])
@@ -173,15 +190,12 @@ export function MembershipAccessPanel({ organizationId, token, userId }: { organ
             })}</View>
           </> : <Text style={styles.muted}>{isSelf ? 'Your own membership can’t be changed here.' : delegatedPrivilegedTarget ? 'Delegated managers can’t change administrator access.' : 'You can review this member but do not have permission to change access.'}</Text>}
           {canManagePermissions && member.permissions.editable ? <>
-            <Text style={styles.label}>Additional permissions</Text><Text style={styles.muted}>These permissions apply only to membership administration in this organization.</Text>
+            <Text style={styles.label}>Additional permissions</Text><Text style={styles.muted}>These permissions apply only to this organization’s membership and finance workflows.</Text>
             {catalog.map(permission => {
               const checked = draft.permissions.includes(permission.key)
               const disabled = savingId === member.id || draft.status === 'suspended' || isPrivileged(draft.role)
               return <Pressable key={permission.key} onPress={() => {
-                const dependent = ['organization.memberships.manage', 'organization.memberships.audit']
-                const next = permission.key === 'organization.memberships.read' && checked
-                  ? draft.permissions.filter(key => key !== permission.key && !dependent.includes(key))
-                  : checked ? draft.permissions.filter(key => key !== permission.key) : [...draft.permissions, permission.key, ...(permission.key === 'organization.memberships.read' ? [] : ['organization.memberships.read'])]
+                const next = updatePermissions(draft.permissions, permission.key, !checked)
                 setDrafts(current => ({ ...current, [member.id]: { ...draft, permissions: [...new Set(next)] } }))
               }} disabled={disabled} style={styles.permissionRow} accessibilityRole="checkbox" accessibilityState={{ checked, disabled }}>
                 <Text style={styles.checkbox}>{checked ? '☑' : '☐'}</Text><View style={{ flex: 1 }}><Text style={styles.memberName}>{permission.label}</Text><Text style={styles.muted}>{permission.description}</Text></View>

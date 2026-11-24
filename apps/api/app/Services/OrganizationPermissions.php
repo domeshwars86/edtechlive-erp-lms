@@ -21,6 +21,14 @@ class OrganizationPermissions
             'label' => 'View access audit',
             'description' => 'View membership role, status, and permission change history.',
         ],
+        'organization.finance.read' => [
+            'label' => 'View finance',
+            'description' => 'View organization fee records, expenses, financial summaries, and imported bank statements.',
+        ],
+        'organization.finance.manage' => [
+            'label' => 'Manage finance',
+            'description' => 'Issue fees, record receipts and expenses, manage fee categories, and import or reconcile bank statements.',
+        ],
     ];
 
     public function catalog(): array
@@ -78,10 +86,18 @@ class OrganizationPermissions
         }
 
         $defaults = $membership->role === OrganizationRole::Management
-            ? ['organization.memberships.read']
+            ? ['organization.memberships.read', 'organization.finance.read', 'organization.finance.manage']
             : [];
 
-        return array_values(array_unique([...$defaults, ...$this->explicit($membership)]));
+        $effective = [...$defaults, ...$this->explicit($membership)];
+        if (in_array('organization.finance.manage', $effective, true)) {
+            $effective[] = 'organization.finance.read';
+        }
+        if (array_intersect(['organization.memberships.manage', 'organization.memberships.audit'], $effective) !== []) {
+            $effective[] = 'organization.memberships.read';
+        }
+
+        return array_values(array_unique($effective));
     }
 
     public function allows(OrganizationMembership $membership, string $permission): bool

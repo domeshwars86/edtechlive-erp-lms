@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\OrganizationRole;
 use App\Models\FeePayment;
 use App\Models\FeeRecord;
 use App\Models\FinanceExpense;
-use App\Services\OrganizationAccess;
+use App\Services\OrganizationFinanceAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,16 +13,11 @@ use Illuminate\Validation\ValidationException;
 
 class FinanceReportController
 {
-    public function __construct(private readonly OrganizationAccess $access) {}
+    public function __construct(private readonly OrganizationFinanceAccess $financeAccess) {}
 
     public function index(Request $request, int $organization): JsonResponse
     {
-        $membership = $this->access->membership($request, $organization);
-        abort_unless(in_array($membership->role, [
-            OrganizationRole::Admin,
-            OrganizationRole::Management,
-            OrganizationRole::IndependentEducator,
-        ], true), 403);
+        $membership = $this->financeAccess->read($request, $organization);
 
         $timezone = $membership->organization->timezone;
         $today = CarbonImmutable::now($timezone)->toDateString();

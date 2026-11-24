@@ -7,6 +7,10 @@
 - Approximately **65% of the planned feature scope** is implemented, based on the 12 roadmap milestones. This is a rough scope estimate, not a release-readiness score: the public website and substantial dashboard, ERP, LMS, API and mobile features are present, while several role workflows, accessibility review, provider setup, hosted staging and commercial readiness remain incomplete.
 - The latest full Laravel API suite passes on in-memory SQLite (**232 tests / 1,975 assertions**). PostgreSQL 17 previously passed the full 230-test suite before the new student practice endpoint; rerunning PostgreSQL after this route-only change remains open. The disposable PostgreSQL cluster was stopped and removed. Hosted PostgreSQL 16 CI remains unverified.
 
+## Recent verified work
+
+- Finance routes now enforce the tenant-scoped `organization.finance.read` and `organization.finance.manage` capabilities across fee records, fee categories, expenses, finance reports, and bank-statement reconciliation. Admins and Independent Educators retain all permissions; Management retains existing finance access; eligible staff can be delegated read or manage access. Student and Parent users remain restricted to profile-scoped fee views. Web and mobile membership editors expose the capabilities and maintain read/manage dependencies. Focused API regression coverage passes (**25 tests / 243 assertions**); web build, web lint, mobile TypeScript check and PHP formatting pass.
+
 ## Responsive browser coverage
 
 - Expanded Chromium overflow sweeps to all seven required widths: 320, 375, 430, 768, 1024, 1280, and 1440px. All 19 public/account routes and all seven dashboard role previews pass their focused sweeps. Dashboard assertions allow 30 seconds for lazy-loaded workspace screens before measuring overflow.

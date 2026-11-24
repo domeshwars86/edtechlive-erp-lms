@@ -77,7 +77,7 @@ class OrganizationMembershipController
         }
 
         if (array_key_exists('permissions', $data)) {
-            abort_unless($canManagePermissions, 403, 'Only organization administrators can grant or revoke membership permissions.');
+            abort_unless($canManagePermissions, 403, 'Only Admin or Independent Educator memberships can grant or revoke capabilities.');
         }
 
         $updated = DB::transaction(function () use ($data, $organization, $membership, $request, $actor, $canManagePermissions): OrganizationMembership {
@@ -97,6 +97,9 @@ class OrganizationMembershipController
                 abort_unless($nextStatus === MembershipStatus::Active->value, 409, 'Permissions cannot be changed while suspending a membership.');
                 abort_if($this->permissions->isPrivilegedRole($target->role), 409, 'Permissions cannot be overridden for privileged memberships.');
                 abort_if($this->permissions->isPrivilegedRole(OrganizationRole::from($nextRole)), 409, 'Permissions cannot be overridden for privileged memberships.');
+                if (in_array(OrganizationRole::from($nextRole), [OrganizationRole::Student, OrganizationRole::Parent], true)) {
+                    abort_if(array_intersect($data['permissions'], ['organization.finance.read', 'organization.finance.manage']) !== [], 422, 'Finance capabilities can only be granted to staff memberships.');
+                }
             }
 
             if ($canManagePermissions === false) {
@@ -117,8 +120,15 @@ class OrganizationMembershipController
 
             if ($hasPermissionUpdate) {
                 $requestedPermissions = array_values(array_unique($data['permissions']));
-                if (array_intersect($requestedPermissions, ['organization.memberships.manage', 'organization.memberships.audit']) !== []) {
-                    $requestedPermissions[] = 'organization.memberships.read';
+                $requiredReads = [
+                    'organization.memberships.manage' => 'organization.memberships.read',
+                    'organization.memberships.audit' => 'organization.memberships.read',
+                    'organization.finance.manage' => 'organization.finance.read',
+                ];
+                foreach ($requiredReads as $permission => $readPermission) {
+                    if (in_array($permission, $requestedPermissions, true) && ! in_array($readPermission, $requestedPermissions, true)) {
+                        $requestedPermissions[] = $readPermission;
+                    }
                 }
                 $target->permissionOverrides()->delete();
                 foreach ($requestedPermissions as $permission) {
@@ -127,6 +137,9 @@ class OrganizationMembershipController
                         'granted_by' => $actor->user_id,
                     ]);
                 }
+            } elseif (in_array($target->role, [OrganizationRole::Student, OrganizationRole::Parent], true)) {
+                // Family members retain profile-scoped access, even after a staff role is removed.
+                $target->permissionOverrides()->delete();
             } elseif ($this->permissions->isPrivilegedRole($target->role)) {
                 // Overrides must not become effective later if this privileged member is demoted.
                 $target->permissionOverrides()->delete();
@@ -203,6 +216,7 @@ class OrganizationMembershipController
     {
         $targetIsEligible = $membership->status === MembershipStatus::Active
             && $this->permissions->isPrivilegedRole($membership->role) === false
+            && ! in_array($membership->role, [OrganizationRole::Student, OrganizationRole::Parent], true)
             && (int) $membership->user_id !== (int) $actor->user_id;
 
         return [

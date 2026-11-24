@@ -9,7 +9,9 @@ use App\Models\RazorpayPaymentOrder;
 use App\Models\Student;
 use App\Models\StudentGuardian;
 use App\Services\OrganizationAccess;
+use App\Services\OrganizationFinanceAccess;
 use App\Services\OrganizationNotifier;
+use App\Services\OrganizationPermissions;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,7 +22,12 @@ use Illuminate\Validation\ValidationException;
 
 class FeeRecordController
 {
-    public function __construct(private readonly OrganizationAccess $access, private readonly OrganizationNotifier $notifier) {}
+    public function __construct(
+        private readonly OrganizationAccess $access,
+        private readonly OrganizationFinanceAccess $financeAccess,
+        private readonly OrganizationPermissions $permissions,
+        private readonly OrganizationNotifier $notifier,
+    ) {}
 
     public function index(Request $request, int $organization): JsonResponse
     {
@@ -37,14 +44,16 @@ class FeeRecordController
                 ->pluck('student_id');
             $query->whereIn('student_id', $studentIds);
         } else {
-            $this->assertManager($membership->role);
+            abort_unless($this->permissions->allows($membership, 'organization.finance.read'), 403);
             if ($request->filled('student_id')) {
                 $query->where('student_id', $request->integer('student_id'));
             }
         }
 
         $filterRules = ['status' => ['sometimes', Rule::in(['unpaid', 'partial', 'paid'])]];
-        if (in_array($membership->role, [OrganizationRole::Admin, OrganizationRole::Management, OrganizationRole::IndependentEducator], true)) {
+        if ($membership->role === OrganizationRole::Student || $membership->role === OrganizationRole::Parent) {
+            // Family views are profile-scoped above and do not receive organization-wide filters.
+        } else {
             $filterRules['student_id'] = ['sometimes', 'integer', Rule::exists('students', 'id')->where('organization_id', $organization)];
         }
         $filters = $request->validate($filterRules);
@@ -63,8 +72,7 @@ class FeeRecordController
 
     public function store(Request $request, int $organization): JsonResponse
     {
-        $membership = $this->access->membership($request, $organization, true);
-        $this->assertManager($membership->role);
+        $this->financeAccess->manage($request, $organization);
         $data = $request->validate([
             'student_id' => ['required', 'integer', Rule::exists('students', 'id')->where('organization_id', $organization)->where('status', 'active')],
             'academic_session_id' => ['nullable', 'integer', Rule::exists('academic_sessions', 'id')->where('organization_id', $organization)],
@@ -86,8 +94,7 @@ class FeeRecordController
 
     public function payment(Request $request, int $organization, int $fee): JsonResponse
     {
-        $membership = $this->access->membership($request, $organization, true);
-        $this->assertManager($membership->role);
+        $this->financeAccess->manage($request, $organization);
         $idempotencyKey = $request->header('Idempotency-Key');
         if (! is_string($idempotencyKey) || preg_match('/\A[A-Za-z0-9._~-]{16,128}\z/', $idempotencyKey) !== 1) {
             throw ValidationException::withMessages(['Idempotency-Key' => ['Provide an Idempotency-Key header containing 16–128 letters, digits, dots, underscores, tildes, or hyphens.']]);
@@ -227,11 +234,6 @@ class FeeRecordController
                 'received_at' => $payment->received_at?->toISOString(),
             ])->values(),
         ];
-    }
-
-    private function assertManager(OrganizationRole $role): void
-    {
-        abort_unless(in_array($role, [OrganizationRole::Admin, OrganizationRole::Management, OrganizationRole::IndependentEducator], true), 403);
     }
 
     private function studentProfile(Request $request, int $organization): Student
