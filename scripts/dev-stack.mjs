@@ -71,6 +71,20 @@ try {
   api.on('error', error => { process.stderr.write(`Laravel startup failed: ${error.message}\n`); stop(1) })
   api.on('exit', code => { if (!stopping) { process.stderr.write(`Laravel exited (${code ?? 'signal'}).\n`); stop(code ?? 1) } })
 
+  const scheduler = spawn(process.env.PHP_BINARY || 'php', ['artisan', 'schedule:work'], {
+    cwd: apiDirectory,
+    env: {
+      ...process.env, APP_ENV: 'local', APP_URL: `http://127.0.0.1:${apiPort}`, DB_CONNECTION: 'sqlite', DB_DATABASE: apiDatabase, DB_URL: '',
+      FRONTEND_URL: `http://127.0.0.1:${webPort}`,
+      SANCTUM_STATEFUL_DOMAINS: `127.0.0.1:${webPort},localhost:${webPort}`,
+      SESSION_DRIVER: 'file', CACHE_STORE: 'file', QUEUE_CONNECTION: 'sync',
+    },
+    stdio: 'inherit',
+  })
+  children.push(scheduler)
+  scheduler.on('error', error => { process.stderr.write(`Laravel scheduler startup failed: ${error.message}\n`); stop(1) })
+  scheduler.on('exit', code => { if (!stopping) { process.stderr.write(`Laravel scheduler exited (${code ?? 'signal'}).\n`); stop(code ?? 1) } })
+
   const web = spawn(process.execPath, [viteCli, '--host=127.0.0.1', `--port=${webPort}`, '--strictPort'], {
     cwd: rootDirectory,
     env: { ...process.env, VITE_API_PROXY_TARGET: `http://127.0.0.1:${apiPort}` },

@@ -1,6 +1,11 @@
 # Test Report
 
-**Updated:** 21 November 2026
+**Updated:** 24 November 2026
+
+## Scheduled meeting reminders (24 November 2026)
+
+- Added the `meetings:send-reminders` Laravel command and a once-per-minute schedule. It sends a preference-aware reminder once per scheduled meeting in the configured lead window (15 minutes by default), reuses the meeting's existing organization-scoped recipients, ignores canceled/expired meetings, and locks/marks each meeting to prevent duplicate sends. Local `dev:stack` now runs the scheduler; deployments need the standard once-per-minute Laravel scheduler invocation.
+- Focused meeting coverage passes (**7 tests / 87 assertions**), the full SQLite API suite passes (**229 tests / 1,952 assertions**), Pint passes, and Larastan/PHPStan reports no new errors against its remaining baseline. Composer validation, `node --check scripts/dev-stack.mjs`, and `git diff --check` pass. PostgreSQL and live email/push delivery were not exercised.
 
 ## Dashboard report shortcuts (21 November 2026)
 

@@ -15,6 +15,7 @@ use App\Models\Teacher;
 use App\Models\TeachingAssignment;
 use App\Models\User;
 use App\Notifications\WorkspaceNotification;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification;
 
@@ -56,6 +57,30 @@ class OrganizationNotifier
 
     public function meetingScheduled(Meeting $meeting, int $actorId): void
     {
+        $this->notify($this->meetingRecipientIds($meeting), [
+            'organization_id' => $meeting->organization_id,
+            'kind' => 'meeting_scheduled',
+            'title' => 'New meeting scheduled',
+            'body' => "{$meeting->title} · {$this->meetingStartsAtLabel($meeting)}",
+            'resource_type' => 'meeting',
+            'resource_id' => $meeting->id,
+        ], $actorId);
+    }
+
+    public function meetingReminder(Meeting $meeting, int $minutes, int $actorId = 0): void
+    {
+        $this->notify($this->meetingRecipientIds($meeting), [
+            'organization_id' => $meeting->organization_id,
+            'kind' => 'meeting_reminder',
+            'title' => 'Meeting starting soon',
+            'body' => "{$meeting->title} starts in about {$minutes} minutes · {$this->meetingStartsAtLabel($meeting)}",
+            'resource_type' => 'meeting',
+            'resource_id' => $meeting->id,
+        ], $actorId);
+    }
+
+    private function meetingRecipientIds(Meeting $meeting): Collection
+    {
         if ($meeting->kind === 'management') {
             $userIds = OrganizationMembership::query()->where('organization_id', $meeting->organization_id)->where('status', MembershipStatus::Active)
                 ->whereIn('role', [OrganizationRole::Admin, OrganizationRole::Management, OrganizationRole::IndependentEducator])->pluck('user_id');
@@ -79,14 +104,12 @@ class OrganizationNotifier
             $userIds = $studentUserIds->merge($guardianUserIds)->push($teacherUserId);
         }
 
-        $this->notify($userIds, [
-            'organization_id' => $meeting->organization_id,
-            'kind' => 'meeting_scheduled',
-            'title' => 'New meeting scheduled',
-            'body' => "{$meeting->title} · {$meeting->starts_at->format('d M, g:i A')}",
-            'resource_type' => 'meeting',
-            'resource_id' => $meeting->id,
-        ], $actorId);
+        return collect($userIds)->filter()->unique()->values();
+    }
+
+    private function meetingStartsAtLabel(Meeting $meeting): string
+    {
+        return Carbon::parse($meeting->starts_at)->format('d M, g:i A');
     }
 
     public function learningActivity(Course $course, int $actorId, string $kind, string $resourceType, int $resourceId, string $title, string $body): void

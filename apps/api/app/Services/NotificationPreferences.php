@@ -28,7 +28,7 @@ class NotificationPreferences
     {
         $category = match ($kind) {
             'announcement' => 'announcements',
-            'meeting_scheduled' => 'meetings',
+            'meeting_scheduled', 'meeting_reminder' => 'meetings',
             'fee_issued', 'fee_payment' => 'fees',
             'learning_assignment_published', 'learning_quiz_published', 'learning_lesson_published' => 'learning',
             default => null,
@@ -41,7 +41,7 @@ class NotificationPreferences
     {
         $category = match ($kind) {
             'announcement' => 'announcements',
-            'meeting_scheduled' => 'meetings',
+            'meeting_scheduled', 'meeting_reminder' => 'meetings',
             'fee_issued', 'fee_payment' => 'fees',
             'learning_assignment_published', 'learning_quiz_published', 'learning_lesson_published' => 'learning',
             default => null,

@@ -39,7 +39,7 @@ const connectedFeatures: FeatureCardItem[] = [
 ]
 
 const setupFeatures: FeatureCardItem[] = [
-  { icon: MonitorPlay, title: 'Google Meet room creation', description: 'Organizer OAuth and Meet space creation are implemented. The operator must configure Google Cloud credentials; invites, reminders and attendance sync are not connected.' },
+  { icon: MonitorPlay, title: 'Google Meet room creation', description: 'Organizer OAuth and Meet space creation are implemented. The operator must configure Google Cloud credentials; participant invitations and attendance sync are not connected. Scheduled meetings receive an internal reminder before start.' },
   { icon: BrainCircuit, title: 'AI learning assistance', description: 'Teacher drafts and course-grounded student help use an optional local Ollama service. The provider must be enabled and configured.' },
   { icon: Check, title: 'Email, push and private cloud files', description: 'Queued email, Expo push and S3-compatible private storage are configurable. Delivery and durable storage require operator credentials and setup.' },
   { icon: CreditCard, title: 'Payment checkout', description: 'Manual fee workflows are available. Razorpay Test Mode checkout requires sandbox credentials and a verified sandbox transaction.' },
@@ -48,7 +48,7 @@ const setupFeatures: FeatureCardItem[] = [
 const inProgressFeatures: FeatureCardItem[] = [
   { icon: GraduationCap, title: 'Public course enrollment', description: 'Visitors can discover opted-in published courses and view lesson outlines; self-service enrollment is not available.' },
   { icon: Smartphone, title: 'Native mobile release', description: 'The Expo client and Android/iOS JavaScript exports are in place. Native device builds and store readiness are not verified.' },
-  { icon: CircleHelp, title: 'Subscriptions and broader automation', description: 'Subscription entitlements, automated messaging, Meet reminders and attendance sync remain future work.' },
+  { icon: CircleHelp, title: 'Subscriptions and broader automation', description: 'Subscription entitlements, automated messaging and automatic Meet attendance sync remain future work.' },
 ]
 
 function Brand({ light = false }: { light?: boolean }) {

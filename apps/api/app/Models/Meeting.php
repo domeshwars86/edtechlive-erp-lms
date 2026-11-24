@@ -15,7 +15,7 @@ class Meeting extends Model
 
     protected function casts(): array
     {
-        return ['starts_at' => 'immutable_datetime', 'ends_at' => 'immutable_datetime'];
+        return ['starts_at' => 'immutable_datetime', 'ends_at' => 'immutable_datetime', 'reminder_sent_at' => 'immutable_datetime'];
     }
 
     public function section(): BelongsTo

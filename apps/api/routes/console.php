@@ -2,9 +2,12 @@
 
 use App\Models\AiAssistanceUsage;
 use App\Models\ContactEnquiry;
+use App\Models\Meeting;
+use App\Services\OrganizationNotifier;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -15,6 +18,42 @@ Artisan::command('ai:purge-usage', function (): void {
     $deleted = AiAssistanceUsage::query()->where('created_at', '<', now()->subDays(90))->delete();
     $this->info("Purged {$deleted} AI usage records older than 90 days.");
 })->purpose('Remove educator AI usage metadata after its 90-day retention period');
+
+Artisan::command('meetings:send-reminders {--minutes= : Reminder lead time in minutes (1-1440)}', function (OrganizationNotifier $notifier): int {
+    $configuredMinutes = config('meetings.reminder_minutes', 15);
+    $option = $this->option('minutes');
+    $minutes = filter_var($option ?? $configuredMinutes, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 1440]]);
+    if ($minutes === false) {
+        $this->error('Reminder lead time must be a whole number between 1 and 1440 minutes.');
+
+        return Command::FAILURE;
+    }
+
+    $now = now();
+    $meetingIds = Meeting::query()->where('status', 'scheduled')->whereNull('reminder_sent_at')
+        ->where('starts_at', '>', $now)->where('starts_at', '<=', $now->copy()->addMinutes($minutes))
+        ->orderBy('starts_at')->orderBy('id')->pluck('id');
+    $sent = 0;
+
+    foreach ($meetingIds as $meetingId) {
+        $sent += DB::transaction(function () use ($meetingId, $notifier, $minutes, $now): int {
+            $meeting = Meeting::query()->lockForUpdate()->find($meetingId);
+            if (! $meeting || $meeting->status !== 'scheduled' || $meeting->reminder_sent_at !== null
+                || $meeting->starts_at->lte($now) || $meeting->starts_at->gt($now->copy()->addMinutes($minutes))) {
+                return 0;
+            }
+
+            $notifier->meetingReminder($meeting, $minutes);
+            $meeting->forceFill(['reminder_sent_at' => now()])->save();
+
+            return 1;
+        });
+    }
+
+    $this->info("Sent {$sent} meeting reminders for meetings starting within {$minutes} minutes.");
+
+    return Command::SUCCESS;
+})->purpose('Notify meeting participants before scheduled class and management meetings');
 
 Artisan::command('contact-enquiries:purge {--force : Delete enquiries past the configured retention period}', function (): int {
     $configuredDays = config('privacy.contact_enquiry_retention_days');

@@ -8,6 +8,7 @@ use App\Enums\OrganizationType;
 use App\Models\AcademicClass;
 use App\Models\AcademicSection;
 use App\Models\AcademicSession;
+use App\Models\Meeting;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\Student;
@@ -16,8 +17,10 @@ use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;
 use App\Models\User;
+use App\Notifications\WorkspaceNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -58,6 +61,69 @@ class MeetingTest extends TestCase
         $this->patchAs($studentUser, "{$base}/meetings/{$meetingId}", ['status' => 'cancelled'])->assertForbidden();
         $this->patchAs($admin, "{$base}/meetings/{$meetingId}", ['status' => 'cancelled'])->assertOk()->assertJsonPath('data.status', 'cancelled');
         $this->assertDatabaseHas('meetings', ['id' => $meetingId, 'status' => 'cancelled']);
+    }
+
+    public function test_meeting_reminders_notify_scoped_participants_once_within_the_lead_window(): void
+    {
+        Notification::fake();
+        [$admin, $teacherUser, $studentUser, $parentUser, $otherUser, $organization, $session, $section] = $this->workspace();
+        $base = "/api/v1/organizations/{$organization->id}";
+        $startsAt = now()->addMinutes(10);
+        $meetingId = $this->postAs($admin, "{$base}/meetings", array_replace($this->meetingPayload($session, $section), [
+            'starts_at' => $startsAt->toISOString(), 'ends_at' => $startsAt->copy()->addHour()->toISOString(),
+        ]))->assertCreated()->json('data.id');
+
+        Notification::fake();
+        $this->artisan('meetings:send-reminders')->expectsOutput('Sent 1 meeting reminders for meetings starting within 15 minutes.')->assertSuccessful();
+        $this->artisan('meetings:send-reminders')->expectsOutput('Sent 0 meeting reminders for meetings starting within 15 minutes.')->assertSuccessful();
+
+        foreach ([$teacherUser, $studentUser, $parentUser] as $recipient) {
+            $sent = Notification::sent($recipient, WorkspaceNotification::class);
+            $this->assertCount(1, $sent);
+            $this->assertSame('meeting_reminder', $sent->first()->toDatabase($recipient)['kind']);
+            $this->assertSame($meetingId, $sent->first()->toDatabase($recipient)['resource_id']);
+        }
+        Notification::assertNotSentTo($otherUser, WorkspaceNotification::class);
+        $this->assertDatabaseHas('meetings', ['id' => $meetingId]);
+        $this->assertNotNull(Meeting::query()->findOrFail($meetingId)->reminder_sent_at);
+    }
+
+    public function test_cancelled_meetings_are_not_reminded_and_invalid_lead_time_is_rejected(): void
+    {
+        Notification::fake();
+        [$admin, , $studentUser, , , $organization, $session, $section] = $this->workspace();
+        $base = "/api/v1/organizations/{$organization->id}";
+        $startsAt = now()->addMinutes(10);
+        $meetingId = $this->postAs($admin, "{$base}/meetings", array_replace($this->meetingPayload($session, $section), [
+            'starts_at' => $startsAt->toISOString(), 'ends_at' => $startsAt->copy()->addHour()->toISOString(),
+        ]))->assertCreated()->json('data.id');
+        $this->patchAs($admin, "{$base}/meetings/{$meetingId}", ['status' => 'cancelled'])->assertOk();
+
+        Notification::fake();
+        $this->artisan('meetings:send-reminders')->expectsOutput('Sent 0 meeting reminders for meetings starting within 15 minutes.')->assertSuccessful();
+        $this->artisan('meetings:send-reminders --minutes=0')->expectsOutput('Reminder lead time must be a whole number between 1 and 1440 minutes.')->assertFailed();
+
+        Notification::assertNotSentTo($studentUser, WorkspaceNotification::class);
+        $this->assertDatabaseHas('meetings', ['id' => $meetingId, 'status' => 'cancelled', 'reminder_sent_at' => null]);
+    }
+
+    public function test_meeting_reminder_respects_a_participants_meeting_preference(): void
+    {
+        Notification::fake();
+        [$admin, $teacherUser, $studentUser, $parentUser, , $organization, $session, $section] = $this->workspace();
+        $studentUser->forceFill(['notification_preferences' => ['meetings' => false]])->save();
+        $base = "/api/v1/organizations/{$organization->id}";
+        $startsAt = now()->addMinutes(10);
+        $this->postAs($admin, "{$base}/meetings", array_replace($this->meetingPayload($session, $section), [
+            'starts_at' => $startsAt->toISOString(), 'ends_at' => $startsAt->copy()->addHour()->toISOString(),
+        ]))->assertCreated();
+
+        Notification::fake();
+        $this->artisan('meetings:send-reminders')->assertSuccessful();
+
+        Notification::assertNotSentTo($studentUser, WorkspaceNotification::class);
+        Notification::assertSentTo($teacherUser, WorkspaceNotification::class);
+        Notification::assertSentTo($parentUser, WorkspaceNotification::class);
     }
 
     public function test_private_recordings_require_consent_and_are_visible_to_enrolled_learners_only_after_publication(): void

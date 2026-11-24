@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('ai:purge-usage')->dailyAt('03:10')->withoutOverlapping();
+        $schedule->command('meetings:send-reminders')->everyMinute()->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
