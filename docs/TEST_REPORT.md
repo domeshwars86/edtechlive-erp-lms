@@ -759,3 +759,7 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 ## Homepage preview and integration copy (24 November 2026)
 
 - Replaced the decorative dashboard’s “LIVE” and imminent-class claims with an explicit sample preview label. Updated the homepage FAQ to describe tenant workspaces, manual HTTPS meeting links, unconfigured Google Meet OAuth, and optional local AI. TypeScript, ESLint, and production build passed; the focused Chromium regression passed (**1 test**).
+
+## Public preview and transport copy (24 November 2026)
+
+- Labeled the role-solution mockup as a preview and removed the HTTPS security claim from the contact form’s local development disclaimer. TypeScript, ESLint, and production build passed; the focused Chromium regression passed (**1 test**).

@@ -10,6 +10,13 @@ test('home labels illustrative dashboard data and explains current integrations'
   await expect(page.getByText(/manually created HTTPS meeting links/)).toBeVisible()
 })
 
+test('public workspace illustration and contact transport copy avoid overclaims', async ({ page }) => {
+  await page.goto('/solutions/students')
+  await expect(page.getByText('WORKSPACE PREVIEW')).toBeVisible()
+  await page.goto('/contact')
+  await expect(page.getByText('Your enquiry is sent to edTechLive for a response.')).toBeVisible()
+})
+
 test('features page distinguishes connected, configurable, and unfinished work', async ({ page }) => {
   await page.goto('/features')
   await expect(page.getByRole('heading', { name: 'Built into the workspace' })).toBeVisible()

@@ -10,6 +10,7 @@
 
 - Reworked `/features` to separate connected API-backed workflows, optional integrations that require operator setup, and unfinished milestones. AI, Google Meet, email/push, private cloud storage and payment copy now names their configuration and verification limits; public course enrollment and native mobile release are marked in progress. This avoids presenting staged or unconfigured capabilities as live services.
 - The homepage dashboard illustration now identifies itself as a sample preview rather than live activity. Its FAQ reflects the current manual meeting-link path, optional unverified Meet room setup, and local AI configuration requirement.
+- Role-solution illustrations are labeled as workspace previews, and the enquiry form no longer promises secure transport when viewed on the local HTTP development URL.
 
 ## Current milestone
 
