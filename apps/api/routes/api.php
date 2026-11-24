@@ -85,6 +85,9 @@ Route::prefix('v1')->group(function (): void {
         ->middleware('throttle:20,1')->name('api.v1.integrations.google-meet.callback');
 
     Route::middleware(['auth:sanctum', 'account.active', 'verified'])->group(function (): void {
+        Route::post('/public/organizations/{organizationSlug}/courses/{courseSlug}/enroll', [PublicCourseController::class, 'enroll'])
+            ->where(['organizationSlug' => '[A-Za-z0-9-]{1,120}', 'courseSlug' => '[A-Za-z0-9-]{1,180}'])
+            ->middleware('throttle:6,1')->name('api.v1.public.courses.enroll');
         Route::get('/enquiries', [ContactEnquiryController::class, 'index'])->name('api.v1.enquiries.index');
         Route::patch('/enquiries/{enquiry}', [ContactEnquiryController::class, 'update'])
             ->whereNumber('enquiry')->name('api.v1.enquiries.update');

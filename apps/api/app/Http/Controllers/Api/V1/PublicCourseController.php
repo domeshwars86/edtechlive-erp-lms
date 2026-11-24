@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\MembershipStatus;
+use App\Enums\OrganizationRole;
 use App\Models\Course;
+use App\Models\CourseEnrollment;
 use App\Models\CourseLesson;
+use App\Models\OrganizationMembership;
+use App\Models\Student;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -67,20 +71,62 @@ class PublicCourseController
         $course = $this->visibleCourses()->with([
             'organization:id,name,slug',
             'subject:id,name,organization_id',
-            'lessons' => fn (HasMany $lessons) => $lessons->where('status', 'published')->orderBy('sort_order')->orderBy('id'),
         ])->withCount(['lessons as published_lesson_count' => fn (Builder $lessons) => $lessons->where('status', 'published')])
             ->whereHas('organization', fn (Builder $organization) => $organization->where('slug', $organizationSlug))
             ->where('slug', $courseSlug)->firstOrFail();
+        $publishedLessons = CourseLesson::query()->where('course_id', $course->id)->where('status', 'published')
+            ->orderBy('sort_order')->orderBy('id')->get();
 
         return response()->json(['data' => [
             ...$this->courseSummary($course),
-            'lessons' => $course->lessons->values()->map(fn (CourseLesson $lesson): array => [
+            'lessons' => $publishedLessons->map(fn (CourseLesson $lesson): array => [
                 'title' => $lesson->title,
                 'sort_order' => $lesson->sort_order,
             ]),
         ]]);
     }
 
+    public function enroll(Request $request, string $organizationSlug, string $courseSlug): JsonResponse
+    {
+        $course = $this->visibleCourses()->whereHas('organization', fn (Builder $organization) => $organization->where('slug', $organizationSlug))
+            ->where('slug', $courseSlug)->firstOrFail();
+        $user = $request->user();
+        $membershipIsStudent = OrganizationMembership::query()->where('organization_id', $course->organization_id)
+            ->where('user_id', $user->id)->where('role', OrganizationRole::Student)->where('status', MembershipStatus::Active)->exists();
+        abort_unless($membershipIsStudent, 403, 'Only active student members of this organization can self-enroll.');
+
+        $student = Student::query()->where('organization_id', $course->organization_id)
+            ->where('user_id', $user->id)->where('status', 'active')->firstOrFail();
+
+        $enrollmentCreated = DB::transaction(function () use ($course, $student, $user): bool {
+            $lockedCourse = $this->visibleCourses()->whereKey($course->id)->lockForUpdate()->firstOrFail();
+            $enrollment = CourseEnrollment::query()->where('organization_id', $lockedCourse->organization_id)
+                ->where('course_id', $lockedCourse->id)->where('student_id', $student->id)->lockForUpdate()->first();
+
+            if ($enrollment) {
+                abort_if($enrollment->status !== 'active', 409, 'This enrollment is inactive. Contact the organization for access.');
+
+                return false;
+            }
+
+            CourseEnrollment::query()->create([
+                'organization_id' => $lockedCourse->organization_id,
+                'course_id' => $lockedCourse->id,
+                'student_id' => $student->id,
+                'enrolled_by' => $user->id,
+                'status' => 'active',
+            ]);
+
+            return true;
+        });
+
+        return response()->json([
+            'message' => $enrollmentCreated ? 'You are enrolled in this course.' : 'You are already enrolled in this course.',
+            'enrolled' => true,
+        ], $enrollmentCreated ? 201 : 200);
+    }
+
+    /** @return Builder<Course> */
     private function visibleCourses(): Builder
     {
         return Course::query()->where('courses.status', 'published')->where('courses.is_public_listing', true)

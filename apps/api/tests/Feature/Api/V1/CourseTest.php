@@ -295,6 +295,51 @@ class CourseTest extends TestCase
         $this->getJson('/api/v1/public/organizations/'.$suspended->slug.'/courses/'.$suspendedCourse->slug)->assertNotFound();
     }
 
+    public function test_verified_organization_students_can_self_enroll_in_opted_in_courses_idempotently(): void
+    {
+        [$admin, $organization, $studentUser, $student] = $this->workspace();
+        $subject = Subject::query()->create([
+            'organization_id' => $organization->id, 'name' => 'Science', 'code' => 'SCI', 'is_active' => true,
+        ]);
+        $course = $this->makePublicCourse($organization, $admin, $subject, 'Physics basics', 'Grade 6', 'Matter and energy.');
+        CourseLesson::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $course->id,
+            'title' => 'Start here', 'content' => 'A public lesson.', 'status' => 'published',
+        ]);
+        $enrollUrl = "/api/v1/public/organizations/{$organization->slug}/courses/{$course->slug}/enroll";
+
+        Sanctum::actingAs($studentUser);
+        $this->postJson($enrollUrl)->assertCreated()
+            ->assertJsonPath('message', 'You are enrolled in this course.')
+            ->assertJsonPath('enrolled', true);
+        $this->postJson($enrollUrl)->assertOk()
+            ->assertJsonPath('message', 'You are already enrolled in this course.');
+        $this->assertDatabaseHas('course_enrollments', [
+            'organization_id' => $organization->id, 'course_id' => $course->id,
+            'student_id' => $student->id, 'enrolled_by' => $studentUser->id, 'status' => 'active',
+        ]);
+        $this->assertDatabaseCount('course_enrollments', 1);
+
+        $unlistedCourse = Course::query()->create([
+            'organization_id' => $organization->id, 'created_by' => $admin->id,
+            'title' => 'Private course', 'status' => 'published', 'is_public_listing' => false,
+        ]);
+        CourseLesson::query()->create([
+            'organization_id' => $organization->id, 'course_id' => $unlistedCourse->id,
+            'title' => 'Private lesson', 'content' => 'Not listed.', 'status' => 'published',
+        ]);
+        $this->postJson("/api/v1/public/organizations/{$organization->slug}/courses/{$unlistedCourse->slug}/enroll")->assertNotFound();
+
+        $parent = User::factory()->create();
+        OrganizationMembership::query()->create([
+            'organization_id' => $organization->id, 'user_id' => $parent->id,
+            'role' => OrganizationRole::Parent, 'status' => MembershipStatus::Active, 'accepted_at' => now(),
+        ]);
+        Sanctum::actingAs($parent);
+        $this->postJson($enrollUrl)->assertForbidden();
+        $this->assertDatabaseCount('course_enrollments', 1);
+    }
+
     private function makePublicCourse(Organization $organization, User $creator, Subject $subject, string $title, string $level, string $description): Course
     {
         return Course::query()->create([

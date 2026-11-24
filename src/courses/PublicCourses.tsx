@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, CircleHelp, LoaderCircle, Search } from 'lucide-react'
+import { useAuth } from '../auth/useAuth'
 import { ApiError, api } from '../lib/api'
 import '../styles/public-courses.css'
 
@@ -99,14 +100,22 @@ export function PublicCourses() {
 
 export function PublicCourseDetails() {
   const { organizationSlug = '', courseSlug = '' } = useParams()
+  const { user, activeMembership } = useAuth()
   const [course, setCourse] = useState<PublicCourseDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [enrolling, setEnrolling] = useState(false)
+  const [enrolled, setEnrolled] = useState(false)
+  const [enrollmentError, setEnrollmentError] = useState('')
+
+  const canSelfEnroll = Boolean(user && activeMembership?.role === 'student' && activeMembership.organization.slug === organizationSlug)
 
   useEffect(() => {
     let active = true
     setLoading(true)
     setError('')
+    setEnrolled(false)
+    setEnrollmentError('')
     api.get<{ data: PublicCourseDetail }>(`/api/v1/public/organizations/${encodeURIComponent(organizationSlug)}/courses/${encodeURIComponent(courseSlug)}`)
       .then(result => { if (active) setCourse(result.data) })
       .catch((reason: unknown) => { if (active) setError(reason instanceof ApiError ? reason.message : 'This published course could not be loaded.') })
@@ -114,11 +123,28 @@ export function PublicCourseDetails() {
     return () => { active = false }
   }, [organizationSlug, courseSlug])
 
+  async function selfEnroll() {
+    setEnrolling(true)
+    setEnrollmentError('')
+    try {
+      const result = await api.post<{ enrolled: boolean }>(
+        `/api/v1/public/organizations/${encodeURIComponent(organizationSlug)}/courses/${encodeURIComponent(courseSlug)}/enroll`,
+      )
+      setEnrolled(result.enrolled)
+    } catch (reason) {
+      setEnrollmentError(reason instanceof ApiError
+        ? reason.message
+        : 'We could not enroll you. Please try again or contact the organization.')
+    } finally {
+      setEnrolling(false)
+    }
+  }
+
   if (loading) return <section className="public-course-detail-state" role="status"><LoaderCircle className="public-course-spin" />Loading course…</section>
   if (error || !course) return <section className="public-course-detail-state" role="alert"><CircleHelp size={23} /><h1>Course unavailable</h1><p>{error || 'This course may no longer be publicly listed.'}</p><Link to="/courses">Browse published courses</Link></section>
 
   return <>
     <header className="public-course-detail-heading"><Link to="/courses"><ArrowLeft size={15} />All courses</Link><span className="public-courses-kicker">{course.organization.name}{course.subject ? ` · ${course.subject}` : ''}</span><h1>{course.title}</h1><p>{course.description || 'Course details and published lesson outline.'}</p></header>
-    <section className="public-course-detail-content"><aside className="public-course-summary"><span>COURSE AT A GLANCE</span><dl><div><dt>Organization</dt><dd>{course.organization.name}</dd></div><div><dt>Subject</dt><dd>{course.subject || 'Not specified'}</dd></div><div><dt>Level</dt><dd>{course.level || 'All levels'}</dd></div><div><dt>Published lessons</dt><dd>{course.published_lesson_count}</dd></div></dl><p>Enrollment is managed by the organization. Contact them to ask about availability.</p><Link className="public-course-contact" to={`/contact?${new URLSearchParams({ course: course.title, organization: course.organization.name })}`}>Ask about this course <ArrowUpRight size={15} /></Link></aside><main className="public-course-outline"><span className="public-courses-kicker">Course outline</span><h2>What you’ll explore</h2>{course.lessons.length ? <ol>{course.lessons.map((lesson, index) => <li key={`${lesson.sort_order}-${lesson.title}`}><span>{String(index + 1).padStart(2, '0')}</span><b>{lesson.title}</b><small>Published lesson</small></li>)}</ol> : <p>No lesson titles are available yet.</p>}</main></section>
+    <section className="public-course-detail-content"><aside className="public-course-summary"><span>COURSE AT A GLANCE</span><dl><div><dt>Organization</dt><dd>{course.organization.name}</dd></div><div><dt>Subject</dt><dd>{course.subject || 'Not specified'}</dd></div><div><dt>Level</dt><dd>{course.level || 'All levels'}</dd></div><div><dt>Published lessons</dt><dd>{course.published_lesson_count}</dd></div></dl>{canSelfEnroll ? <><p>Enrollment is open to verified student accounts that already belong to this organization.</p>{enrolled ? <><p className="public-course-enrollment-success" role="status">You’re enrolled in this course.</p><Link className="public-course-contact" to="/workspace/student">Open student workspace <ArrowUpRight size={15} /></Link></> : <button className="public-course-contact public-course-enroll" type="button" onClick={() => void selfEnroll()} disabled={enrolling} aria-busy={enrolling}>{enrolling ? <><LoaderCircle className="public-course-spin" size={15} /> Enrolling…</> : 'Enroll in this course'}</button>}{enrollmentError && <p className="public-course-enrollment-error" role="alert">{enrollmentError}</p>}</> : <><p>Enrollment is available to existing student members of this organization. Sign in and select this organization to enroll; otherwise, contact them to ask about availability.</p><Link className="public-course-contact" to={user ? '/select-organization' : '/login'}>{user ? 'Select organization' : 'Log in to enroll'} <ArrowUpRight size={15} /></Link></>}<Link className="public-course-contact" to={`/contact?${new URLSearchParams({ course: course.title, organization: course.organization.name })}`}>Ask about this course <ArrowUpRight size={15} /></Link></aside><main className="public-course-outline"><span className="public-courses-kicker">Course outline</span><h2>What you’ll explore</h2>{course.lessons.length ? <ol>{course.lessons.map((lesson, index) => <li key={`${lesson.sort_order}-${lesson.title}`}><span>{String(index + 1).padStart(2, '0')}</span><b>{lesson.title}</b><small>Published lesson</small></li>)}</ol> : <p>No lesson titles are available yet.</p>}</main></section>
   </>
 }

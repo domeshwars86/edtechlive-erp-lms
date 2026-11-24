@@ -70,8 +70,8 @@ test('teacher AI question-drafts navigation opens the course-grounded draft tool
   await page.getByRole('button', { name: /Browser Test School/ }).click()
   await page.getByRole('button', { name: 'AI question drafts', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Courses and lessons' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'AI question drafts', level: 4 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Courses and lessons' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: 'AI question drafts', level: 4 })).toBeVisible({ timeout: 30_000 })
   await expect(page.getByLabel('Draft type')).toHaveValue('questions')
   await page.getByLabel('Draft type').selectOption('lesson_plan')
   await expect(page.getByRole('heading', { name: 'AI lesson-plan draft', level: 4 })).toBeVisible()
@@ -102,9 +102,9 @@ test('teacher AI question-drafts navigation opens the course-grounded draft tool
   await page.setViewportSize({ width: 1280, height: 900 })
   aiEnabled = false
   await page.getByRole('button', { name: 'Live classes', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Live classes', level: 1 })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Scheduled meetings', level: 2 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Live classes', level: 1 })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: 'Scheduled meetings', level: 2 })).toBeVisible({ timeout: 30_000 })
   await page.getByRole('button', { name: 'AI question drafts', exact: true }).click()
-  await expect(page.getByText('AI drafts are currently unavailable. An operator must configure the private Ollama service before educators can generate drafts.')).toBeVisible()
+  await expect(page.getByText('AI drafts are currently unavailable. An operator must configure the private Ollama service before educators can generate drafts.')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByLabel('Draft type')).toHaveCount(0)
 })

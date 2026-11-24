@@ -175,6 +175,49 @@ test('public course catalog can recover from an API error', async ({ page }) => 
   expect(attempts).toBe(2)
 })
 
+test('verified student members can enroll from a public course detail page', async ({ page }) => {
+  let enrollmentRequestCount = 0
+  await page.route('**/api/v1/me', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: { id: 41, name: 'Learner', email: 'learner@example.test', email_verified_at: '2026-11-24T00:00:00Z', is_platform_admin: false } }),
+  }))
+  await page.route('**/api/v1/organizations?*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      data: [{
+        membership_id: 91, role: 'student',
+        organization: { id: 12, name: 'Northstar Academy', slug: 'northstar-academy', type: 'school', status: 'active', timezone: 'Asia/Kolkata' },
+      }],
+      preferred_organization_id: 12,
+      meta: { current_page: 1, last_page: 1, per_page: 100, total: 1 },
+    }),
+  }))
+  await page.route('**/api/v1/public/organizations/northstar-academy/courses/physics-basics', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: {
+      title: 'Physics basics', description: 'Matter and energy.', level: 'Grade 6', slug: 'physics-basics',
+      subject: 'Science', organization: { name: 'Northstar Academy', slug: 'northstar-academy' },
+      published_lesson_count: 1, lessons: [{ title: 'Start here', sort_order: 1 }],
+    } }),
+  }))
+  await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
+  await page.route('**/api/v1/public/organizations/northstar-academy/courses/physics-basics/enroll', async route => {
+    expect(route.request().method()).toBe('POST')
+    enrollmentRequestCount += 1
+    await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ enrolled: true }) })
+  })
+
+  await page.goto('/courses/northstar-academy/physics-basics')
+  await expect(page.getByRole('heading', { name: 'Physics basics' })).toBeVisible({ timeout: 30_000 })
+  await page.getByRole('button', { name: 'Enroll in this course' }).click()
+  await expect(page.getByRole('status')).toContainText('You’re enrolled in this course.')
+  await expect(page.getByRole('link', { name: 'Open student workspace' })).toHaveAttribute('href', '/workspace/student')
+  expect(enrollmentRequestCount).toBe(1)
+})
+
 test('mobile menu is operable and public pages avoid horizontal overflow', async ({ page }) => {
   test.setTimeout(120_000)
   for (const width of [320, 375, 430, 768]) {

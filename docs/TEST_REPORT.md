@@ -2,10 +2,15 @@
 
 **Updated:** 24 November 2026
 
+## Public course self-enrollment (24 November 2026)
+
+- Added idempotent API enrollment for verified users who have both an active Student organization membership and an active roster record. The course must still belong to an active organization, be published, be explicitly listed publicly, and contain a published lesson. The public detail screen offers enrollment to a selected student membership; visitors retain the contextual enquiry path. This path does not create student accounts or organization memberships.
+- Focused API regressions pass (**8 tests / 118 assertions**), including successful enrollment, retry idempotency, non-public rejection and parent denial. The complete SQLite API suite passes (**230 tests / 1,962 assertions**). The full serial Chromium suite passes (**34 tests in 4.1 minutes**), including public-course enrollment and the lazy-loaded educator routes. Root typecheck, lint, production build (17 prerendered routes), all 8 Vitest component tests, Pint, and PHPStan analysis against its reduced baseline pass. The public sitemap remains omitted until an approved HTTPS site URL is configured.
+
 ## Scheduled meeting reminders (24 November 2026)
 
 - Added the `meetings:send-reminders` Laravel command and a once-per-minute schedule. It sends a preference-aware reminder once per scheduled meeting in the configured lead window (15 minutes by default), reuses the meeting's existing organization-scoped recipients, ignores canceled/expired meetings, and locks/marks each meeting to prevent duplicate sends. Local `dev:stack` now runs the scheduler; deployments need the standard once-per-minute Laravel scheduler invocation.
-- Focused meeting coverage passes (**7 tests / 87 assertions**), the full SQLite API suite passes (**229 tests / 1,952 assertions**), Pint passes, and Larastan/PHPStan reports no new errors against its remaining baseline. Composer validation, `node --check scripts/dev-stack.mjs`, and `git diff --check` pass. PostgreSQL and live email/push delivery were not exercised.
+- Focused meeting coverage passes (**7 tests / 87 assertions**), the full SQLite API suite passes (**230 tests / 1,962 assertions**), Pint passes, and Larastan/PHPStan reports no new errors against its remaining baseline. Composer validation, `node --check scripts/dev-stack.mjs`, and `git diff --check` pass. PostgreSQL and live email/push delivery were not exercised.
 
 ## Dashboard report shortcuts (21 November 2026)
 

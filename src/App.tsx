@@ -46,7 +46,7 @@ const setupFeatures: FeatureCardItem[] = [
 ]
 
 const inProgressFeatures: FeatureCardItem[] = [
-  { icon: GraduationCap, title: 'Public course enrollment', description: 'Visitors can discover opted-in published courses and view lesson outlines; self-service enrollment is not available.' },
+  { icon: GraduationCap, title: 'Public course enrollment', description: 'Verified student members can enroll in a course their organization lists publicly. New visitor accounts, guest enrollment and public teacher profiles are not available.' },
   { icon: Smartphone, title: 'Native mobile release', description: 'The Expo client and Android/iOS JavaScript exports are in place. Native device builds and store readiness are not verified.' },
   { icon: CircleHelp, title: 'Subscriptions and broader automation', description: 'Subscription entitlements, automated messaging and automatic Meet attendance sync remain future work.' },
 ]
