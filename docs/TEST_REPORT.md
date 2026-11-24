@@ -2,6 +2,10 @@
 
 **Updated:** 24 November 2026
 
+## Responsive browser sweeps at all required widths (24 November 2026)
+
+- All 19 public/account routes and all seven dashboard previews now pass Chromium horizontal-overflow checks at **320, 375, 430, 768, 1024, 1280 and 1440px**. The focused responsive command passed **8 test cases** (seven route sweeps and one all-role dashboard sweep). Dashboard lazy-load waits are set to 30 seconds so the measurement follows screen rendering rather than a cold-start timeout.
+
 ## Homepage platform CTA destination (24 November 2026)
 
 - Corrected the hero's **Explore the platform** link to open `/features`; its prior destination was `/contact`. The focused Chromium regression passes (**1 test**). Root typecheck, ESLint and the production client/SSR build pass; the complete serial Chromium suite remains at **35 tests** from the preceding run.

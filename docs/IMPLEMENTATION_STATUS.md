@@ -2,6 +2,10 @@
 
 **Updated:** 24 November 2026
 
+## Responsive browser coverage
+
+- Expanded Chromium overflow sweeps to all seven required widths: 320, 375, 430, 768, 1024, 1280, and 1440px. All 19 public/account routes and all seven dashboard role previews pass their focused sweeps. Dashboard assertions allow 30 seconds for lazy-loaded workspace screens before measuring overflow.
+
 ## Meeting reminder workflow
 
 - Scheduled Laravel reminders notify the existing meeting participant scope once, within a configurable lead window (`MEETING_REMINDER_MINUTES`, default 15); canceled meetings are excluded and recipients' meeting-category preferences apply. A stored reminder timestamp plus a row lock makes repeat and overlapping command execution idempotent. In-app notifications are immediate; email and Expo push remain subject to their separate opt-in/provider configuration.

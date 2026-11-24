@@ -600,10 +600,10 @@ test('all seven dashboard previews fit narrow and desktop viewports', async ({ p
   test.setTimeout(120_000)
   const roles = ['super-admin', 'admin', 'management', 'teacher', 'student', 'parent', 'educator']
   for (const role of roles) {
-    for (const width of [320, 768, 1440]) {
+    for (const width of [320, 375, 430, 768, 1024, 1280, 1440]) {
       await page.setViewportSize({ width, height: 900 })
       await page.goto(`/workspace/${role}`, { waitUntil: 'domcontentloaded' })
-      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1 }), `${role} dashboard did not finish loading at ${width}px`).toBeVisible({ timeout: 30_000 })
       const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth)
       expect(pageWidth, `${role} dashboard preview overflows at ${width}px`).toBeLessThanOrEqual(width)
     }
@@ -618,7 +618,7 @@ const publicAndAccountRoutes = [
   '/refund-policy', '/login', '/register',
 ]
 
-for (const width of [320, 1440]) {
+for (const width of [320, 375, 430, 768, 1024, 1280, 1440]) {
   test(`all public and account routes fit ${width}px viewport`, async ({ page }) => {
     test.setTimeout(120_000)
     await page.setViewportSize({ width, height: 900 })
