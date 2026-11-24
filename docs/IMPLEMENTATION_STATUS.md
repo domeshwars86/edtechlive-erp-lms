@@ -10,7 +10,7 @@
 
 ## PHP static analysis gate
 
-- Added Larastan/PHPStan 3.13 as a repeatable Composer `analyse` command and an API CI check. The initial analysis established a baseline of 656 diagnostics, largely Eloquent model/relation typing. A stale `starts_at` diagnostic was removed as the notifier now parses the timestamp explicitly; 655 baseline diagnostics remain. The current analysis gate passes with no additional errors. The baseline is temporary debt tracking, not a clean analysis result. New diagnostics fail the check, and unmatched baseline entries are reported so fixed issues can be removed from the baseline. The API source still needs incremental typing cleanup.
+- Added Larastan/PHPStan 3.13 as a repeatable Composer `analyse` command and an API CI check. The initial analysis established a baseline of 656 diagnostics, largely Eloquent model/relation typing. Subsequent fixes removed five entries: one stale `starts_at` diagnostic and four resolved public-course query typing diagnostics. The baseline now contains 651 remaining diagnostics. The current analysis gate passes with no additional errors. The baseline is temporary debt tracking, not a clean analysis result. New diagnostics fail the check, and unmatched baseline entries are reported so fixed issues can be removed from the baseline. The API source still needs incremental typing cleanup.
 
 ## Public feature-status overview
 

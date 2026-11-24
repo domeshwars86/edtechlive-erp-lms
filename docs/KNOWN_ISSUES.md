@@ -1,6 +1,6 @@
 # Known Issues and Open Work
 
-- [ ] Larastan/PHPStan is wired into API CI at level 5. Its baseline now contains 655 remaining diagnostics, mostly Eloquent property and relationship inference. This is not a clean static-analysis result; reduce the baseline as model typing is improved.
+- [ ] Larastan/PHPStan is wired into API CI at level 5. Its baseline now contains 651 remaining diagnostics, mostly Eloquent property and relationship inference. This is not a clean static-analysis result; reduce the baseline as model typing is improved.
 
 - [ ] Full client/API session verification has not been completed against a persistent local database and configured email transport.
 - [ ] Workspace event emails are tested as queued jobs but remain disabled by default; configure an approved mail transport and a persistent queue worker, then verify delivery in a non-production environment before enabling.
