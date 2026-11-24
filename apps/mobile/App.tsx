@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store'
 import { ApiError, mobileApi, type ApiUser, type AssessmentReport, type AssessmentResults, type AttendanceStudent, type Course, type CourseAssignment, type CourseQuiz, type DashboardSummary, type EnrollmentReport, type ExamSectionSummary, type ExamSeriesComparison, type FamilyFee, type FamilyHomework, type FamilyStudent, type Lesson, type OrganizationList, type OrganizationMembership, type QuizRun, type SchoolExam, type SchoolExamMark, type SchoolExamPaper, type StudentAttendance, type StudentProgress, type StudyMaterial, type TeacherWorkloadReport, type TeachingAssignment } from './src/api'
 import { AssessmentReportPanel, CourseProgressReportPanel, EnrollmentReportPanel, ExamSectionReportPanel, TeacherWorkloadReportPanel } from './src/ReportPanels'
 import { NotificationPreferencesPanel } from './src/NotificationPreferencesPanel'
+import { MembershipAccessPanel } from './src/MembershipAccessPanel'
 import { mobilePushTokenKey } from './src/pushRegistration'
 
 const TOKEN_KEY = 'edtechlive.mobile.token'
@@ -919,6 +920,7 @@ export default function App() {
             {invitation.status === 'pending' ? <Pressable onPress={() => revokeInvitation(invitation)} disabled={invitationSaving} accessibilityRole="button"><Text style={styles.link}>Revoke invitation</Text></Pressable> : null}
           </View>) : <Empty text={invitationsLoading ? 'Loading invitations…' : 'No invitations have been sent in this workspace.'} />}
           <Pressable onPress={() => void loadInvitations()} disabled={invitationsLoading} accessibilityRole="button"><Text style={styles.link}>Refresh invitations</Text></Pressable>
+          <MembershipAccessPanel organizationId={active.organization.id} token={token} userId={user.id} />
           <EnrollmentReportPanel report={enrollmentReport} loading={busy} />
           <TeacherWorkloadReportPanel report={teacherWorkloadReport} loading={busy} />
         </> : null}
