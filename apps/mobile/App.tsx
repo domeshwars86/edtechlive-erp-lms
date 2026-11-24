@@ -20,6 +20,7 @@ type MobileAttendanceStudent = AttendanceStudent & { originalStatus: AttendanceS
 type MobileRosterStudent = { id: number; name: string; admission_number: string | null; academic_class: { id: number; name: string } | null; academic_section: { id: number; name: string } | null }
 type MobileRosterTeacher = { id: number; name: string; employee_number: string | null; specialization: string | null }
 type MobileRosterKind = 'students' | 'teachers'
+type MobileInvitation = { id: number; email: string; role: OrganizationMembership['role']; status: 'pending' | 'accepted' | 'expired' | 'revoked'; expires_at: string; accepted_at: string | null; revoked_at: string | null }
 type MobileAttendanceReport = { from: string; to: string; totals: { records: number; present: number; late: number; absent: number; excused: number; attendance_rate: number }; sections: { section_id: number; class: string; section: string; records: number; attendance_rate: number; absent: number }[] }
 type MobileCourseProgressReport = { data: { course_id: number; title: string; lessons: number; learners: number; average_percent: number; completed_learners: number }[]; summary: { courses: number; learners: number; average_percent: number } }
 type MobileFinanceReport = { as_of: string; currency: 'INR'; collections_period: { from: string; to: string; receipt_count: number; received_amount: string; expense_count: number; expense_amount: string; net_cash_flow: string }; summary: { fee_records: number; unpaid_records: number; partial_records: number; paid_records: number; issued_amount: string; received_amount: string; expense_amount: string; net_cash_flow: string; outstanding_amount: string; overdue_records: number; overdue_balance: string } }
@@ -93,6 +94,13 @@ export default function App() {
   const [rosterStudentError, setRosterStudentError] = useState('')
   const [rosterTeacherError, setRosterTeacherError] = useState('')
   const rosterRequestRef = useRef<Record<MobileRosterKind, number>>({ students: 0, teachers: 0 })
+  const [invitations, setInvitations] = useState<MobileInvitation[]>([])
+  const [invitationsLoading, setInvitationsLoading] = useState(false)
+  const [invitationFormOpen, setInvitationFormOpen] = useState(false)
+  const [invitationEmail, setInvitationEmail] = useState('')
+  const [invitationRole, setInvitationRole] = useState<'management' | 'teacher' | 'student' | 'parent'>('parent')
+  const [invitationStudentIds, setInvitationStudentIds] = useState<number[]>([])
+  const [invitationSaving, setInvitationSaving] = useState(false)
   const [attendanceReport, setAttendanceReport] = useState<MobileAttendanceReport | null>(null)
   const [attendanceFrom, setAttendanceFrom] = useState(localDate())
   const [attendanceTo, setAttendanceTo] = useState(localDate())
@@ -193,6 +201,50 @@ export default function App() {
     }
   }, [active, token, user?.id])
 
+  const loadInvitations = useCallback(async () => {
+    if (!active || !token) return
+    setInvitationsLoading(true)
+    try {
+      const result = await mobileApi.get<{ data: MobileInvitation[] }>(`/api/v1/organizations/${active.organization.id}/invitations?per_page=50`, token)
+      if (workspaceContextRef.current === `${user?.id ?? ''}:${active.organization.id}`) setInvitations(result.data)
+    } catch (reason) {
+      if (workspaceContextRef.current === `${user?.id ?? ''}:${active.organization.id}`) setError(reason instanceof Error ? reason.message : 'Could not load invitations.')
+    } finally {
+      if (workspaceContextRef.current === `${user?.id ?? ''}:${active.organization.id}`) setInvitationsLoading(false)
+    }
+  }, [active, token, user?.id])
+
+  async function sendInvitation() {
+    if (!active || !token) return
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(invitationEmail.trim())) { setError('Enter a valid invitation email address.'); return }
+    if (invitationRole === 'parent' && invitationStudentIds.length === 0) { setError('Select at least one active student for this parent invitation.'); return }
+    setInvitationSaving(true); setError(''); setSuccess('')
+    try {
+      const payload = { email: invitationEmail.trim(), role: invitationRole, ...(invitationRole === 'parent' ? { student_ids: invitationStudentIds } : {}) }
+      await mobileApi.post<{ data: MobileInvitation }>(`/api/v1/organizations/${active.organization.id}/invitations`, token, payload)
+      setInvitationEmail(''); setInvitationStudentIds([]); setInvitationFormOpen(false)
+      setSuccess('Invitation created. The recipient needs the invitation email to join; check the workspace mail settings if it does not arrive.')
+      await loadInvitations()
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not send this invitation.') }
+    finally { setInvitationSaving(false) }
+  }
+
+  async function revokeInvitation(invitation: MobileInvitation) {
+    if (!active || !token) return
+    Alert.alert('Revoke invitation?', `The pending invitation for ${invitation.email} will no longer work.`, [
+      { text: 'Keep invitation', style: 'cancel' },
+      { text: 'Revoke', style: 'destructive', onPress: () => { void (async () => {
+        setInvitationSaving(true); setError(''); setSuccess('')
+        try {
+          await mobileApi.delete<{ message: string }>(`/api/v1/organizations/${active.organization.id}/invitations/${invitation.id}`, token)
+          setSuccess(`Invitation for ${invitation.email} was revoked.`)
+          await loadInvitations()
+        } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not revoke this invitation.') }
+        finally { setInvitationSaving(false) }
+      })() } },
+    ])
+  }
+
   function applyAttendanceRange(from = attendanceFrom, to = attendanceTo) {
     setAttendanceFrom(from)
     setAttendanceTo(to)
@@ -236,6 +288,7 @@ export default function App() {
     rosterRequestRef.current.students += 1; rosterRequestRef.current.teachers += 1
     setAttendanceReportLoading(false); setAttendanceReportError('')
     setRosterStudentLoading(false); setRosterTeacherLoading(false); setRosterStudentError(''); setRosterTeacherError('')
+    setInvitations([]); setInvitationsLoading(false); setInvitationFormOpen(false); setInvitationEmail(''); setInvitationStudentIds([])
     setRosterStudentSearch(''); setRosterTeacherSearch(''); setRosterStudentPage(1); setRosterStudentLastPage(1); setRosterTeacherPage(1); setRosterTeacherLastPage(1)
     setSummary(null); setNotices([]); setNoticePage(1); setNoticeLastPage(1); setNoticeLoading(false); setMeetings([]); setMeetingSections([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setAssessmentReport(null); setEnrollmentReport(null); setTeacherWorkloadReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setMeetingFormOpen(false)
     const base = `/api/v1/organizations/${active.organization.id}`
@@ -245,6 +298,7 @@ export default function App() {
       void fetchAttendanceReport(today, today)
       void loadRoster('students')
       void loadRoster('teachers')
+      void loadInvitations()
     }
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
@@ -372,7 +426,7 @@ export default function App() {
       if (!cancelled) setError(reason instanceof Error ? reason.message : 'Could not load your learning workspace.')
     }).finally(() => { if (!cancelled) setBusy(false) })
     return () => { cancelled = true }
-  }, [active, token, fetchAttendanceReport, loadRoster])
+  }, [active, token, fetchAttendanceReport, loadRoster, loadInvitations])
 
   async function signIn() {
     setBusy(true); setError(''); setSuccess(''); setVerificationNeeded(false)
@@ -829,6 +883,42 @@ export default function App() {
             onChangeSearch={setRosterStudentSearch} onSearch={() => void loadRoster('students', 1, rosterStudentSearch)} onLoadMore={() => void loadRoster('students', rosterStudentPage + 1, rosterStudentSearch, true)} />
           <TeacherRosterSection items={rosterTeachers} total={rosterTeacherTotal} search={rosterTeacherSearch} loading={rosterTeacherLoading} error={rosterTeacherError} page={rosterTeacherPage} lastPage={rosterTeacherLastPage}
             onChangeSearch={setRosterTeacherSearch} onSearch={() => void loadRoster('teachers', 1, rosterTeacherSearch)} onLoadMore={() => void loadRoster('teachers', rosterTeacherPage + 1, rosterTeacherSearch, true)} />
+          <Text style={styles.sectionTitle}>Workspace invitations</Text>
+          <Pressable style={styles.courseCard} onPress={() => { setInvitationFormOpen(open => !open); setError(''); setSuccess('') }} accessibilityRole="button" accessibilityState={{ expanded: invitationFormOpen }}>
+            <View style={{ flex: 1 }}><Text style={styles.courseTitle}>{invitationFormOpen ? 'Close invitation form' : 'Invite a family or staff member'}</Text><Text style={styles.courseMeta}>Invitation email uses the API’s configured mail service. Links expire after seven days.</Text></View><Text style={styles.chevron}>{invitationFormOpen ? '−' : '+'}</Text>
+          </Pressable>
+          {invitationFormOpen ? <View style={styles.activityCard}>
+            <Text style={styles.inputLabel}>Invite as</Text>
+            <View style={styles.examOutcomeRow}>{(['parent', 'student', 'teacher', ...(active.role === 'admin' ? ['management' as const] : [])] as const).map(role => {
+              const selected = invitationRole === role
+              return <Pressable key={role} onPress={() => { setInvitationRole(role); setInvitationStudentIds([]) }} style={[styles.examOutcome, selected && styles.examOutcomeSelected]} accessibilityRole="radio" accessibilityState={{ selected }}>
+                <Text style={[styles.examOutcomeText, selected && styles.examOutcomeTextSelected]}>{roleNames[role]}</Text>
+              </Pressable>
+            })}</View>
+            <Text style={styles.inputLabel}>Email address</Text>
+            <TextInput autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" value={invitationEmail} onChangeText={setInvitationEmail} maxLength={254} placeholder="name@example.com" style={styles.input} editable={!invitationSaving} accessibilityLabel="Invitation email address" />
+            {invitationRole === 'parent' ? <>
+              <Text style={styles.courseMeta}>Choose the active learner records this guardian may view. Search the student roster above to find other learners.</Text>
+              {rosterStudents.length ? rosterStudents.map(student => {
+                const selected = invitationStudentIds.includes(student.id)
+                return <Pressable key={student.id} onPress={() => {
+                  if (selected) setInvitationStudentIds(ids => ids.filter(id => id !== student.id))
+                  else if (invitationStudentIds.length >= 20) setError('A parent invitation can include up to 20 learners.')
+                  else setInvitationStudentIds(ids => ids.includes(student.id) ? ids : [...ids, student.id])
+                }} style={[styles.studentRow, selected && styles.optionSelected]} accessibilityRole="checkbox" accessibilityState={{ checked: selected }}>
+                  <View style={{ flex: 1 }}><Text style={styles.courseTitle}>{student.name}</Text><Text style={styles.courseMeta}>{student.admission_number ?? 'Active learner'}{student.academic_class?.name ? ` · ${student.academic_class.name}` : ''}{student.academic_section?.name ? ` · ${student.academic_section.name}` : ''}</Text></View><Text style={styles.courseMeta}>{selected ? 'Selected' : 'Select'}</Text>
+                </Pressable>
+              }) : <Empty text={rosterStudentLoading ? 'Loading active learners…' : 'Load active students in the roster search above before inviting a guardian.'} />}
+              <Text style={styles.courseMeta}>{invitationStudentIds.length} learner{invitationStudentIds.length === 1 ? '' : 's'} selected</Text>
+            </> : invitationRole === 'student' ? <Text style={styles.courseMeta}>The email must match an active student profile in this organization.</Text> : invitationRole === 'teacher' ? <Text style={styles.courseMeta}>Use the staff member’s work email. A matching active teacher roster record is linked when the invitation is accepted.</Text> : <Text style={styles.courseMeta}>Only administrators can invite Management members.</Text>}
+            <Pressable style={[styles.primaryButton, invitationSaving && styles.disabled]} onPress={() => void sendInvitation()} disabled={invitationSaving || !invitationEmail.trim() || (invitationRole === 'parent' && invitationStudentIds.length === 0)}><Text style={styles.primaryButtonText}>{invitationSaving ? 'Sending…' : 'Send invitation'}</Text></Pressable>
+          </View> : null}
+          <Text style={styles.inputLabel}>Recent invitations{invitationsLoading ? ' · Updating' : ''}</Text>
+          {invitations.length ? invitations.map(invitation => <View key={invitation.id} style={styles.activityCard}>
+            <Text style={styles.courseTitle}>{invitation.email}</Text><Text style={styles.courseMeta}>{roleNames[invitation.role]} · {invitation.status}{invitation.status === 'pending' ? ` · Expires ${new Date(invitation.expires_at).toLocaleDateString()}` : ''}</Text>
+            {invitation.status === 'pending' ? <Pressable onPress={() => revokeInvitation(invitation)} disabled={invitationSaving} accessibilityRole="button"><Text style={styles.link}>Revoke invitation</Text></Pressable> : null}
+          </View>) : <Empty text={invitationsLoading ? 'Loading invitations…' : 'No invitations have been sent in this workspace.'} />}
+          <Pressable onPress={() => void loadInvitations()} disabled={invitationsLoading} accessibilityRole="button"><Text style={styles.link}>Refresh invitations</Text></Pressable>
           <EnrollmentReportPanel report={enrollmentReport} loading={busy} />
           <TeacherWorkloadReportPanel report={teacherWorkloadReport} loading={busy} />
         </> : null}
