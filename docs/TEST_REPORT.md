@@ -755,3 +755,7 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 ## Public feature-status overview (24 November 2026)
 
 - Replaced the outdated public Features page toggles with three clear groups: connected workflows, optional integrations requiring setup, and work still in progress. Added content assertions for these distinctions. `npm run typecheck`, `npm run lint`, and `npm run build` passed; the focused Chromium Features-page regression passed (**1 test**), and all public/account routes, including `/features`, fit **320px and 1440px** viewports (**2 tests**).
+
+## Homepage preview and integration copy (24 November 2026)
+
+- Replaced the decorative dashboard’s “LIVE” and imminent-class claims with an explicit sample preview label. Updated the homepage FAQ to describe tenant workspaces, manual HTTPS meeting links, unconfigured Google Meet OAuth, and optional local AI. TypeScript, ESLint, and production build passed; the focused Chromium regression passed (**1 test**).

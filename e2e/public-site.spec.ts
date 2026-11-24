@@ -1,5 +1,15 @@
 import { expect, test } from '@playwright/test'
 
+test('home labels illustrative dashboard data and explains current integrations', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByText('Sample workspace')).toBeVisible()
+  await expect(page.getByText('PREVIEW', { exact: true })).toBeVisible()
+  await expect(page.getByText('Example class')).toBeVisible()
+  await expect(page.getByText(/tenant-scoped workspaces for institutions and independent educators/)).toBeVisible()
+  await page.getByRole('button', { name: 'Do I need to replace the tools my teachers already use?' }).click()
+  await expect(page.getByText(/manually created HTTPS meeting links/)).toBeVisible()
+})
+
 test('features page distinguishes connected, configurable, and unfinished work', async ({ page }) => {
   await page.goto('/features')
   await expect(page.getByRole('heading', { name: 'Built into the workspace' })).toBeVisible()
