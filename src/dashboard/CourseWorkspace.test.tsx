@@ -50,7 +50,30 @@ describe('student course study help', () => {
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/api/v1/organizations/19/ai/courses/8/student-question', {
       question: 'How does sunlight start the water cycle?', language: 'English', lesson_id: 55,
     }))
-    expect(screen.getByText('1 of 10 daily requests used. Questions, lesson text and answers are not stored by edTechLive.')).toBeVisible()
+    expect(screen.getByText('1 of 10 daily requests used. Requests and lesson excerpts are not stored. Practice is ungraded and stays in this browser session.')).toBeVisible()
+  })
+
+  it('generates ungraded practice and reveals feedback only after a learner answers', async () => {
+    vi.mocked(api.post).mockResolvedValueOnce({ data: {
+      practice_questions: [{
+        question: 'What does evaporation change liquid water into?',
+        options: ['Water vapor', 'Ice crystals', 'Liquid droplets', 'Salt'],
+        correct_index: 0,
+        explanation: 'Evaporation changes liquid water into water vapor.',
+      }], model: 'student-test-model', usage: { prompt_tokens: 40, completion_tokens: 80 }, review_required: false,
+    } })
+    const user = userEvent.setup()
+    render(<CourseWorkspace organizationId={19} mode="student" />)
+
+    await user.click(await screen.findByRole('button', { name: 'Generate practice questions' }))
+    expect(await screen.findByText(/What does evaporation change liquid water into/)).toBeVisible()
+    expect(screen.queryByText(/Evaporation changes liquid water into water vapor\./)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: 'Water vapor' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Correct. Evaporation changes liquid water into water vapor.')
+    expect(api.post).toHaveBeenCalledWith('/api/v1/organizations/19/ai/courses/8/student-practice', {
+      language: 'English', question_count: 3,
+    })
+    expect(screen.getByText('1 of 10 daily requests used. Requests and lesson excerpts are not stored. Practice is ungraded and stays in this browser session.')).toBeVisible()
   })
 
   it('explains when study help is unavailable after opening its dashboard shortcut', async () => {

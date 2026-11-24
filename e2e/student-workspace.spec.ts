@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test'
 
-test('student can open enrolled courses and use course lesson study help', async ({ page }) => {
+test('student can open enrolled courses, ask about lessons, and try ungraded practice', async ({ page }) => {
+  test.setTimeout(120_000)
   let signedIn = false
   const account = { id: 22, name: 'Student Test', email: 'student@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', is_platform_admin: false }
   const membership = { membership_id: 3, role: 'student', organization: { id: 18, name: 'Browser Test School', slug: 'browser-test-school', type: 'school', status: 'active', timezone: 'Asia/Kolkata' } }
   const course = { id: 7, title: 'Published Science', slug: 'published-science', level: 'Grade 6', description: 'A published course.', status: 'published', is_public_listing: false, subject: { id: 3, name: 'Science' }, teacher: null }
   let studentQuestion: Record<string, unknown> | undefined
+  let studentPractice: Record<string, unknown> | undefined
   await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
   await page.route('**/api/v1/me', route => route.fulfill({ status: signedIn ? 200 : 401, contentType: 'application/json', body: JSON.stringify(signedIn ? { data: account } : { message: 'Unauthenticated.' }) }))
   await page.route('**/api/v1/auth/login', route => { signedIn = true; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: account }) }) })
@@ -18,6 +20,7 @@ test('student can open enrolled courses and use course lesson study help', async
       : pathname.endsWith('/dashboard/activity') ? { data: { days: [] } }
         : pathname.endsWith('/ai/config') ? { enabled: true, model: 'student-test-model', daily_limit: 10, usage: { requests_30_days: 0, prompt_tokens_30_days: 0, completion_tokens_30_days: 0, requests_today: 0 } }
           : pathname.endsWith('/courses/7/student-question') && route.request().method() === 'POST' ? (() => { studentQuestion = route.request().postDataJSON() as Record<string, unknown>; return { data: { answer: 'Evaporation changes liquid water into vapor.', model: 'student-test-model', usage: { prompt_tokens: 30, completion_tokens: 12 }, review_required: false } } })()
+            : pathname.endsWith('/courses/7/student-practice') && route.request().method() === 'POST' ? (() => { studentPractice = route.request().postDataJSON() as Record<string, unknown>; return { data: { practice_questions: [{ question: 'What does evaporation make?', options: ['Water vapor', 'Ice', 'Rain', 'Soil'], correct_index: 0, explanation: 'Evaporation changes liquid water into vapor.' }], model: 'student-test-model', usage: { prompt_tokens: 40, completion_tokens: 80 }, review_required: false } } })()
             : pathname.endsWith('/courses') ? { data: [course] }
               : pathname.endsWith('/courses/7/lessons') ? { data: [{ id: 9, title: 'Water Cycle', content: 'Evaporation changes liquid water into vapor.', external_url: null, status: 'published', sort_order: 1, module_id: null }] }
                 : { data: [] }
@@ -28,14 +31,19 @@ test('student can open enrolled courses and use course lesson study help', async
   await page.getByLabel('Password', { exact: true }).fill('LocalBrowserPass123')
   await page.getByRole('button', { name: 'Log in' }).click()
   await page.getByRole('button', { name: /Browser Test School/ }).click()
-  await expect(page.getByRole('heading', { name: 'Welcome, Student Test' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Welcome, Student Test' })).toBeVisible({ timeout: 45_000 })
   await page.getByRole('button', { name: 'My courses', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Enrolled courses' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Study with your course lessons' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Enrolled courses' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: 'Study with your course lessons' })).toBeVisible({ timeout: 30_000 })
   await page.getByRole('textbox', { name: 'Question' }).fill('What happens during evaporation?')
   await page.getByRole('button', { name: 'Ask about this course' }).click()
   await expect(page.locator('.course-ai-result pre')).toHaveText('Evaporation changes liquid water into vapor.')
   expect(studentQuestion).toEqual({ question: 'What happens during evaporation?', language: 'English' })
+  await page.getByRole('button', { name: 'Generate practice questions' }).click()
+  await expect(page.getByText('What does evaporation make?')).toBeVisible()
+  await page.getByRole('radio', { name: 'Water vapor' }).check()
+  await expect(page.getByRole('status').filter({ hasText: 'Correct.' })).toBeVisible()
+  expect(studentPractice).toEqual({ language: 'English', question_count: 3 })
   await page.getByRole('button', { name: 'AI learning help', exact: true }).click()
   const studyHelpHeading = page.getByRole('heading', { name: 'Study with your course lessons' })
   await expect(studyHelpHeading).toBeFocused()

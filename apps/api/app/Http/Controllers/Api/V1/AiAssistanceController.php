@@ -83,6 +83,54 @@ class AiAssistanceController
 
     public function studentQuestion(Request $request, int $organization, int $course): JsonResponse
     {
+        $data = $request->validate([
+            'question' => ['required', 'string', 'min:5', 'max:1000'],
+            'language' => ['required', Rule::in(['English', 'Hindi'])],
+            'lesson_id' => ['nullable', 'integer'],
+        ]);
+        [$courseRecord, $materials] = $this->studentMaterials($request, $organization, $course, isset($data['lesson_id']) ? (int) $data['lesson_id'] : null);
+        if ($materials === []) {
+            return response()->json(['message' => 'No published lesson notes are available for study help yet. Ask your teacher to add lesson content.'], 422);
+        }
+
+        return $this->makeDraft(
+            $request,
+            $organization,
+            fn (): array => $this->assistant->answerStudentQuestion($courseRecord, $materials, $data),
+            false,
+            'answer',
+        );
+    }
+
+    public function studentPracticeQuestions(Request $request, int $organization, int $course): JsonResponse
+    {
+        $data = $request->validate([
+            'language' => ['required', Rule::in(['English', 'Hindi'])],
+            'question_count' => ['required', 'integer', 'min:3', 'max:5'],
+            'lesson_id' => ['nullable', 'integer'],
+        ]);
+        [$courseRecord, $materials] = $this->studentMaterials($request, $organization, $course, isset($data['lesson_id']) ? (int) $data['lesson_id'] : null);
+        if ($materials === []) {
+            return response()->json(['message' => 'No published lesson notes are available for practice yet. Ask your teacher to add lesson content.'], 422);
+        }
+
+        return $this->makeDraft(
+            $request,
+            $organization,
+            function () use ($courseRecord, $materials, $data): array {
+                $result = $this->assistant->practiceQuestions($courseRecord, $materials, $data);
+                $questions = json_decode($result['draft'], true)['questions'] ?? [];
+
+                return [...$result, 'draft' => $questions];
+            },
+            false,
+            'practice_questions',
+        );
+    }
+
+    /** @return array{0: Course, 1: list<array{id: int, title: string, content: string}>} */
+    private function studentMaterials(Request $request, int $organization, int $course, ?int $lessonId = null): array
+    {
         if (! $this->assistant->enabled()) {
             abort(503, 'AI study help is disabled until a private local provider and model are configured.');
         }
@@ -96,33 +144,19 @@ class AiAssistanceController
         abort_unless(CourseEnrollment::query()->where('organization_id', $organization)->where('course_id', $courseRecord->id)
             ->where('student_id', $student->id)->where('status', 'active')->exists(), 404);
 
-        $data = $request->validate([
-            'question' => ['required', 'string', 'min:5', 'max:1000'],
-            'language' => ['required', Rule::in(['English', 'Hindi'])],
-            'lesson_id' => ['nullable', 'integer'],
-        ]);
         $lessonQuery = CourseLesson::query()->where('organization_id', $organization)
             ->where('course_id', $courseRecord->id)->where('status', 'published')
             ->whereNotNull('content')->where('content', '!=', '')->orderBy('sort_order')->orderBy('id');
-        if (isset($data['lesson_id'])) {
-            $lessonQuery->whereKey($data['lesson_id']);
+        if ($lessonId !== null) {
+            $lessonQuery->whereKey($lessonId);
         }
-        $materials = $lessonQuery->limit(4)->get(['title', 'content'])->map(fn (CourseLesson $lesson): array => [
+        $materials = $lessonQuery->limit(4)->get(['id', 'title', 'content'])->map(fn (CourseLesson $lesson): array => [
+            'id' => (int) $lesson->id,
             'title' => $lesson->title,
             'content' => mb_substr((string) $lesson->content, 0, 2500),
         ])->all();
 
-        if ($materials === []) {
-            return response()->json(['message' => 'No published lesson notes are available for study help yet. Ask your teacher to add lesson content.'], 422);
-        }
-
-        return $this->makeDraft(
-            $request,
-            $organization,
-            fn (): array => $this->assistant->answerStudentQuestion($courseRecord, $materials, $data),
-            false,
-            'answer',
-        );
+        return [$courseRecord, $materials];
     }
 
     private function editableCourse(Request $request, int $organization, int $course): Course
