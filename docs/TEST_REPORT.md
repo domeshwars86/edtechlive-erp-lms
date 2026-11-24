@@ -786,3 +786,7 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 ## Public preview and transport copy (24 November 2026)
 
 - Labeled the role-solution mockup as a preview and removed the HTTPS security claim from the contact form’s local development disclaimer. TypeScript, ESLint, and production build passed; the focused Chromium regression passed (**1 test**).
+
+## Full API regression on disposable PostgreSQL 17 (24 November 2026)
+
+- The complete Laravel API suite passed on a fresh disposable PostgreSQL 17 cluster: **230 tests / 1,962 assertions** in 127.27 seconds. The cluster was loopback-only, used an isolated temporary database, and was stopped and removed after the test run. This validates local PostgreSQL 17 compatibility; hosted PostgreSQL 16 CI and production database provisioning remain unverified.

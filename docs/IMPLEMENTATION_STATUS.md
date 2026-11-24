@@ -2,6 +2,11 @@
 
 **Updated:** 24 November 2026
 
+## Overall progress estimate
+
+- Approximately **65% of the planned feature scope** is implemented, based on the 12 roadmap milestones. This is a rough scope estimate, not a release-readiness score: the public website and substantial dashboard, ERP, LMS, API and mobile features are present, while several role workflows, accessibility review, provider setup, hosted staging and commercial readiness remain incomplete.
+- The full Laravel API suite passed on a fresh disposable PostgreSQL 17 cluster (**230 tests / 1,962 assertions**). The cluster was stopped and removed after the run. Hosted PostgreSQL 16 CI remains unverified.
+
 ## Responsive browser coverage
 
 - Expanded Chromium overflow sweeps to all seven required widths: 320, 375, 430, 768, 1024, 1280, and 1440px. All 19 public/account routes and all seven dashboard role previews pass their focused sweeps. Dashboard assertions allow 30 seconds for lazy-loaded workspace screens before measuring overflow.
