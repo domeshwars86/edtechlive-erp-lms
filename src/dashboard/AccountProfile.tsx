@@ -11,9 +11,11 @@ export default function AccountProfile({ user, onUpdated }: { user: ApiUser | nu
   const [newPassword, setNewPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [verificationUrl, setVerificationUrl] = useState('')
+  const [verificationMessage, setVerificationMessage] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [resending, setResending] = useState(false)
 
   useEffect(() => {
     setName(user?.name ?? '')
@@ -26,6 +28,7 @@ export default function AccountProfile({ user, onUpdated }: { user: ApiUser | nu
     setError('')
     setMessage('')
     setVerificationUrl('')
+    setVerificationMessage('')
     try {
       const response = await api.patch<ProfileResponse>('/api/v1/me/profile', {
         name: name.trim(), email: email.trim(), current_password: currentPassword,
@@ -51,10 +54,30 @@ export default function AccountProfile({ user, onUpdated }: { user: ApiUser | nu
     }
   }
 
+  async function resendVerification() {
+    if (!user) return
+    setResending(true)
+    setError('')
+    setVerificationMessage('')
+    setVerificationUrl('')
+    try {
+      const response = await api.post<{ verification_url?: string }>('/api/v1/auth/email/verification-notification', { email: user.email })
+      setVerificationUrl(response.verification_url ?? '')
+      setVerificationMessage(response.verification_url
+        ? 'A local verification link is ready below. It expires in 60 minutes.'
+        : 'If this address has an unverified account, a verification link has been sent to the address above.')
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : reason instanceof Error ? reason.message : 'Could not request a verification link.')
+    } finally {
+      setResending(false)
+    }
+  }
+
   if (!user) return <section className="dash-panel dash-masters-panel"><div className="dash-panel-heading"><div><span className="dash-panel-kicker">ACCOUNT SECURITY</span><h2>Account profile</h2><p className="dash-record-subtitle">Sign in to manage your account details.</p></div></div></section>
 
   return <section className="dash-panel dash-masters-panel account-profile">
     <div className="dash-panel-heading"><div><span className="dash-panel-kicker">ACCOUNT SECURITY</span><h2>Account profile</h2><p className="dash-record-subtitle">Update the name and email used across your edTechLive account.</p></div><span className={`account-verification-state ${user.email_verified_at ? 'is-verified' : ''}`}><ShieldCheck size={14} />{user.email_verified_at ? 'Email verified' : 'Email verification required'}</span></div>
+    {!user.email_verified_at && <div className="account-profile-verification"><p>Verify your email address to keep account features available.</p><button className="fee-cancel" type="button" onClick={() => void resendVerification()} disabled={resending || saving} aria-busy={resending}>{resending ? <><LoaderCircle className="master-spin" size={15} />Requesting link…</> : 'Resend verification link'}</button>{verificationMessage && <p role="status">{verificationMessage}</p>}</div>}
     {message && <div className="account-profile-message" role="status"><Check size={16} />{message}</div>}
     {error && <div className="auth-error account-profile-error" role="alert">{error}</div>}
     <form className="organization-settings-form account-profile-form" onSubmit={event => void saveProfile(event)}>
@@ -66,6 +89,6 @@ export default function AccountProfile({ user, onUpdated }: { user: ApiUser | nu
       <p>Enter your current password to confirm changes. Changing your email requires verifying the new address. Changing your password revokes other app tokens; this session stays active.</p>
       <button className="master-submit" type="submit" disabled={saving || !name.trim() || !email.trim() || !currentPassword}>{saving ? <><LoaderCircle className="master-spin" size={16} />Saving…</> : <><Save size={15} />Save account details</>}</button>
     </form>
-    {verificationUrl && <div className="local-verification-link account-verification-link"><p>Verify the new email address to keep using your account.</p><a href={verificationUrl} target="_blank" rel="noreferrer">Verify email address <ArrowUpRight size={16} /></a><small>The development link expires in 60 minutes. Return here and reload after it confirms.</small></div>}
+    {verificationUrl && <div className="local-verification-link account-verification-link"><p>Verify the email address to keep using your account.</p><a href={verificationUrl} target="_blank" rel="noreferrer">Verify email address <ArrowUpRight size={16} /></a><small>The development link expires in 60 minutes. Return here and reload after it confirms.</small></div>}
   </section>
 }

@@ -218,6 +218,61 @@ test('verified student members can enroll from a public course detail page', asy
   expect(enrollmentRequestCount).toBe(1)
 })
 
+test('unverified student members can request email verification before public enrollment', async ({ page }) => {
+  let enrollmentRequestCount = 0
+  let verificationRequestCount = 0
+  await page.route('**/api/v1/me', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: { id: 42, name: 'Unverified Learner', email: 'learner@example.test', email_verified_at: null, is_platform_admin: false } }),
+  }))
+  await page.route('**/api/v1/organizations?*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      data: [{
+        membership_id: 92, role: 'student',
+        organization: { id: 12, name: 'Northstar Academy', slug: 'northstar-academy', type: 'school', status: 'active', timezone: 'Asia/Kolkata' },
+      }],
+      preferred_organization_id: 12,
+      meta: { current_page: 1, last_page: 1, per_page: 100, total: 1 },
+    }),
+  }))
+  await page.route('**/api/v1/public/organizations/northstar-academy/courses/physics-basics', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: {
+      title: 'Physics basics', description: 'Matter and energy.', level: 'Grade 6', slug: 'physics-basics',
+      subject: 'Science', organization: { name: 'Northstar Academy', slug: 'northstar-academy' },
+      published_lesson_count: 1, lessons: [{ title: 'Start here', sort_order: 1 }],
+    } }),
+  }))
+  await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
+  await page.route('**/api/v1/auth/email/verification-notification', async route => {
+    expect(route.request().method()).toBe('POST')
+    expect(route.request().postDataJSON()).toEqual({ email: 'learner@example.test' })
+    verificationRequestCount += 1
+    await route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({
+      verification_url: 'http://127.0.0.1:4188/api/v1/auth/verify-email/42/hash?signature=local',
+    }) })
+  })
+  await page.route('**/api/v1/public/organizations/northstar-academy/courses/physics-basics/enroll', async route => {
+    enrollmentRequestCount += 1
+    await route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ message: 'This route must not be called for an unverified user.' }) })
+  })
+
+  await page.goto('/courses/northstar-academy/physics-basics')
+  await expect(page.getByRole('heading', { name: 'Physics basics' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('Your email must be verified before you can enroll in this course.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Resend verification link' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Enroll in this course' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Resend verification link' }).click()
+  await expect(page.getByRole('status')).toContainText('Use the local verification link')
+  await expect(page.getByRole('link', { name: 'Verify email address' })).toHaveAttribute('href', /verify-email\/42/)
+  expect(verificationRequestCount).toBe(1)
+  expect(enrollmentRequestCount).toBe(0)
+})
+
 test('mobile menu is operable and public pages avoid horizontal overflow', async ({ page }) => {
   test.setTimeout(120_000)
   for (const width of [320, 375, 430, 768]) {

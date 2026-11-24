@@ -5,7 +5,12 @@
 ## Public course self-enrollment (24 November 2026)
 
 - Added idempotent API enrollment for verified users who have both an active Student organization membership and an active roster record. The course must still belong to an active organization, be published, be explicitly listed publicly, and contain a published lesson. The public detail screen offers enrollment to a selected student membership; visitors retain the contextual enquiry path. This path does not create student accounts or organization memberships.
-- Focused API regressions pass (**8 tests / 118 assertions**), including successful enrollment, retry idempotency, non-public rejection and parent denial. The complete SQLite API suite passes (**230 tests / 1,962 assertions**). The full serial Chromium suite passes (**34 tests in 4.1 minutes**), including public-course enrollment and the lazy-loaded educator routes. Root typecheck, lint, production build (17 prerendered routes), all 8 Vitest component tests, Pint, and PHPStan analysis against its reduced baseline pass. The public sitemap remains omitted until an approved HTTPS site URL is configured.
+- Focused API regressions pass (**8 tests / 118 assertions**), including successful enrollment, retry idempotency, non-public rejection and parent denial. The complete SQLite API suite passes (**230 tests / 1,962 assertions**). The full serial Chromium suite passes (**35 tests in 3.5 minutes**), including verified and unverified student enrollment paths. Root typecheck, lint, production build (17 prerendered routes), all 9 Vitest component tests, Pint, and PHPStan analysis against its reduced baseline pass. The public sitemap remains omitted until an approved HTTPS site URL is configured.
+
+## Email verification recovery from learner and account screens (24 November 2026)
+
+- A rostered student with an unverified email now sees a resend-link action on a public course detail page instead of an enrollment button the API would reject. The account profile also exposes a verification resend control and displays the local development link when available. Verification remains required by the API; after confirming an email, learners reload the page before continuing.
+- Focused course recovery Chromium and AccountProfile component regressions pass. The full serial Chromium suite passes (**35 tests in 3.5 minutes**), Vitest passes (**9 tests**), and typecheck/lint/build pass. Production verification email delivery remains contingent on configuring a mail transport.
 
 ## Scheduled meeting reminders (24 November 2026)
 

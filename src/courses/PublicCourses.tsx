@@ -107,8 +107,11 @@ export function PublicCourseDetails() {
   const [enrolling, setEnrolling] = useState(false)
   const [enrolled, setEnrolled] = useState(false)
   const [enrollmentError, setEnrollmentError] = useState('')
+  const [verificationUrl, setVerificationUrl] = useState('')
+  const [verificationMessage, setVerificationMessage] = useState('')
 
-  const canSelfEnroll = Boolean(user && activeMembership?.role === 'student' && activeMembership.organization.slug === organizationSlug)
+  const isStudentMember = Boolean(user && activeMembership?.role === 'student' && activeMembership.organization.slug === organizationSlug)
+  const canSelfEnroll = Boolean(isStudentMember && user?.email_verified_at)
 
   useEffect(() => {
     let active = true
@@ -116,6 +119,8 @@ export function PublicCourseDetails() {
     setError('')
     setEnrolled(false)
     setEnrollmentError('')
+    setVerificationUrl('')
+    setVerificationMessage('')
     api.get<{ data: PublicCourseDetail }>(`/api/v1/public/organizations/${encodeURIComponent(organizationSlug)}/courses/${encodeURIComponent(courseSlug)}`)
       .then(result => { if (active) setCourse(result.data) })
       .catch((reason: unknown) => { if (active) setError(reason instanceof ApiError ? reason.message : 'This published course could not be loaded.') })
@@ -140,11 +145,30 @@ export function PublicCourseDetails() {
     }
   }
 
+  async function resendVerification() {
+    if (!user) return
+    setEnrolling(true)
+    setEnrollmentError('')
+    setVerificationMessage('')
+    setVerificationUrl('')
+    try {
+      const result = await api.post<{ verification_url?: string }>('/api/v1/auth/email/verification-notification', { email: user.email })
+      setVerificationUrl(result.verification_url ?? '')
+      setVerificationMessage(result.verification_url
+        ? 'Use the local verification link, then reload this page to enroll.'
+        : 'If this address has an unverified account, a verification link has been sent. After confirming it, reload this page to enroll.')
+    } catch (reason) {
+      setEnrollmentError(reason instanceof ApiError ? reason.message : 'Could not request a verification link. Please try again.')
+    } finally {
+      setEnrolling(false)
+    }
+  }
+
   if (loading) return <section className="public-course-detail-state" role="status"><LoaderCircle className="public-course-spin" />Loading course…</section>
   if (error || !course) return <section className="public-course-detail-state" role="alert"><CircleHelp size={23} /><h1>Course unavailable</h1><p>{error || 'This course may no longer be publicly listed.'}</p><Link to="/courses">Browse published courses</Link></section>
 
   return <>
     <header className="public-course-detail-heading"><Link to="/courses"><ArrowLeft size={15} />All courses</Link><span className="public-courses-kicker">{course.organization.name}{course.subject ? ` · ${course.subject}` : ''}</span><h1>{course.title}</h1><p>{course.description || 'Course details and published lesson outline.'}</p></header>
-    <section className="public-course-detail-content"><aside className="public-course-summary"><span>COURSE AT A GLANCE</span><dl><div><dt>Organization</dt><dd>{course.organization.name}</dd></div><div><dt>Subject</dt><dd>{course.subject || 'Not specified'}</dd></div><div><dt>Level</dt><dd>{course.level || 'All levels'}</dd></div><div><dt>Published lessons</dt><dd>{course.published_lesson_count}</dd></div></dl>{canSelfEnroll ? <><p>Enrollment is open to verified student accounts that already belong to this organization.</p>{enrolled ? <><p className="public-course-enrollment-success" role="status">You’re enrolled in this course.</p><Link className="public-course-contact" to="/workspace/student">Open student workspace <ArrowUpRight size={15} /></Link></> : <button className="public-course-contact public-course-enroll" type="button" onClick={() => void selfEnroll()} disabled={enrolling} aria-busy={enrolling}>{enrolling ? <><LoaderCircle className="public-course-spin" size={15} /> Enrolling…</> : 'Enroll in this course'}</button>}{enrollmentError && <p className="public-course-enrollment-error" role="alert">{enrollmentError}</p>}</> : <><p>Enrollment is available to existing student members of this organization. Sign in and select this organization to enroll; otherwise, contact them to ask about availability.</p><Link className="public-course-contact" to={user ? '/select-organization' : '/login'}>{user ? 'Select organization' : 'Log in to enroll'} <ArrowUpRight size={15} /></Link></>}<Link className="public-course-contact" to={`/contact?${new URLSearchParams({ course: course.title, organization: course.organization.name })}`}>Ask about this course <ArrowUpRight size={15} /></Link></aside><main className="public-course-outline"><span className="public-courses-kicker">Course outline</span><h2>What you’ll explore</h2>{course.lessons.length ? <ol>{course.lessons.map((lesson, index) => <li key={`${lesson.sort_order}-${lesson.title}`}><span>{String(index + 1).padStart(2, '0')}</span><b>{lesson.title}</b><small>Published lesson</small></li>)}</ol> : <p>No lesson titles are available yet.</p>}</main></section>
+    <section className="public-course-detail-content"><aside className="public-course-summary"><span>COURSE AT A GLANCE</span><dl><div><dt>Organization</dt><dd>{course.organization.name}</dd></div><div><dt>Subject</dt><dd>{course.subject || 'Not specified'}</dd></div><div><dt>Level</dt><dd>{course.level || 'All levels'}</dd></div><div><dt>Published lessons</dt><dd>{course.published_lesson_count}</dd></div></dl>{canSelfEnroll ? <><p>Enrollment is open to verified student accounts that already belong to this organization.</p>{enrolled ? <><p className="public-course-enrollment-success" role="status">You’re enrolled in this course.</p><Link className="public-course-contact" to="/workspace/student">Open student workspace <ArrowUpRight size={15} /></Link></> : <button className="public-course-contact public-course-enroll" type="button" onClick={() => void selfEnroll()} disabled={enrolling} aria-busy={enrolling}>{enrolling ? <><LoaderCircle className="public-course-spin" size={15} /> Enrolling…</> : 'Enroll in this course'}</button>}{enrollmentError && <p className="public-course-enrollment-error" role="alert">{enrollmentError}</p>}</> : isStudentMember ? <><p>Your email must be verified before you can enroll in this course.</p><button className="public-course-contact public-course-enroll" type="button" onClick={() => void resendVerification()} disabled={enrolling} aria-busy={enrolling}>{enrolling ? <><LoaderCircle className="public-course-spin" size={15} /> Requesting link…</> : 'Resend verification link'}</button>{verificationMessage && <p className="public-course-verification-message" role="status">{verificationMessage}</p>}{verificationUrl && <a className="public-course-contact" href={verificationUrl} target="_blank" rel="noreferrer">Verify email address <ArrowUpRight size={15} /></a>}{enrollmentError && <p className="public-course-enrollment-error" role="alert">{enrollmentError}</p>}</> : <><p>Enrollment is available to existing student members of this organization. Sign in and select this organization to enroll; otherwise, contact them to ask about availability.</p><Link className="public-course-contact" to={user ? '/select-organization' : '/login'}>{user ? 'Select organization' : 'Log in to enroll'} <ArrowUpRight size={15} /></Link></>}<Link className="public-course-contact" to={`/contact?${new URLSearchParams({ course: course.title, organization: course.organization.name })}`}>Ask about this course <ArrowUpRight size={15} /></Link></aside><main className="public-course-outline"><span className="public-courses-kicker">Course outline</span><h2>What you’ll explore</h2>{course.lessons.length ? <ol>{course.lessons.map((lesson, index) => <li key={`${lesson.sort_order}-${lesson.title}`}><span>{String(index + 1).padStart(2, '0')}</span><b>{lesson.title}</b><small>Published lesson</small></li>)}</ol> : <p>No lesson titles are available yet.</p>}</main></section>
   </>
 }
