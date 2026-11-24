@@ -1,5 +1,7 @@
 # Known Issues and Open Work
 
+- [ ] Larastan/PHPStan is wired into API CI at level 5. Its initial baseline contains 656 pre-existing diagnostics, mostly Eloquent property and relationship inference. This is not a clean static-analysis result; reduce the baseline as model typing is improved.
+
 - [ ] Full client/API session verification has not been completed against a persistent local database and configured email transport.
 - [ ] Workspace event emails are tested as queued jobs but remain disabled by default; configure an approved mail transport and a persistent queue worker, then verify delivery in a non-production environment before enabling.
 - [ ] React Testing Library coverage includes registration verification, unverified-account login recovery, notice read/open behavior, and the learner AI study-help panel (**8 tests**); broader component coverage remains open. The full serial Playwright Chromium suite now passes **30 tests in 6.3 minutes**, including an authenticated student sign-in, course, and study-help flow. Broader authenticated workflows for other roles, screen-reader, contrast, form-error accessibility review and native mobile QA remain open. The preview URL is selected dynamically by `npm run dev:stack`; use the URL printed by that command.

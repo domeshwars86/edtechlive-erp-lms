@@ -1,6 +1,10 @@
 # Implementation Status
 
-**Updated:** 21 November 2026
+**Updated:** 24 November 2026
+
+## PHP static analysis gate
+
+- Added Larastan/PHPStan 3.13 as a repeatable Composer `analyse` command and an API CI check. The first analysis established a baseline for 656 existing diagnostics, largely Eloquent model/relation typing; analysis against that baseline completed with no additional errors. The baseline is temporary debt tracking, not a clean analysis result. New diagnostics fail the check, and unmatched baseline entries are reported so fixed issues can be removed from the baseline. The API source still needs incremental typing cleanup.
 
 ## Current milestone
 

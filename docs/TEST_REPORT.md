@@ -748,3 +748,6 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 
 - Platform reports now consumes the existing allowlisted aggregate API and exports a five-column CSV containing current organization/user/educator/enquiry totals and the eight latest organizations. The screen explains the snapshot-only scope and excludes learner-level records.
 - Web typecheck, ESLint and production build passed; 17 public routes prerendered. The report component is a 4.56 kB lazy-loaded JavaScript chunk with 0.51 kB CSS. The underlying allowlist and aggregate endpoint are covered by the existing platform feature tests.
+# PHP static analysis baseline (24 November 2026)
+
+- Added Larastan/PHPStan 3.13 and a level-5 CI gate. Initial analysis found 656 existing diagnostics, which are captured in a baseline; an analysis run against that baseline returned **no additional errors**. CI will fail on new diagnostics and report baseline entries that no longer match. This records existing debt rather than asserting the application is free of static-analysis findings. The Windows OneDrive sandbox cannot read the tracked PHPStan config directly, so local verification used a temporary config copy with the baseline paths mapped to the workspace source.

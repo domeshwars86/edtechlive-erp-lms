@@ -62,6 +62,7 @@ jobs:
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: vendor/bin/phpunit
       - run: vendor/bin/pint --test
+      - run: composer analyse
 
   api-postgres:
     name: Laravel PostgreSQL migration and test compatibility
