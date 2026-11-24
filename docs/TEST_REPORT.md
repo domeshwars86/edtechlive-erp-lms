@@ -751,3 +751,7 @@ An earlier audit identified nine high findings through `picomatch@4.0.7`; the in
 # PHP static analysis baseline (24 November 2026)
 
 - Added Larastan/PHPStan 3.13 and a level-5 CI gate. Initial analysis found 656 existing diagnostics, which are captured in a baseline; an analysis run against that baseline returned **no additional errors**. CI will fail on new diagnostics and report baseline entries that no longer match. This records existing debt rather than asserting the application is free of static-analysis findings. The Windows OneDrive sandbox cannot read the tracked PHPStan config directly, so local verification used a temporary config copy with the baseline paths mapped to the workspace source.
+
+## Public feature-status overview (24 November 2026)
+
+- Replaced the outdated public Features page toggles with three clear groups: connected workflows, optional integrations requiring setup, and work still in progress. Added content assertions for these distinctions. `npm run typecheck`, `npm run lint`, and `npm run build` passed; the focused Chromium Features-page regression passed (**1 test**), and all public/account routes, including `/features`, fit **320px and 1440px** viewports (**2 tests**).

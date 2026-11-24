@@ -1,5 +1,15 @@
 import { expect, test } from '@playwright/test'
 
+test('features page distinguishes connected, configurable, and unfinished work', async ({ page }) => {
+  await page.goto('/features')
+  await expect(page.getByRole('heading', { name: 'Built into the workspace' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Google Meet room creation' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'AI learning assistance' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Public course enrollment' })).toBeVisible()
+  await expect(page.getByText('Coming later')).toHaveCount(0)
+  await expect(page.getByText('Razorpay Test Mode checkout requires sandbox credentials and a verified sandbox transaction.')).toBeVisible()
+})
+
 test('public shell offers keyboard skip navigation and one main landmark', async ({ page }) => {
   await page.goto('/courses/python-foundations')
   const skipLink = page.getByRole('link', { name: 'Skip to content' })
