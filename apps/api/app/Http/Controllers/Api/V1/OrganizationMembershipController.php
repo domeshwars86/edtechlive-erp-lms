@@ -23,6 +23,17 @@ class OrganizationMembershipController
         private readonly OrganizationPermissions $permissions,
     ) {}
 
+    public function myPermissions(Request $request, int $organization): JsonResponse
+    {
+        $membership = $this->access->membership($request, $organization);
+
+        return response()->json(['data' => [
+            'organization_id' => $organization,
+            'role' => $membership->role->value,
+            'permissions' => $this->permissions->effective($membership),
+        ]]);
+    }
+
     public function index(Request $request, int $organization): JsonResponse
     {
         $actor = $this->access->membership($request, $organization);

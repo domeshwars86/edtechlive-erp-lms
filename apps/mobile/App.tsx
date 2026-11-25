@@ -115,6 +115,7 @@ export default function App() {
   const [examSectionSummaries, setExamSectionSummaries] = useState<ExamSectionSummary[]>([])
   const [examSeriesComparisons, setExamSeriesComparisons] = useState<ExamSeriesComparison[]>([])
   const [financeReport, setFinanceReport] = useState<MobileFinanceReport | null>(null)
+  const [canReadFinance, setCanReadFinance] = useState(false)
   const [teacherExams, setTeacherExams] = useState<SchoolExam[]>([])
   const [selectedExamPaper, setSelectedExamPaper] = useState<{ exam: SchoolExam; paper: SchoolExamPaper } | null>(null)
   const [examMarks, setExamMarks] = useState<SchoolExamMark[]>([])
@@ -291,7 +292,7 @@ export default function App() {
     setRosterStudentLoading(false); setRosterTeacherLoading(false); setRosterStudentError(''); setRosterTeacherError('')
     setInvitations([]); setInvitationsLoading(false); setInvitationFormOpen(false); setInvitationEmail(''); setInvitationStudentIds([])
     setRosterStudentSearch(''); setRosterTeacherSearch(''); setRosterStudentPage(1); setRosterStudentLastPage(1); setRosterTeacherPage(1); setRosterTeacherLastPage(1)
-    setSummary(null); setNotices([]); setNoticePage(1); setNoticeLastPage(1); setNoticeLoading(false); setMeetings([]); setMeetingSections([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setAssessmentReport(null); setEnrollmentReport(null); setTeacherWorkloadReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setMeetingFormOpen(false)
+    setSummary(null); setNotices([]); setNoticePage(1); setNoticeLastPage(1); setNoticeLoading(false); setMeetings([]); setMeetingSections([]); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setAssessmentReport(null); setEnrollmentReport(null); setTeacherWorkloadReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setCanReadFinance(false); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setMeetingFormOpen(false)
     const base = `/api/v1/organizations/${active.organization.id}`
     if (['admin', 'management', 'independent_educator'].includes(active.role)) {
       const today = organizationDate(active.organization.timezone)
@@ -303,6 +304,16 @@ export default function App() {
     }
     const tasks: Promise<void>[] = [mobileApi.get<{ data: DashboardSummary }>(`${base}/dashboard/summary`, token)
       .then(result => { if (!cancelled) setSummary(result.data) }),
+    mobileApi.get<{ data: { permissions: string[] } }>(`${base}/my/permissions`, token)
+      .then(async result => {
+        if (cancelled) return
+        const allowed = result.data.permissions.includes('organization.finance.read')
+        setCanReadFinance(allowed)
+        if (allowed && !['admin', 'management', 'independent_educator'].includes(active.role)) {
+          const report = await mobileApi.get<{ data: MobileFinanceReport }>(`${base}/reports/finance`, token)
+          if (!cancelled) setFinanceReport(report.data)
+        }
+      }).catch(() => { if (!cancelled) setCanReadFinance(false) }),
     mobileApi.get<{ data: MobileNotice[]; meta: { current_page: number; last_page: number } }>(`${base}/notifications?per_page=10&page=1`, token)
       .then(result => { if (!cancelled) { setNotices(result.data); setNoticePage(result.meta.current_page); setNoticeLastPage(result.meta.last_page) } }),
     mobileApi.get<{ data: MobileMeeting[] }>(`${base}/meetings?per_page=100`, token)
@@ -787,7 +798,7 @@ export default function App() {
     if (user) await SecureStore.deleteItemAsync(mobilePushTokenKey(user.id))
     await SecureStore.deleteItemAsync(TOKEN_KEY); await SecureStore.deleteItemAsync(ORGANIZATION_KEY)
     workspaceContextRef.current = null
-    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setNoticePage(1); setNoticeLastPage(1); setNoticeLoading(false); setMeetings([]); setMeetingSections([]); setMeetingFormOpen(false); setMeetingKind('class'); setMeetingSectionId(''); setMeetingTitle(''); setMeetingDescription(''); setMeetingUrl(''); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setAssessmentReport(null); setEnrollmentReport(null); setTeacherWorkloadReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setAccountOpen(false); setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation(''); setVerificationUrl(''); setBusy(false)
+    setToken(''); setUser(null); setMemberships([]); setActive(null); setSummary(null); setNotices([]); setNoticePage(1); setNoticeLastPage(1); setNoticeLoading(false); setMeetings([]); setMeetingSections([]); setMeetingFormOpen(false); setMeetingKind('class'); setMeetingSectionId(''); setMeetingTitle(''); setMeetingDescription(''); setMeetingUrl(''); setMeetingRecordings({}); setStudentProfile(null); setFamilyChildren([]); setOwnAttendance([]); setOwnResults({ exams: [], quizzes: [], assignments: [] }); setOwnProgress(null); setOwnHomework([]); setFamilyFees([]); setStudyMaterials([]); setRosterStudents([]); setRosterTeachers([]); setRosterStudentTotal(0); setRosterTeacherTotal(0); setAttendanceReport(null); setCourseProgressReport(null); setAssessmentReport(null); setEnrollmentReport(null); setTeacherWorkloadReport(null); setExamSectionSummaries([]); setExamSeriesComparisons([]); setFinanceReport(null); setCanReadFinance(false); setTeacherExams([]); setSelectedExamPaper(null); setExamMarks([]); setCourses([]); setSelectedCourse(null); setLessons([]); setAssignments([]); setQuizzes([]); setQuizRun(null); setTeachingAssignments([]); setAttendanceSection(null); setAttendanceStudents([]); setAccountOpen(false); setCurrentPassword(''); setNewPassword(''); setPasswordConfirmation(''); setVerificationUrl(''); setBusy(false)
   }
 
   if (busy && !user) return <Splash />
@@ -944,7 +955,7 @@ export default function App() {
           onWeek={() => { const today = organizationDate(active.organization.timezone); applyAttendanceRange(shiftDate(today, -6), today) }} /> : null}
         {['admin', 'management', 'independent_educator'].includes(active.role) ? <AssessmentReportPanel report={assessmentReport} loading={busy} role="manager" /> : null}
         {active.role === 'teacher' ? <AssessmentReportPanel report={assessmentReport} loading={busy} role="teacher" /> : null}
-        {['admin', 'management', 'independent_educator'].includes(active.role) ? <FinanceSnapshot report={financeReport} busy={busy} /> : null}
+        {canReadFinance ? <FinanceSnapshot report={financeReport} busy={busy} /> : null}
         {canScheduleMeetings ? <>
           <Text style={styles.sectionTitle}>Meeting schedule</Text>
           <Pressable style={styles.courseCard} onPress={() => { setMeetingFormOpen(open => !open); setError(''); setSuccess('') }} accessibilityRole="button" accessibilityState={{ expanded: meetingFormOpen }}><View style={{ flex: 1 }}><Text style={styles.courseTitle}>{meetingFormOpen ? 'Close meeting form' : active.role === 'teacher' ? 'Schedule a class meeting' : 'Schedule a class or management meeting'}</Text><Text style={styles.courseMeta}>Use a secure HTTPS link from Google Meet or another provider.</Text></View><Text style={styles.chevron}>{meetingFormOpen ? '−' : '+'}</Text></Pressable>

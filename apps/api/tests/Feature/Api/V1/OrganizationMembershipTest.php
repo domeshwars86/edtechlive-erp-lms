@@ -78,6 +78,28 @@ class OrganizationMembershipTest extends TestCase
         $this->assertDatabaseCount('organization_access_audits', 0);
     }
 
+    public function test_active_member_can_read_only_their_current_organizations_effective_capabilities(): void
+    {
+        [$admin, $organization] = $this->workspace();
+        $teacher = User::factory()->create();
+        $teacherMembership = $this->membership($organization, $teacher, OrganizationRole::Teacher);
+        $otherOrganization = $this->organization('Other capability tenant');
+        $base = "/api/v1/organizations/{$organization->id}";
+
+        Sanctum::actingAs($admin);
+        $this->patchJson("{$base}/memberships/{$teacherMembership->id}", [
+            'permissions' => ['organization.finance.read'],
+        ])->assertOk();
+
+        Sanctum::actingAs($teacher);
+        $this->getJson("{$base}/my/permissions")
+            ->assertOk()
+            ->assertJsonPath('data.organization_id', $organization->id)
+            ->assertJsonPath('data.role', 'teacher')
+            ->assertJsonPath('data.permissions.0', 'organization.finance.read');
+        $this->getJson("/api/v1/organizations/{$otherOrganization->id}/my/permissions")->assertNotFound();
+    }
+
     public function test_admin_can_grant_and_revoke_catalog_permissions_with_audited_metadata(): void
     {
         [$admin, $organization] = $this->workspace();

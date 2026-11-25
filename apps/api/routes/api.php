@@ -182,6 +182,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('/fee-categories', [FeeCategoryController::class, 'store']);
                 Route::patch('/fee-categories/{record}', [FeeCategoryController::class, 'update'])->whereNumber('record');
                 Route::get('/memberships', [OrganizationMembershipController::class, 'index']);
+                Route::get('/my/permissions', [OrganizationMembershipController::class, 'myPermissions']);
                 Route::patch('/memberships/{membership}', [OrganizationMembershipController::class, 'update'])->whereNumber('membership');
                 Route::get('/membership-access-audit', [OrganizationMembershipController::class, 'audit']);
                 Route::get('/subjects', [AcademicMasterController::class, 'subjects']);

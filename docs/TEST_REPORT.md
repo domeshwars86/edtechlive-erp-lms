@@ -2,10 +2,10 @@
 
 **Updated:** 25 November 2026
 
-## Delegated organization finance capabilities (25 November 2026)
+## Delegated organization finance capabilities and dashboard integration (25 November 2026)
 
 - Finance fee, expense, report, category and reconciliation routes now enforce tenant-scoped read/manage capabilities. Admin and Independent Educator retain all capabilities, Management retains existing finance access, and eligible staff can receive explicit finance grants. Student and Parent memberships cannot receive organization finance grants; family-role transitions clear delegated overrides.
-- Focused finance and membership API coverage passes (**25 tests / 243 assertions**); the complete Laravel SQLite suite passes (**234 tests / 1,989 assertions**). Web production build and ESLint, mobile TypeScript verification, PHP Pint and `git diff --check` pass. Live payment providers and hosted PostgreSQL were not exercised.
+- Focused finance and membership API coverage passes (**26 tests / 249 assertions**); the complete Laravel SQLite suite passes (**235 tests / 1,995 assertions**). Web production build and ESLint, mobile TypeScript verification, PHP Pint and `git diff --check` pass. Delegated finance access now controls web navigation and read-only versus manage views, and the mobile snapshot uses the same effective permissions endpoint. Live payment providers and hosted PostgreSQL were not exercised.
 
 ## Responsive browser sweeps at all required widths (24 November 2026)
 

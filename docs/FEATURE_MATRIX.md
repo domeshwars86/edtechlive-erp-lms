@@ -2,7 +2,7 @@
 
 **Legend:** P0 essential foundation; P1 first commercially usable release; P2 advanced/premium; Future expansion. Status reflects this repository only.
 
-**Tenant capability note:** Membership and organization finance routes use the audited capability catalog. Admin and Independent Educator retain all capabilities, Management retains its existing organization finance access plus read-only membership access, and eligible staff can receive delegated finance read or manage access. Finance manage implies finance read; Student and Parent memberships retain profile-scoped fee views and cannot receive organization finance capabilities.
+**Tenant capability note:** Membership and organization finance routes use the audited capability catalog. Admin and Independent Educator retain all capabilities, Management retains its existing organization finance access plus read-only membership access, and eligible staff can receive delegated finance read or manage access. Finance manage implies finance read; Student and Parent memberships retain profile-scoped fee views and cannot receive organization finance capabilities. The web Finance workspace and mobile finance summary follow the caller's effective capabilities.
 
 | Feature | Priority | Purpose / roles | Inputs → outputs | Data / API / screens | Permissions, validation and failure handling | Acceptance / test focus | Complexity | Status |
 |---|---|---|---|---|---|---|---|---|
