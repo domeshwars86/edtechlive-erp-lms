@@ -50,6 +50,50 @@ class TimetableTest extends TestCase
         $this->postJson($endpoint, $overlap)->assertUnprocessable()->assertJsonValidationErrors('starts_at');
     }
 
+    public function test_admin_can_edit_a_timetable_entry_without_conflicting_with_itself(): void
+    {
+        [$user, $organization, $context] = $this->scheduleContext();
+        Sanctum::actingAs($user);
+        $endpoint = "/api/v1/organizations/{$organization->id}/timetable";
+        $created = $this->postJson($endpoint, $this->entryPayload($context))->assertCreated();
+        $entryId = $created->json('data.id');
+
+        $this->patchJson("{$endpoint}/{$entryId}", [
+            'weekday' => 2,
+            'starts_at' => '10:00',
+            'ends_at' => '11:00',
+            'room' => 'Room 2',
+        ])->assertOk()
+            ->assertJsonPath('data.weekday', 2)
+            ->assertJsonPath('data.starts_at', '10:00')
+            ->assertJsonPath('data.ends_at', '11:00')
+            ->assertJsonPath('data.room', 'Room 2');
+    }
+
+    public function test_timetable_update_rejects_a_conflicting_slot_and_preserves_existing_entry(): void
+    {
+        [$user, $organization, $context] = $this->scheduleContext();
+        Sanctum::actingAs($user);
+        $endpoint = "/api/v1/organizations/{$organization->id}/timetable";
+        $first = $this->postJson($endpoint, $this->entryPayload($context))->assertCreated();
+        $second = $this->entryPayload($context);
+        $second['academic_section_id'] = $context['secondSection']->id;
+        $second['starts_at'] = '11:00';
+        $second['ends_at'] = '12:00';
+        $secondEntry = $this->postJson($endpoint, $second)->assertCreated();
+
+        $this->patchJson("{$endpoint}/{$first->json('data.id')}", [
+            'starts_at' => '11:30',
+            'ends_at' => '12:30',
+        ])->assertUnprocessable()->assertJsonValidationErrors('starts_at');
+
+        $this->getJson("{$endpoint}?academic_session_id={$context['session']->id}&weekday=1")
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $first->json('data.id'))
+            ->assertJsonPath('data.0.starts_at', '09:00')
+            ->assertJsonPath('data.1.id', $secondEntry->json('data.id'));
+    }
+
     public function test_meeting_links_must_use_https(): void
     {
         [$user, $organization, $context] = $this->scheduleContext();
