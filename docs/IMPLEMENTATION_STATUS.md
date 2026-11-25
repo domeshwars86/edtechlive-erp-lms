@@ -13,6 +13,8 @@
 
 - The admin timetable now supports editing an existing class time as well as creating and activating/deactivating entries. Edit mode preloads the schedule, supports cancellation, and displays server-side overlap/validation errors while retaining the draft. Component regressions, the Playwright dashboard edit/conflict flow, and timetable API tests pass.
 
+- Management users can now open the same organization-scoped timetable editor from their dashboard. The Management navigation entry and live workspace route were verified with a focused Playwright edit-flow test. A management authorization regression test was added; the local PHPUnit command could not start it because PHPUnit reported it could not open `vendor/autoload.php`, although PHP itself can include that file. Frontend typecheck, lint, component tests and the production build pass.
+
 ## Responsive browser coverage
 
 - Expanded Chromium overflow sweeps to all seven required widths: 320, 375, 430, 768, 1024, 1280, and 1440px. All 19 public/account routes and all seven dashboard role previews pass their focused sweeps. Dashboard assertions allow 30 seconds for lazy-loaded workspace screens before measuring overflow.

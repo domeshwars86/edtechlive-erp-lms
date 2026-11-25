@@ -70,6 +70,18 @@ class TimetableTest extends TestCase
             ->assertJsonPath('data.room', 'Room 2');
     }
 
+    public function test_management_can_edit_their_organization_timetable(): void
+    {
+        [$user, $organization, $context] = $this->scheduleContext(OrganizationRole::Management);
+        Sanctum::actingAs($user);
+        $endpoint = "/api/v1/organizations/{$organization->id}/timetable";
+        $created = $this->postJson($endpoint, $this->entryPayload($context))->assertCreated();
+
+        $this->patchJson("{$endpoint}/{$created->json('data.id')}", ['room' => 'North hall'])
+            ->assertOk()
+            ->assertJsonPath('data.room', 'North hall');
+    }
+
     public function test_timetable_update_rejects_a_conflicting_slot_and_preserves_existing_entry(): void
     {
         [$user, $organization, $context] = $this->scheduleContext();

@@ -2,6 +2,11 @@
 
 **Updated:** 25 November 2026
 
+## Management timetable dashboard route (25 November 2026)
+
+- Management users can now reach the organization timetable from the dashboard and edit an entry using the shared timetable workspace.
+- Verification: focused Management Playwright flow passes (**1 test**); web typecheck, ESLint, component suite (**12 tests across 6 files**) and production build pass. A management API authorization test was added, but the focused PHPUnit invocation could not start because PHPUnit reported it could not open `apps/api/vendor/autoload.php`; PHP's direct `require` of that file succeeds. The new API regression assertion therefore remains unverified in this environment.
+
 ## Timetable editing (25 November 2026)
 
 - Admins can edit the existing weekly schedule entry from the dashboard; the form is prefilled, cancelable, and saves through the tenant-scoped PATCH endpoint. API validation remains authoritative for placement and overlap conflicts, and the interface preserves the draft while showing those errors.
