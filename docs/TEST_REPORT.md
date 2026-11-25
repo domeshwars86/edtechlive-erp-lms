@@ -5,17 +5,17 @@
 ## Management timetable dashboard route (25 November 2026)
 
 - Management users can now reach the organization timetable from the dashboard and edit an entry using the shared timetable workspace.
-- Verification: focused Management Playwright flow passes (**1 test**); web typecheck, ESLint, component suite (**12 tests across 6 files**) and production build pass. A management API authorization test was added, but the focused PHPUnit invocation could not start because PHPUnit reported it could not open `apps/api/vendor/autoload.php`; PHP's direct `require` of that file succeeds. The new API regression assertion therefore remains unverified in this environment.
+- Verification: focused Management Playwright flow passes (**1 test**); web typecheck, ESLint, component suite (**12 tests across 6 files**) and production build pass. The focused timetable API suite passes (**9 tests / 43 assertions**), and the full Laravel SQLite suite passes (**238 tests / 2,013 assertions**). PHP Pint passes.
 
 ## Timetable editing (25 November 2026)
 
 - Admins can edit the existing weekly schedule entry from the dashboard; the form is prefilled, cancelable, and saves through the tenant-scoped PATCH endpoint. API validation remains authoritative for placement and overlap conflicts, and the interface preserves the draft while showing those errors.
-- Verification: focused component tests pass (**2 tests**) and the focused timetable API suite passes (**8 tests / 40 assertions**); the full API suite passes (**237 tests / 2,010 assertions**). Web typecheck, lint and production build pass. The focused Playwright dashboard edit/conflict flow passes (**1 test**) against the browser-reachable local stack.
+- Verification: focused component tests pass (**2 tests**) and the focused timetable API suite passes (**9 tests / 43 assertions**); the full API suite passes (**238 tests / 2,013 assertions**). Web typecheck, lint and production build pass. The focused Playwright dashboard edit/conflict flow passes (**1 test**) against the browser-reachable local stack.
 
 ## Delegated organization finance capabilities and dashboard integration (25 November 2026)
 
 - Finance fee, expense, report, category and reconciliation routes now enforce tenant-scoped read/manage capabilities. Admin and Independent Educator retain all capabilities, Management retains existing finance access, and eligible staff can receive explicit finance grants. Student and Parent memberships cannot receive organization finance grants; family-role transitions clear delegated overrides.
-- Focused finance and membership API coverage passes (**26 tests / 249 assertions**); the complete Laravel SQLite suite passes (**237 tests / 2,010 assertions**). Web production build and ESLint, mobile TypeScript verification, PHP Pint and `git diff --check` pass. Delegated finance access now controls web navigation and read-only versus manage views, and the mobile snapshot uses the same effective permissions endpoint. Live payment providers and hosted PostgreSQL were not exercised.
+- Focused finance and membership API coverage passes (**26 tests / 249 assertions**); the complete Laravel SQLite suite passed at that milestone (**237 tests / 2,010 assertions**). Web production build and ESLint, mobile TypeScript verification, PHP Pint and `git diff --check` passed at that milestone. Delegated finance access now controls web navigation and read-only versus manage views, and the mobile snapshot uses the same effective permissions endpoint. Live payment providers and hosted PostgreSQL were not exercised.
 
 ## Responsive browser sweeps at all required widths (24 November 2026)
 
