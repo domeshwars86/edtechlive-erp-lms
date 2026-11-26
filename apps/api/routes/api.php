@@ -49,6 +49,7 @@ use App\Http\Controllers\Api\V1\PlatformAuditEventController;
 use App\Http\Controllers\Api\V1\PlatformInvitationController;
 use App\Http\Controllers\Api\V1\PlatformOrganizationController;
 use App\Http\Controllers\Api\V1\PlatformOverviewController;
+use App\Http\Controllers\Api\V1\PlatformRoleCatalogController;
 use App\Http\Controllers\Api\V1\PlatformSystemReadinessController;
 use App\Http\Controllers\Api\V1\PlatformUserController;
 use App\Http\Controllers\Api\V1\PublicCourseController;
@@ -127,6 +128,7 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/me/push-devices', [PushDeviceController::class, 'store'])->middleware(['verified', 'throttle:6,1']);
         Route::delete('/me/push-devices', [PushDeviceController::class, 'destroy'])->middleware(['verified', 'throttle:12,1']);
         Route::get('/platform/overview', PlatformOverviewController::class)->middleware('verified');
+        Route::get('/platform/roles', PlatformRoleCatalogController::class)->middleware('verified');
         Route::get('/platform/system-readiness', PlatformSystemReadinessController::class)->middleware('verified');
         Route::get('/platform/organizations', [PlatformOrganizationController::class, 'index'])->middleware('verified');
         Route::patch('/platform/organizations/{organization}', [PlatformOrganizationController::class, 'update'])->whereNumber('organization')->middleware('verified');

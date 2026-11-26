@@ -72,6 +72,7 @@ test('account pages expose keyboard skip navigation to the sign-in form', async 
 
 test('homepage sample courses and API-backed public course discovery both work', async ({ page }) => {
   let enquiryPayload: Record<string, unknown> | null = null
+  await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
   await page.route('**/api/v1/enquiries', async route => {
     enquiryPayload = route.request().postDataJSON() as Record<string, unknown>
     await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ data: { notification_sent: false } }) })
@@ -597,13 +598,14 @@ test('organization administrators can grant membership permissions with required
 })
 
 test('all seven dashboard previews fit narrow and desktop viewports', async ({ page }) => {
-  test.setTimeout(120_000)
+  test.setTimeout(60_000)
   const roles = ['super-admin', 'admin', 'management', 'teacher', 'student', 'parent', 'educator']
   for (const role of roles) {
+    await page.setViewportSize({ width: 320, height: 900 })
+    await page.goto(`/workspace/${role}`, { waitUntil: 'domcontentloaded' })
+    await expect(page.getByRole('heading', { level: 1 }), `${role} dashboard did not finish loading`).toBeVisible({ timeout: 30_000 })
     for (const width of [320, 375, 430, 768, 1024, 1280, 1440]) {
       await page.setViewportSize({ width, height: 900 })
-      await page.goto(`/workspace/${role}`, { waitUntil: 'domcontentloaded' })
-      await expect(page.getByRole('heading', { level: 1 }), `${role} dashboard did not finish loading at ${width}px`).toBeVisible({ timeout: 30_000 })
       const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth)
       expect(pageWidth, `${role} dashboard preview overflows at ${width}px`).toBeLessThanOrEqual(width)
     }

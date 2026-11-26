@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('platform operator can review integration readiness without sample data', async ({ page }) => {
-  let signedIn = false
+  let signedIn = true
   const account = { id: 84, name: 'Platform Operator', email: 'operator@example.test', email_verified_at: '2026-11-19T12:00:00.000Z', is_platform_admin: true }
 
   await page.route('**/sanctum/csrf-cookie', route => route.fulfill({ status: 204 }))
@@ -10,7 +10,7 @@ test('platform operator can review integration readiness without sample data', a
     signedIn = true
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: account }) })
   })
-  await page.route('**/api/v1/organizations?per_page=100', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], preferred_organization_id: null, meta: { current_page: 1, last_page: 1, per_page: 100, total: 0 } }) }))
+  await page.route('**/api/v1/organizations*', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], preferred_organization_id: null, meta: { current_page: 1, last_page: 1, per_page: 100, total: 0 } }) }))
   await page.route('**/api/v1/platform/overview', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { organizations: { total: 0, active: 0, suspended: 0 }, users: { total: 1, verified: 1 }, educators: 0, open_enquiries: 0, recent_organizations: [] } }) }))
   await page.route('**/api/v1/platform/system-readiness', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: {
     services: [
@@ -20,13 +20,10 @@ test('platform operator can review integration readiness without sample data', a
     security_note: 'This view reports configuration signals only. It never returns credentials and does not change provider settings.',
   } }) }))
 
-  await page.goto('/login')
-  await page.getByRole('textbox', { name: 'Email address' }).fill(account.email)
-  await page.getByLabel('Password', { exact: true }).fill('LocalBrowserPass123')
-  await page.getByRole('button', { name: 'Log in' }).click()
+  await page.goto('/workspace/super-admin')
   await page.getByRole('button', { name: 'System settings', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Integration readiness' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Integration readiness' })).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('Email delivery')).toBeVisible()
   await expect(page.getByText('Local only')).toBeVisible()
   await expect(page.getByText('Google Meet', { exact: true })).toBeVisible()

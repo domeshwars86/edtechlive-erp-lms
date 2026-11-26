@@ -1,11 +1,16 @@
 # Test Report
 
-**Updated:** 25 November 2026
+**Updated:** 26 November 2026
 
 ## Platform system configuration readiness (25 November 2026)
 
 - Super Admins can review current configuration signals for email, Google Meet, private file storage, Razorpay Test Mode, Expo push and local AI. The endpoint is restricted to the verified platform-operator allowlist, returns no secrets, and clearly says provider health is not tested and settings are not editable here.
 - Verification: focused API tests pass (**3 tests / 26 assertions**), focused Playwright navigation test passes (**1 test**), React component suite passes (**13 tests across 7 files**), full Laravel SQLite suite passes (**241 tests / 2,039 assertions**), PHP Pint, web typecheck, ESLint and production build pass. The full Playwright Chromium suite passes (**43 tests in 3.8 minutes**).
+
+## Super Admin role catalog (25 November 2026)
+
+- The Roles & access screen now reads built-in platform and organization roles plus aggregate active/suspended organization membership counts. The endpoint is allowlist-protected and returns no learner identities. The screen explains that role definitions are fixed and general permission configuration is not available there.
+- Verification: focused API tests pass (**2 tests / 8 assertions**); the role catalog component passes in the **14-test / 8-file** React suite; focused Chromium checks pass for both Super Admin panels at 320/375/768/1440px and for attendance correction. Web typecheck, lint and production build pass; PHP Pint and the full API suite pass (**243 tests / 2,047 assertions**). The full Playwright Chromium suite passes (**44 tests in 3.0 minutes**), including the public course-to-enquiry fixture after adding its local CSRF mock.
 
 ## Management timetable dashboard route (25 November 2026)
 
