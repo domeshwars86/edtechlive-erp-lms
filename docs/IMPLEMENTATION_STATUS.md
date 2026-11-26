@@ -9,6 +9,8 @@
 
 ## Recent verified work
 
+- Created the private GitHub repository [domeshwars86/edtechlive-erp-lms](https://github.com/domeshwars86/edtechlive-erp-lms) and pushed commit `bbc49d6` on `codex/edtechlive-platform-foundation`. The local web/API checks recorded below passed before the push; GitHub reports no status checks for this commit yet, so hosted CI has not been verified.
+
 - Finance routes now enforce the tenant-scoped `organization.finance.read` and `organization.finance.manage` capabilities across fee records, fee categories, expenses, finance reports, and bank-statement reconciliation. Admins and Independent Educators retain all permissions; Management retains existing finance access; eligible staff can be delegated read or manage access. Student and Parent users remain restricted to profile-scoped fee views. Web and mobile membership editors expose the capabilities and maintain read/manage dependencies. The self-scoped `/my/permissions` API drives the web Finance navigation/read-only mode and the mobile finance snapshot for delegated staff. Focused API regression coverage passes (**26 tests / 249 assertions**); the full API suite passes (**237 tests / 2,010 assertions**). Web production build, ESLint, mobile TypeScript check and PHP formatting pass.
 
 - The admin timetable now supports editing an existing class time as well as creating and activating/deactivating entries. Edit mode preloads the schedule, supports cancellation, and displays server-side overlap/validation errors while retaining the draft. Component regressions, the Playwright dashboard edit/conflict flow, and timetable API tests pass.
